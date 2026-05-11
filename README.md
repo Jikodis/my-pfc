@@ -72,6 +72,18 @@ The system follows a **VAVPAH** model: Values → Areas → Visions → Projects
 
 The canonical instruction file is `AGENTS.md` — read by Codex and most other agents that follow the AGENTS.md convention. `CLAUDE.md` is a one-line `@AGENTS.md` import for Claude Code's own loader. The skills work with any agent that has a Skill-equivalent invocation pattern; the slash commands work natively in Claude Code.
 
+## Pulling upstream template updates (optional)
+
+The PFC template keeps evolving — new skills, scrubs, install-doc improvements, refined defaults. Your fork is its own thing; you don't have to stay in lockstep. If you want to pull selected upstream updates into your fork later, the `/pfc-pull-template-updates` skill walks each upstream commit one at a time and lets you accept or reject per commit.
+
+**Three things to know before you pull updates:**
+
+1. **The maintainer tailors the template to his own workflows.** Some updates will fit you; some won't. The system was always meant to be edited — the same applies to incoming changes. Pick the refinements you actually want, drop the rest.
+2. **Upstream changes can clash with your modifications.** Heavily-customized skills, areas, or schemas may produce merge conflicts. Your modifications take priority — pull updates only when you genuinely want the upstream behavior.
+3. **Pulling is opt-in.** A fork that never re-syncs with upstream is entirely valid. Pull when you're curious or when a specific upstream change interests you, not because you "should" stay current.
+
+If a default doesn't fit your life, **modify it locally** rather than fighting upstream commits forever. That's the spirit of the original `meta/system-is-editable` lesson — and it applies just as much to upstream-tracking as it does to day-one edits.
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE) for the full text.
