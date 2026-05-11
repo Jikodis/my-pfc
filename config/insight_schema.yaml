@@ -1,0 +1,52 @@
+# Insight schema for data/insights.ndjson.
+#
+# Insights are personal observations, revelations, or noticings captured throughout
+# the week. They live somewhere between a passing thought and a finding:
+#   - Lower bar than a finding (no statistical threshold required)
+#   - More durable than a daily note (worth surfacing in reviews)
+#   - May graduate into a Project, Action (task), or Habit
+#
+# Reviewed during weekly review and on demand via /pfc-insights.
+
+insight:
+  id:
+    type: string
+    format: "insight-YYYYMMDD-NNN"
+    required: true
+  status:
+    type: string
+    enum: ["active", "archived", "graduated"]
+    required: true
+    description: "active = open and surfacing in reviews; archived = no longer relevant; graduated = became a task/project/habit"
+  insight:
+    type: string
+    required: true
+    description: "The observation itself, one to a few sentences"
+  area:
+    type: string
+    nullable: true
+    description: "Optional. Lowercase. Must match a folder in 2-areas/. Use when the insight clearly belongs to one life area."
+  category:
+    type: string
+    nullable: true
+    description: "Optional free-form tag (e.g. 'sleep', 'process', 'identity', 'energy-management')"
+  source:
+    type: string
+    enum: ["chat", "evening-checkin", "morning", "weekly-review", "journal", "experience"]
+    required: true
+  created:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+  graduated_to:
+    type: string
+    nullable: true
+    description: "When status=graduated, the id of the resulting task/project/habit (e.g. task-20260420-001, proj-20260412-002, or a habit_id from habit_schema.yaml). Null for active/archived."
+  graduated_date:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+    description: "Date the insight became a project/task/habit. Required when status=graduated."
+  notes:
+    type: string
+    nullable: true

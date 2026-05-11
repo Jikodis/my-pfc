@@ -1,0 +1,4 @@
+# Python dependencies for automations/scripts/*.py
+# Pinned 2026-05-10.
+
+PyYAML==6.0.2

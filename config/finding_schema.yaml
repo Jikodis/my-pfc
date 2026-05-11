@@ -1,0 +1,54 @@
+# Finding schema for data/findings.ndjson.
+# Findings are hard-won, critical insights — added rarely.
+# Some graduate from hypotheses (see hypotheses.ndjson), some come from life experience.
+# See docs/data-model.md for the graduation bar (n≥30, |r|≥0.3, p<0.01) and full flow.
+
+finding:
+  id:
+    type: string
+    format: "finding-YYYYMMDD-NNN"
+    required: true
+  status:
+    type: string
+    enum: ["active", "superseded"]
+    required: true
+  finding:
+    type: string
+    required: true
+    description: "The claim itself, one sentence"
+  domain:
+    type: string
+    required: true
+    description: "Free-form tag (e.g. sleep, nutrition, relationships, work)"
+  source:
+    type: string
+    enum: ["data", "experience", "hypothesis"]
+    required: true
+  source_hypothesis_id:
+    type: string
+    format: "hyp-YYYYMMDD-NNN"
+    nullable: true
+    description: "Required when source is 'hypothesis'; null otherwise"
+  evidence:
+    type: string
+    description: "Stat summary or experiential narrative that justifies the claim"
+  confidence:
+    type: string
+    enum: ["strong", "very-strong"]
+    description: "No 'tentative' — scarcity enforces the bar"
+  created:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+  updated:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+  superseded_by:
+    type: string
+    format: "finding-YYYYMMDD-NNN"
+    nullable: true
+    description: "Required when status is 'superseded'"
+  notes:
+    type: string
+    nullable: true

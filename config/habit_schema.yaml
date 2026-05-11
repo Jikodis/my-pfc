@@ -1,0 +1,65 @@
+# Habit definitions and frequency limits
+#
+# Daily habits: max 5 at a time, frequency 1-7 per week
+# Monthly habits: max 5 at a time, frequency 1-4 per month
+#
+# Each habit must declare:
+#   area: which life area it serves (must match a folder in 2-areas/)
+#   values: which values from 1-values/values.md it serves
+#
+# Each habit may optionally declare:
+#   vision: slug of a vision in 3-visions/ that this habit supports as a
+#     leading indicator. When set, vision-progress reporting links them.
+#
+# Starter habits below — edit, add, or remove to match your life.
+# To add auto-logged habits (e.g. Google Health, Apple Health, or any wearable), add an auto_log: block
+# once you have that integration configured. See docs/install/connectors.md.
+
+daily_habits:
+  - id: morning-walk
+    description: "20+ minute walk within 90 minutes of waking"
+    frequency: 5  # times per week (max 7)
+    area: health
+    values: [Health]
+    started: "YYYY-MM-DD"  # replace with your start date
+
+  - id: read-15-min
+    description: "15+ minutes of reading (any format: book, article, long-form)"
+    frequency: 7  # times per week (max 7)
+    area: personal
+    values: [Learning, Growth]
+    started: "YYYY-MM-DD"
+
+  - id: hydration-2L
+    description: "2L water consumed by end of day"
+    frequency: 7  # times per week (max 7)
+    area: health
+    values: [Health]
+    started: "YYYY-MM-DD"
+
+  - id: sleep-on-time
+    description: "In bed by your target time"
+    frequency: 7  # times per week (max 7)
+    area: health
+    values: [Health]
+    started: "YYYY-MM-DD"
+
+monthly_habits:
+  - id: system-review
+    description: "Run /pfc-monthly-checkin — review life wheel, projects, and habits"
+    frequency: 1  # times per month (max 4)
+    area: personal
+    values: [Growth, Learning]
+    started: "YYYY-MM-DD"
+
+  - id: social-time
+    description: "At least one in-person social interaction with someone you care about"
+    frequency: 1  # times per month (max 4)
+    area: relationship
+    values: [Friendship, Love]
+    started: "YYYY-MM-DD"
+
+# Deprecated habits section — move retired habits here to preserve log continuity.
+# Historical records in 6-habits/_data/habits-daily.ndjson stay valid; just don't
+# add new log entries under deprecated IDs.
+deprecated_habits: []

@@ -1,0 +1,28 @@
+# Automation configuration
+
+# When tasks.ndjson exceeds this many lines, auto-archive completed ("done") tasks
+# Only completed tasks are moved to tasks-archive.ndjson; open tasks are never touched
+task_archive_threshold: 200
+
+# Check-in schedule (for future systemd timer)
+daily_checkin:
+  enabled: false
+  time: "08:00"
+  # Edit to your local timezone (IANA name, e.g. "Europe/London", "Asia/Tokyo")
+  timezone: "America/Denver"
+
+# Weekly review schedule — every Sunday
+weekly_review:
+  enabled: false
+  day: "sunday"
+  time: "18:00"
+  # Edit to your local timezone (IANA name)
+  timezone: "America/Denver"
+
+# Monthly check-in schedule — first Sunday of the month
+monthly_checkin:
+  enabled: false
+  day: "first_sunday"
+  time: "18:00"
+  # Edit to your local timezone (IANA name)
+  timezone: "America/Denver"

@@ -1,0 +1,67 @@
+# Task schema for 5-actions/_data/tasks.ndjson.
+# All tasks — strategic and operational — live in one list.
+
+task:
+  id:
+    type: string
+    format: "task-YYYYMMDD-NNN"
+    required: true
+  status:
+    type: string
+    enum: ["open", "done"]
+    required: true
+  description:
+    type: string
+    required: true
+  notes:
+    type: string
+    nullable: true
+    description: "Extended details, links, or context. Shown in calendar event body when task is scheduled."
+  size:
+    type: string
+    enum: ["XS", "S", "M", "L", "XL"]
+    required: true
+  location:
+    type: string
+    enum: ["Home", "PC", "Errand", "Phone", "Anywhere"]
+    required: true
+  impact:
+    type: string
+    enum: ["high", "medium", "low"]
+    required: true
+  urgency:
+    type: string
+    enum: ["high", "medium", "low"]
+    required: true
+  project:
+    type: string
+    default: "none"
+  sequence:
+    type: integer
+    nullable: true
+    description: "Order of this task within its project (1-based). Set on project tasks where order matters (e.g. course curricula). pfc-pick-tasks and pfc-morning-checkin only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (project='none') leave this null."
+  area:
+    type: string
+    nullable: true
+    description: "Lowercase folder name in 2-areas/ — used for standalone strategic tasks with no project. Validated against existing 2-areas/ folders."
+  depends_on:
+    type: array
+    items: string
+    nullable: true
+    description: "Array of task IDs that must be 'done' before this task is considered ready. Omit or null when no dependencies. pfc-pick-tasks hides tasks whose depends_on entries are still open; pfc-add-task populates this when splitting a multi-step task."
+  deadline:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+  created:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+  completed:
+    type: string
+    format: "YYYY-MM-DD"
+    description: "Added when status changes to done"
+  source:
+    type: string
+    enum: ["phone", "laptop", "automation", "chat", "morning-planning", "email-triage"]
+    default: "phone"

@@ -1,0 +1,24 @@
+# Trello "🗓️ Week at a Glance" filtering.
+#
+# Recurring events are ALREADY filtered automatically — anything with a
+# Google Calendar `recurringEventId` is dropped without needing a title rule.
+# That's the main thing you want filtered, and it Just Works.
+#
+# Use this file only for the two edge cases recurring-filtering doesn't cover:
+#
+#   exclude_titles   — case-insensitive substring matches against the event title.
+#                      Useful for one-off events you want ignored ("OOO", "PTO")
+#                      that aren't part of a recurring series.
+#
+#   exclude_calendars — match against the calendar's display name. Useful when
+#                       you've subscribed to a public/shared calendar (holidays,
+#                       community events) that's context-only.
+#
+# Leave either list empty if you don't need it. To find current noise:
+# render the dashboard, look at the Calendar list, and add patterns here.
+
+exclude_titles: []
+
+exclude_calendars:
+  - "US Holidays"
+  - "Holidays in United States"

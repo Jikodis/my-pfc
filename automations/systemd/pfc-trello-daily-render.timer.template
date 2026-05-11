@@ -1,0 +1,19 @@
+[Unit]
+Description=PFC — Trigger Trello dashboard render at 12:05 AM local time daily
+Documentation=__REPO_URL__
+
+[Timer]
+# 12:05 AM local time — uncheck daily-habit cards for the new day shortly after
+# midnight local. 5-minute offset avoids racing any midnight-rollover work.
+# Timezone is specified as the 3rd field of OnCalendar (the older "TimeZone="
+# key is not recognized here).
+OnCalendar=*-*-* 00:05:00 __LOCAL_TZ__
+
+# Re-run if the VPS was off when a trigger fired
+Persistent=true
+
+# Small random delay to avoid hitting Trello on the dot
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

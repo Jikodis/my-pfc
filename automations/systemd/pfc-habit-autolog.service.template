@@ -1,0 +1,15 @@
+[Unit]
+Description=PFC — Auto-log habits and fetch health data from Google Health
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# ExecStart runs sequentially: first log habit(s), then fetch raw health data.
+ExecStart=/bin/bash -c '/usr/bin/python3 __REPO_ROOT__/automations/scripts/auto_log_habits.py $(TZ=__LOCAL_TZ__ date -d yesterday +%%Y-%%m-%%d)'
+ExecStart=/bin/bash -c '/usr/bin/python3 __REPO_ROOT__/automations/scripts/auto_fetch_health.py $(TZ=__LOCAL_TZ__ date -d yesterday +%%Y-%%m-%%d)'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-habit-autolog

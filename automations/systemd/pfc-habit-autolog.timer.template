@@ -1,0 +1,18 @@
+[Unit]
+Description=PFC — Auto-log habits and fetch health daily at 11 AM local time
+Documentation=__REPO_URL__
+
+[Timer]
+# 11:00 AM local time — yesterday's sleep is fully ended/synced, full-day AZM
+# captured including late-night activity. Timezone is specified as the 3rd field
+# of OnCalendar (the older "TimeZone=" key is not recognized here).
+OnCalendar=*-*-* 11:00:00 __LOCAL_TZ__
+
+# Re-run if the VPS was off when a trigger fired
+Persistent=true
+
+# Small random delay to avoid hammering the API exactly on the clock
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

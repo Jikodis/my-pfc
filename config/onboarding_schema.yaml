@@ -1,0 +1,28 @@
+# Onboarding event log schema (config/onboarding.ndjson — append-only).
+# An event records that the user has been introduced to a feature, tried it,
+# or dismissed it. Current state for any feature is the most-recent event.
+
+required:
+  - feature
+  - status
+  - date
+
+properties:
+  feature:
+    type: string
+    description: "Hierarchical feature key, e.g. 'daily-loop/add-task' or 'integrations/trello-dashboard'."
+    pattern: "^[a-z][a-z0-9-]*\\/[a-z][a-z0-9-]*$"
+  status:
+    type: string
+    enum:
+      - introduced     # onboarding has explained it
+      - tried          # user has actually run it
+      - dismissed      # user explicitly opted out
+  date:
+    type: string
+    description: "YYYY-MM-DD in your local timezone. Use TZ=\"${LOCAL_TZ:-America/Denver}\" date '+%Y-%m-%d' to derive."
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+
+# A feature with no event has implicit status: not_introduced.
+# A feature can be reset by appending {feature, status: introduced} again
+# (the most-recent event wins).

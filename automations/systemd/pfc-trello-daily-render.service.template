@@ -1,0 +1,16 @@
+[Unit]
+Description=PFC — Render Trello dashboard at the start of each new day
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# Re-renders all habit cards (and other lists) so daily-habit cards
+# uncheck for the new day. Render is idempotent — running on no-change
+# state is a 0-diff no-op.
+ExecStart=/usr/bin/python3 __REPO_ROOT__/automations/scripts/trello_render.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-trello-daily-render

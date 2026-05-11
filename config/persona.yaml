@@ -1,0 +1,3 @@
+# Active persona for the assistant voice overlay.
+# Change to a persona name from config/personas.md, or leave as "none".
+active: none

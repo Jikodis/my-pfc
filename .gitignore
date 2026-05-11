@@ -1,0 +1,33 @@
+# Secrets
+.env
+*.key
+secrets.env
+config/google_health_tokens.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Node (if any scripts use it)
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Temporary
+*.tmp
+*.bak
+
+# Render stamps (locally maintained, not canonical)
+data/.trello-last-render
+data/day_trend_analysis.json

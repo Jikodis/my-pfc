@@ -1,0 +1,74 @@
+# Hypothesis schema for data/hypotheses.ndjson.
+#
+# Hypotheses are experiments to run — patterns the user wants to test against
+# data or experience. They sit between an insight (passing observation) and a
+# finding (durable, hard-won truth). A hypothesis graduates to a finding when
+# the supporting data meets the bar (n≥30, |r|≥0.3, p<0.01 for data-derived;
+# user judgment for experience-derived). See docs/data-model.md.
+#
+# Reviewed during weekly review (Hypotheses Touch Pass) and surfaced by
+# /pfc-system-health when last_reviewed is stale.
+
+hypothesis:
+  id:
+    type: string
+    format: "hyp-YYYYMMDD-NNN"
+    required: true
+  status:
+    type: string
+    enum: ["active", "resolved-graduated", "resolved-rejected", "archived"]
+    required: true
+    description: "active = open and surfacing in reviews; resolved-graduated = met the bar and promoted to a finding; resolved-rejected = data disconfirmed; archived = no longer relevant"
+  hypothesis:
+    type: string
+    required: true
+    description: "The claim itself, one to a few sentences"
+  domain:
+    type: string
+    required: true
+    description: "Free-form tag (e.g. caffeine, exercise-timing, sleep, relationships)"
+  confidence:
+    type: number
+    min: 0.0
+    max: 1.0
+    nullable: true
+    description: "Current belief, 0.0–1.0. Null when not yet set or first captured. Updated during the weekly review touch pass — review-driven, not time-driven. Confidence drift is itself data: 0.6→0.7→0.8 across reviews suggests the hypothesis is graduating organically; 0.7→0.5→0.3 suggests it's dying."
+  last_reviewed:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+    description: "Date the hypothesis was last touched in a review. Drives stale-hypothesis surfacing in /pfc-system-health and the weekly review touch pass. Null means never explicitly reviewed since capture — treat as 'needs review'."
+  started:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+    description: "When the hypothesis was first formed"
+  updated:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+    description: "Most recent substantive update to the hypothesis content (protocol, evidence, mechanism). Distinct from last_reviewed, which marks any touch even if no content changed."
+  protocol:
+    type: object
+    nullable: true
+    description: "Free-form structured object describing the test design (dose ranges, tracking mechanism, analysis plan)"
+  mechanism:
+    type: string
+    nullable: true
+    description: "Hypothesized causal pathway"
+  origin:
+    type: string
+    nullable: true
+    description: "What surfaced this hypothesis (a high-rated day, a trend report, a finding gap, a conversation)"
+  related_hypotheses:
+    type: array
+    nullable: true
+    description: "Array of hyp-YYYYMMDD-NNN ids this hypothesis interacts with"
+  evidence:
+    type: array
+    nullable: true
+    description: "Optional ordered list of evidence entries supporting or weakening the hypothesis"
+  notes:
+    type: string
+    nullable: true
+    description: "Anything else worth keeping with the record"

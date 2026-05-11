@@ -1,0 +1,53 @@
+# Supplement schema for data/supplements.ndjson.
+# Baseline daily supplements and medications — items taken every single day.
+# A dose change is represented as stopping the old record and starting a new one.
+# See docs/data-model.md for the full model and date-range semantics used by
+# pfc-analyze-trends.
+
+supplement:
+  id:
+    type: string
+    format: "supp-YYYYMMDD-NNN"
+    required: true
+  status:
+    type: string
+    enum: ["active", "stopped"]
+    required: true
+  name:
+    type: string
+    required: true
+  type:
+    type: string
+    enum: ["supplement", "medication"]
+    required: true
+  dose:
+    type: string
+    required: true
+    description: "Free text — e.g. '125mg', '5000 IU', '1 tablet'"
+  times:
+    type: array
+    items:
+      type: string
+      enum: ["morning", "afternoon", "evening", "bedtime", "with meals"]
+    required: true
+    description: "Non-empty. Labels indicating when in the day it is taken."
+  purpose:
+    type: string
+    nullable: true
+    description: "Why it is taken (e.g. 'focus / cognitive')"
+  started:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+  stopped:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+    description: "Null when active; required date when status is 'stopped'. Must be >= started. May be future-dated to schedule a planned taper/discontinuation (stopped is exclusive, so stopped=tomorrow means today is the last active day)."
+  stopped_reason:
+    type: string
+    nullable: true
+    description: "Brief reason for stopping (e.g. 'no longer needed', 'side effect', 'doctor changed prescription'). Null when active."
+  notes:
+    type: string
+    nullable: true

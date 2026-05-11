@@ -1,0 +1,62 @@
+# Project metadata schema for 4-projects/_data/projects.ndjson
+# Max 3 active projects at a time.
+# Percentage tracking: total_parts and completed_parts drive completion %.
+
+project:
+  id:
+    type: string
+    format: "proj-YYYYMMDD-NNN"
+    required: true
+  name:
+    type: string
+    required: true
+  active:
+    type: boolean
+    required: true
+    constraint: "max 3 active projects at a time"
+  excitement:
+    type: string
+    enum: ["low", "medium", "high"]
+    required: true
+  impact:
+    type: string
+    enum: ["high", "medium", "low"]
+    required: true
+  urgency:
+    type: string
+    enum: ["high", "medium", "low"]
+    required: true
+  estimated_months:
+    type: number
+    range: "1-3 typical"
+    required: false
+    note: "Some open-ended projects (e.g. practice-driven) may omit this."
+  area:
+    type: string
+    description: "Which life area this relates to (must match a folder in 2-areas/)"
+    required: true
+  vision:
+    type: string
+    description: "Optional. Slug of a vision in 3-visions/ that this project serves. When set, vision-progress reporting links them."
+    required: false
+  values:
+    type: array
+    items: string
+    description: "Which values from 1-values/values.md this project serves"
+    required: true
+  total_parts:
+    type: number
+    description: "Total sub-parts, modules, or milestones in the project"
+    required: true
+  completed_parts:
+    type: number
+    description: "Number of completed sub-parts. Completion % = completed_parts / total_parts"
+    default: 0
+  created:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+  deadline:
+    type: string
+    format: "YYYY-MM-DD"
+    required: false

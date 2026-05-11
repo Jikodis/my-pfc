@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Post-commit hook — auto-render the Trello dashboard whenever a canonical
+# file that's mirrored to Trello changes. Skill-based auto-renders only fire
+# when a render-aware skill runs; this hook closes the gap for ad-hoc edits
+# (raw jq updates, vim edits, agent edits that bypass skills, etc.).
+#
+# Install (per clone, because .git/hooks/ is not versioned):
+#   cp .githooks/post-commit .git/hooks/post-commit
+#   chmod +x .git/hooks/post-commit
+#
+# Skip for a single commit:
+#   PFC_SKIP_TRELLO_RENDER=1 git commit ...
+#
+# Behavior:
+#   - Inspects files changed in HEAD; renders only when a Trello-mirrored
+#     file changed (see TRIGGER_PATTERN below).
+#   - Calendar + Email lists skip with 🟡 — no MCP data available from a
+#     git hook. Cadence checkins still refresh those lists.
+#   - Fail-safe: any error logs 🟡 and exits 0. Post-commit hooks cannot
+#     reject a commit; this hook never blocks the developer flow.
+
+# Opt-out for batch operations
+if [[ "${PFC_SKIP_TRELLO_RENDER:-0}" == "1" ]]; then
+    exit 0
+fi
+
+# Silent skip if Trello credentials aren't set (fresh clone, CI, etc.)
+if [[ -z "${TRELLO_API_KEY:-}" || -z "${TRELLO_API_TOKEN:-}" || -z "${TRELLO_DASHBOARD_BOARD_ID:-}" ]]; then
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$REPO_ROOT" || exit 0
+
+CHANGED="$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null)"
+[[ -z "$CHANGED" ]] && exit 0
+
+# Paths that get mirrored to Trello. Order mirrors trello_render.py's _load_state.
+# task_events.ndjson is excluded — it's an append-only event log, not rendered.
+TRIGGER_PATTERN='^(1-values/values\.md|2-areas/_data/.+\.ndjson|2-areas/.+/statement\.md|3-visions/.+\.md|4-projects/_data/projects\.ndjson|5-actions/_data/(tasks|tasks-archive|daily-focus)\.ndjson|6-habits/_data/habits-(daily|monthly)\.ndjson|data/(insights|findings|hypotheses|supplements|day-tracking)\.ndjson|config/habit_schema\.yaml)$'
+
+if ! grep -qE "$TRIGGER_PATTERN" <<< "$CHANGED"; then
+    exit 0
+fi
+
+echo "🎨 Trello render (post-commit auto-trigger)..."
+OUTPUT=$(python3 automations/scripts/trello_render.py 2>&1)
+RC=$?
+if [[ $RC -eq 0 ]]; then
+    # Just the summary line on success.
+    echo "$OUTPUT" | grep -E "Render complete|🟢" | tail -1
+else
+    echo "🟡 Trello render failed (non-blocking, rc=$RC):"
+    echo "$OUTPUT" | tail -10
+fi
+exit 0

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Pre-commit hook — runs scripts/validate.sh and blocks commits on failure.
+#
+# Install (per clone, because .git/hooks/ is not versioned):
+#   cp .githooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# Skip for a single commit (emergencies only):
+#   git commit --no-verify ...
+
+exec "$(git rev-parse --show-toplevel)/scripts/validate.sh"
