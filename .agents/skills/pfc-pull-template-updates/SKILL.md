@@ -47,7 +47,6 @@ Read each commit subject. Group into:
 
 | Category | What it means |
 |---|---|
-| **Scrubs / personal-data fixes** | Maintainer found something personal-leaning that crept into the template and cleaned it up. Almost always safe to take. |
 | **New skills / features** | New `pfc-*` skill, new install doc, new automation. Take if it fits your life; skip if not. |
 | **Refined defaults** | Changes to existing skill behavior, schema fields, onboarding text. Read carefully — these are most likely to clash with your customizations. |
 | **Docs / examples** | README, install guides, conventions. Usually low-risk. |
@@ -123,7 +122,3 @@ git reset --hard origin/main
 - You're in the middle of a daily/weekly check-in or any other system run.
 - You haven't committed your recent edits.
 - You don't recognize the upstream maintainer's name and aren't sure you trust the source.
-
-## Going the other direction — contributing back
-
-If you found a generic improvement that other users might want, open a PR against `Jikodis/my-pfc`. Personal additions (your specific values, areas, skills tailored to your workflows) belong only in your fork.
