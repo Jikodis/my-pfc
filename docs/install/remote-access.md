@@ -56,6 +56,21 @@ Lock the VPS to key-auth only once it works (`/etc/ssh/sshd_config`: `PasswordAu
 
 Termius's mobile keyboard adds rows for Esc, Ctrl, Tab, arrows — these are the keys you actually need in a terminal, instead of the standard alphabetic phone keyboard. This is the difference between "I can use this" and "this is unusable on a phone."
 
+### Voice input on mobile (optional)
+
+Out of the box, Termius blocks IME features like Gboard's voice input — the terminal view uses a strict input mode that rejects "composing text," which is how voice input is delivered. The error you'll see: *"This app doesn't support voice input."*
+
+**Fix:** Termius **Settings → Experimental Keyboard Support** → enable. This swaps the strict terminal input mode for a more permissive one that accepts standard IME text, including voice.
+
+Once enabled, two solid options:
+
+- **Gboard voice** — tap the mic in Gboard, speak, text lands in the terminal. Free, ships with the phone, decent transcription.
+- **Wispr Flow** (**recommended**) — paid voice keyboard with substantially better transcription, especially for technical terms, names, and run-on dictation. Worth the cost if you do a lot of phone-driven Claude Code work.
+
+For PFC-heavy mobile use — running `/pfc-trello-inbox`, dictating long descriptions or insights, evening check-in reflections — Wispr Flow noticeably reduces the "fix the transcript" overhead vs. Gboard voice.
+
+**Caveat:** "Experimental" is in the name for a reason. Terminal interaction through an IME isn't friction-free — autocomplete suggestions may appear, arrow/tab escape sequences can land oddly, and some quirks are model-dependent. Leave it on for chat-style Claude Code prompts; toggle it off if you need precise terminal editing (`vi`, complex shell pipelines).
+
 ---
 
 ## Step 3 — Install and run tmux on the VPS

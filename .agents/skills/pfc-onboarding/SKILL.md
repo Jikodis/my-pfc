@@ -477,9 +477,9 @@ Define the rooms in your home for the weekly tidiness check. Edit the room list 
 
 <!-- TODO: full lesson content -->
 
-Define your household areas (kitchen, garage, etc.) for the monthly household-status check. These get tracked in `data/household-status.ndjson` — add them as you set up the system.
+Define your household areas (kitchen, garage, etc.) for the monthly household-status check. These get tracked in `2-areas/_data/household-status.ndjson` — add them as you set up the system.
 
-**Try it now:** open `data/household-status.ndjson` and add an initial entry with your household areas | **Skip:** `/pfc-onboarding skip areas/define-household-areas`
+**Try it now:** open `2-areas/_data/household-status.ndjson` and add an initial entry with your household areas | **Skip:** `/pfc-onboarding skip areas/define-household-areas`
 
 ---
 
