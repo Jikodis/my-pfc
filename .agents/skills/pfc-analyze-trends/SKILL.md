@@ -34,3 +34,16 @@ If a strong new pattern emerges that isn't tracked yet, offer to add it as a new
 - Supplement data (whatever's registered in `data/supplements.ndjson`) is joined from `data/supplements.ndjson` by date range. The active record on a given date D is the one where `started <= D AND (stopped is null OR stopped > D)`. Historical correlations are only as deep as the registry's backfill — edit `data/supplements.ndjson` if the timeline is wrong.
 - Sleep data covers the full dataset — those findings are more reliable
 - Re-run with `--all` flag if you want to refresh cached health data
+
+## Sleep analysis — what to look at
+
+Sleep is not just architecture (stage minutes). Treat these as co-equal load-bearing variables:
+
+1. **Total sleep duration** (`health.sleep.total_hours`)
+2. **Stage architecture** — deep, REM, light, wake minutes (`health.sleep.stages_minutes`)
+3. **Sleep timing** — bedtime + wake time (`health.sleep.bedtime`, `health.sleep.wake_time`). When the user fell asleep and when they woke up are independently predictive of next-day rating. A 7-hour night from 11 PM → 6 AM is not the same as 7 hours from 2 AM → 9 AM, even with identical stage breakdown.
+4. **Continuity** — wake minutes (fragmentation)
+
+When narrating a sleep finding, name which dimension drove it — duration, architecture, timing, or continuity. "You slept better last night" is too vague; "You went to bed 90 minutes earlier" or "you got 30 more minutes of REM" is actionable.
+
+If the timing fields (`bedtime`, `wake_time`) aren't populated on a record, the auto-fetch hasn't been extended yet — call that out as a data gap rather than ignoring it.

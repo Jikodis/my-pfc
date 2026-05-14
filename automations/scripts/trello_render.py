@@ -83,7 +83,15 @@ def serialize_pfc_frontmatter(pfc_id: str, pfc_type: str, body: str) -> str:
 
 @dataclass
 class Card:
-    """Render-target representation of a card. Compared by all fields for diff."""
+    """Render-target representation of a card. Compared by all fields for diff.
+
+    `due_complete` is tri-state:
+      - True  → repo asserts the card is complete; render should force the check on Trello.
+      - False → repo asserts the card is not complete; render should force the check off.
+      - None  → user-owned; render must NOT touch the dueComplete field. Used for
+               interactive cards (tasks, focus, habits) where the user manipulates
+               the checkbox from the widget before sync has ingested the action.
+    """
     pfc_id: str
     pfc_type: str
     list_name: str
@@ -91,7 +99,7 @@ class Card:
     body: str
     label_names: list = field(default_factory=list)
     due: Optional[str] = None
-    due_complete: bool = False
+    due_complete: Optional[bool] = None
     # Optional checklist for Project cards: list of (name, checked) pairs
     checklist: Optional[list] = None
 
@@ -99,14 +107,23 @@ class Card:
 # ── Diff engine ───────────────────────────────────────────────────────────────
 
 def _cards_equal(a: Card, b: Card) -> bool:
-    """Compare on the fields the render manages. Excludes pfc_id (key) and pfc_type (immutable)."""
+    """Compare on the fields the render manages. Excludes pfc_id (key) and pfc_type (immutable).
+
+    `due_complete` uses None as a wildcard: if either side is None, the field is
+    considered equal (the renderer is not asserting a desired value).
+    """
+    due_complete_match = (
+        a.due_complete is None
+        or b.due_complete is None
+        or a.due_complete == b.due_complete
+    )
     return (
         a.list_name == b.list_name and
         a.name == b.name and
         a.body == b.body and
         sorted(a.label_names) == sorted(b.label_names) and
         a.due == b.due and
-        a.due_complete == b.due_complete and
+        due_complete_match and
         (a.checklist or []) == (b.checklist or [])
     )
 
@@ -564,7 +581,7 @@ def render_2plus1(repo_state, label_map) -> list:
             body="\n".join(body_lines),
             label_names=[tier] if tier in label_map else [],
             due=_deadline_to_due(t.get("deadline")),
-            due_complete=False,
+            due_complete=None,
         ))
     return cards
 
@@ -598,7 +615,7 @@ def render_actions(repo_state, label_map, exclude_2plus1_ids=None) -> list:
             body="\n".join(body_lines),
             label_names=[tier] if tier in label_map else [],
             due=_deadline_to_due(t.get("deadline")),
-            due_complete=False,
+            due_complete=None,
         ))
     return cards
 
@@ -625,7 +642,7 @@ def render_daily_habits(repo_state) -> list:
             list_name="☀️ Daily Habits",
             name=f"{marker}{h.get('name', hid)}",
             body=f"Frequency: {h.get('frequency', '?')}/week · Area: {h.get('area', '')}",
-            due_complete=bool(completed),
+            due_complete=True if completed else None,
         ))
     return cards
 
@@ -656,7 +673,7 @@ def render_monthly_habits(repo_state) -> list:
             list_name="🌙 Monthly Habits",
             name=f"{h.get('name', hid)}: {count}/{target}",
             body=f"Target this month: {target} · Area: {h.get('area', '')}",
-            due_complete=count >= target,
+            due_complete=True if count >= target else None,
         ))
     return cards
 
@@ -1031,7 +1048,11 @@ def apply_updates(api_key, token, updates, list_name_to_id, label_name_to_id):
         else:
             # Clear due field by sending empty string. Trello quirk: empty=clear.
             kwargs["due"] = ""
-        kwargs["dueComplete"] = desired.due_complete
+        # dueComplete: only push when desired is concrete (True/False). None means
+        # "user-owned" — leave whatever Trello has. Prevents post-commit re-renders
+        # from wiping a check the user just made on the widget before sync ran.
+        if desired.due_complete is not None:
+            kwargs["dueComplete"] = desired.due_complete
         update_card(api_key, token, card_id, **kwargs)
         # Checklist normalization
         if desired.checklist is not None:

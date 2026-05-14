@@ -23,13 +23,14 @@ Use `mcp__claude_ai_Google_Calendar__list_events` (or your environment's equival
 
 Get today's date: `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` and end date 7 days later.
 
-Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event:
+Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event. **Preserve `recurringEventId` exactly as returned by MCP** — the renderer uses it to drop recurring noise (weekly church/study groups, regular school pickups, recurring therapy, etc.) from the Week-at-a-Glance list. Omitting the field silently re-introduces recurring events to the board.
 
 ```json
 [
   {
     "id": "<event id>",
     "summary": "<title>",
+    "recurringEventId": "<id-of-parent-series-if-this-instance-is-recurring; omit field if event is non-recurring>",
     "start": {"dateTime": "2026-05-10T10:00:00-06:00"},
     "end": {"dateTime": "2026-05-10T11:00:00-06:00"},
     "organizer": {"displayName": "<calendar name>"},
