@@ -1,4 +1,4 @@
-> Generated from modular-pfc commit `bbfd381` on 2026-05-14.
+> Generated from modular-pfc commit `89538a5` on 2026-05-16.
 
 # PFC — Personal Productivity System
 

@@ -425,6 +425,22 @@ COLOR_EMOJI = {
     "black": "⚫",
 }
 
+# 5-level priority emoji for AA..CC tiers. Used as a title prefix on cards
+# whose status is also encoded as a Trello label — the emoji is visible on
+# Android Trello widgets where labels are not. Mapping:
+#   AA          = top     → 🔴
+#   AB, BA      = high    → 🟠
+#   AC, BB, CA  = medium  → 🟡
+#   BC, CB      = low     → 🟢
+#   CC          = lowest  → ⚪
+PRIORITY_TIER_EMOJI = {
+    "AA": "🔴",
+    "AB": "🟠", "BA": "🟠",
+    "AC": "🟡", "BB": "🟡", "CA": "🟡",
+    "BC": "🟢", "CB": "🟢",
+    "CC": "⚪",
+}
+
 
 def render_areas(repo_state, plain_color_labels=None) -> list:
     """Render Area cards with life-wheel context.
@@ -473,11 +489,13 @@ def render_areas(repo_state, plain_color_labels=None) -> list:
             body_parts.append("\n".join(header_lines))
         body_parts.append(statement)
         body = "\n\n".join(body_parts)
+        title_emoji = COLOR_EMOJI.get(color, "")
+        card_name = f"{title_emoji} {name.capitalize()}".strip() if title_emoji else name.capitalize()
         cards.append(Card(
             pfc_id=f"area-{name}",
             pfc_type="area",
             list_name="🧭 Areas",
-            name=name.capitalize(),
+            name=card_name,
             body=body,
             label_names=label_names,
         ))
@@ -521,11 +539,13 @@ def render_projects(repo_state, label_map) -> list:
             body_lines.append(f"Deadline: {p['deadline']}")
         # Build the Progress checklist
         checklist = [(f"Part {i+1}", i < completed) for i in range(total)]
+        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
+        project_title = f"{tier_emoji} [{pct}%] {p['name']}".strip() if tier_emoji else f"[{pct}%] {p['name']}"
         cards.append(Card(
             pfc_id=p["id"],
             pfc_type="project",
             list_name="🛠️ Projects",
-            name=f"[{pct}%] {p['name']}",
+            name=project_title,
             body="\n".join(body_lines),
             label_names=[tier] if tier in label_map else [],
             due=_deadline_to_due(p.get("deadline")),
@@ -571,8 +591,11 @@ def render_2plus1(repo_state, label_map) -> list:
             body_lines.append(f"Notes: {t['notes']}")
         size = t.get("size", "?")
         desc_text = t.get("description", "")
-        # Title format: "AA (M) - description" — sortable alphabetically by tier
-        formatted_name = f"{tier} ({size}) - {desc_text}"[:200]
+        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
+        # Title format: "🔴 AA (M) - description" — emoji prefix makes priority
+        # visible on Android Trello widgets where labels are not rendered.
+        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
+                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
         cards.append(Card(
             pfc_id=t["id"],
             pfc_type="task",
@@ -606,7 +629,9 @@ def render_actions(repo_state, label_map, exclude_2plus1_ids=None) -> list:
             body_lines.append(f"Notes: {t['notes']}")
         size = t.get("size", "?")
         desc_text = t.get("description", "")
-        formatted_name = f"{tier} ({size}) - {desc_text}"[:200]
+        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
+        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
+                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
         cards.append(Card(
             pfc_id=t["id"],
             pfc_type="task",
@@ -642,7 +667,9 @@ def render_daily_habits(repo_state) -> list:
             list_name="☀️ Daily Habits",
             name=f"{marker}{h.get('name', hid)}",
             body=f"Frequency: {h.get('frequency', '?')}/week · Area: {h.get('area', '')}",
-            due_complete=True if completed else None,
+            # False (not None) so render actively unchecks at day rollover. Render runs writeback
+            # first by default (see main()), so user widget-clicks get logged before they're wiped.
+            due_complete=True if completed else False,
         ))
     return cards
 
@@ -673,7 +700,9 @@ def render_monthly_habits(repo_state) -> list:
             list_name="🌙 Monthly Habits",
             name=f"{h.get('name', hid)}: {count}/{target}",
             body=f"Target this month: {target} · Area: {h.get('area', '')}",
-            due_complete=True if count >= target else None,
+            # False (not None) so render unchecks at month rollover when count resets to 0.
+            # Mid-month user widget-clicks survive because render runs writeback first (see main()).
+            due_complete=True if count >= target else False,
         ))
     return cards
 
@@ -846,10 +875,6 @@ def render_last_7_days(repo_state) -> list:
 
 # ── Renderers — external-system-backed ────────────────────────────────────────
 
-EMAIL_TIERS_TOP = {"AA", "AB", "BA"}
-EMAIL_TIERS_MEDIUM = {"AC", "BB", "CA"}
-
-
 def _format_event_time(start, end):
     """Convert a Calendar event start/end to '<Day> <12hr time>' string. Handles all-day events."""
     if "dateTime" in start:
@@ -945,11 +970,13 @@ def render_email(messages, plain_color_labels=None) -> list:
         label_names = []
         if color in plain_color_labels:
             label_names = [f"_plain:{color}"]
+        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
+        email_title = (f"{tier_emoji} [{tier}] {subject}" if tier_emoji else f"[{tier}] {subject}")[:200]
         cards.append(Card(
             pfc_id=f"gmail-{msg['id']}",
             pfc_type="email",
             list_name="📧 Email Priorities",
-            name=f"[{tier}] {subject}"[:200],
+            name=email_title,
             body=f"From: {sender}\n\n{snippet}",
             label_names=label_names,
         ))
@@ -1350,6 +1377,19 @@ def main(argv):
             calendar_filters = yaml.safe_load(filter_path.read_text()) or {}
         except ImportError:
             print("   🟡 pyyaml not installed; calendar filters not applied", file=sys.stderr)
+
+    # Writeback first so user widget-clicks land in repo logs before render reads them.
+    # Skip with --no-writeback for the midnight rollover service: at 12:05 AM, writeback
+    # would log yesterday's still-checked cards under today's date, which is incorrect.
+    if "--no-writeback" not in argv:
+        try:
+            from trello_writeback import sync_completed
+            print("🔁 Writeback: syncing user-checked cards to repo...")
+            counters = sync_completed(KEY, TOK, BOARD)
+            interesting = ", ".join(f"{k}={v}" for k, v in counters.items() if v)
+            print(f"   {interesting or '(nothing to sync)'}")
+        except Exception as e:
+            print(f"   🟡 Writeback failed (continuing to render): {e}", file=sys.stderr)
 
     result = render(KEY, TOK, BOARD,
                     calendar_events=calendar_events,
