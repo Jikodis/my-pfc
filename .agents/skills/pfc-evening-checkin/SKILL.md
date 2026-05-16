@@ -162,12 +162,15 @@ After ratings are captured, offer a brief interpretation tied to today's observa
 - `hyperfocused` (Step 3 answers)
 - Project velocity flags (Step 1b: any 🟡 or 🔴)
 - Sleep + AZM if already auto-fetched on the day's record (`health.sleep_hours`, `health.active_zone_minutes`)
+- **Sleep timing** when available (`health.sleep.bedtime`, `health.sleep.wake_time`) — when the user went to sleep and when they woke up. These are load-bearing alongside stage architecture. Late bedtime (after ~11:30 PM) and early wake (before ~6:00 AM) often predict low next-day rating independently of total hours or stage breakdown. If timing fields are absent on the record (the auto-fetch hasn't been extended yet), skip silently.
 
 **Strong-signal patterns — name the driver in one sentence, then move on:**
 - Rating 4–5, focus mostly done, habits mostly hit → "Focus and habits both landed — that tracks."
 - Rating 1–2, focus mostly skipped → "Focus didn't land (X of Y done) — likely the rating driver."
 - Rating 1–2 + `hyperfocused: true` → "Hyperfocus today."
 - Rating 1–2 + sleep < 6h (when health is populated) → "Short sleep last night usually shows up as low energy + mood."
+- Rating 1–2 + bedtime after ~11:30 PM (when timing populated) → "Late bedtime last night — staying-up-late rarely pans out."
+- Rating 4–5 + bedtime before ~10:30 PM AND wake before ~7:00 AM → "Early-to-bed-early-to-rise cycle today — good signal to repeat."
 - **Mismatch** (rating ≥ 4 but most focus skipped, or rating ≤ 2 but most done) → flag explicitly and probe: "Rated 4 but 1 of 3 focus done — what made the day feel good?"
 
 **No strong signal — probe with ONE question:**

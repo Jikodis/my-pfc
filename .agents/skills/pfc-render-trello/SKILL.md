@@ -23,13 +23,14 @@ Use `mcp__claude_ai_Google_Calendar__list_events` (or your environment's equival
 
 Get today's date: `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` and end date 7 days later.
 
-Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event:
+Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event. **Preserve `recurringEventId` exactly as returned by MCP** — the renderer uses it to drop recurring noise (weekly church/study groups, regular school pickups, recurring therapy, etc.) from the Week-at-a-Glance list. Omitting the field silently re-introduces recurring events to the board.
 
 ```json
 [
   {
     "id": "<event id>",
     "summary": "<title>",
+    "recurringEventId": "<id-of-parent-series-if-this-instance-is-recurring; omit field if event is non-recurring>",
     "start": {"dateTime": "2026-05-10T10:00:00-06:00"},
     "end": {"dateTime": "2026-05-10T11:00:00-06:00"},
     "organizer": {"displayName": "<calendar name>"},
@@ -42,7 +43,7 @@ If Calendar MCP is not available, skip this step. The render will skip the Calen
 
 ### Step 2 — Fetch Email data via MCP (if Gmail MCP is available)
 
-Use `mcp__claude_ai_Gmail__search_threads` (or equivalent) to query each priority tier in `in:inbox`:
+Use `mcp__claude_ai_Gmail__search_threads` (or equivalent) to query each priority tier in `in:inbox`. Query all nine tiers so every tagged email reaches the dashboard:
 
 - `in:inbox label:AA` → tier AA
 - `in:inbox label:AB` → tier AB
@@ -50,6 +51,9 @@ Use `mcp__claude_ai_Gmail__search_threads` (or equivalent) to query each priorit
 - `in:inbox label:AC` → tier AC
 - `in:inbox label:BB` → tier BB
 - `in:inbox label:CA` → tier CA
+- `in:inbox label:BC` → tier BC
+- `in:inbox label:CB` → tier CB
+- `in:inbox label:CC` → tier CC
 
 For each match, get the thread's most recent message subject, sender, and a one-line snippet. Build a single JSON array combining all tiers, with this shape:
 
@@ -60,7 +64,7 @@ For each match, get the thread's most recent message subject, sender, and a one-
 ]
 ```
 
-The Python tier filter (AA/AB/BA always; AC/BB/CA only when no higher tier present) is applied automatically.
+The renderer prefixes each card title with `[tier]` so the list sorts AA → CC alphabetically.
 
 Save to `/tmp/pfc-email-data.json`. If Gmail MCP is unavailable, skip — render will skip the Email list with 🟡.
 

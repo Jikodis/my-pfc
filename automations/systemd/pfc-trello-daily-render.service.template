@@ -10,7 +10,11 @@ WorkingDirectory=__REPO_ROOT__
 # Re-renders all habit cards (and other lists) so daily-habit cards
 # uncheck for the new day. Render is idempotent — running on no-change
 # state is a 0-diff no-op.
-ExecStart=/usr/bin/python3 __REPO_ROOT__/automations/scripts/trello_render.py
+#
+# --no-writeback: at 12:05 AM, do NOT poll Trello for user-checked cards
+# (those would belong to yesterday's date, but writeback would log them
+# under today). Skill-driven renders include writeback by default.
+ExecStart=/usr/bin/python3 __REPO_ROOT__/automations/scripts/trello_render.py --no-writeback
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=pfc-trello-daily-render
