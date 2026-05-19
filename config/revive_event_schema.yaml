@@ -1,0 +1,49 @@
+# Schema for data/revive-events.ndjson — one row per revive interaction.
+# Append-only.
+
+revive_event:
+  id:
+    type: string
+    format: "revive-YYYYMMDD-NNN"
+    required: true
+  date:
+    type: string
+    format: "YYYY-MM-DD"
+    required: true
+  item_type:
+    type: string
+    enum: ["task", "project"]
+    required: true
+  item_id:
+    type: string
+    required: true
+    description: "Resolves to a row in 5-actions/_data/tasks.ndjson or 4-projects/_data/projects.ndjson"
+  signals:
+    type: array
+    items: string
+    enum: ["A", "B", "C", "D", "E", "F"]
+    required: true
+    description: "Trigger signals that put this item on the watchlist (A–F per spec)"
+  diagnostic:
+    type: array
+    items: string
+    enum: ["A", "B", "C", "D", "E", "F", "G"]
+    required: true
+    description: "User's diagnostic multi-select picks. Empty array if skip-without-diagnose."
+  intervention:
+    type: array
+    items: string
+    enum: ["break_down", "pair_stack", "reschedule", "boost_visibility", "lower_scope", "pause_archive", "walk_aversion", "skip"]
+    required: true
+  intervention_notes:
+    type: string
+    nullable: true
+  outcome:
+    type: string
+    enum: ["still_open", "completed", "archived", "re_slipped"]
+    nullable: true
+    description: "Populated 30 days later via /pfc-revive --review-outcomes"
+  outcome_checked:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true

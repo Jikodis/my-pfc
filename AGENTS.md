@@ -34,6 +34,7 @@ Claude memory is for session-layer context only: user background facts, transien
   - **Re-state your prior answer** as a one-liner before building on it.
   - **Pin open questions in full text every time.** Never reference back ("the questions above"). You will scroll and lose your place. Show every pending question fully, every turn.
   - **Tables over prose** when items are co-visible.
+  - **Sort recommendations top-first in multi-list responses.** When offering 2+ parallel option lists in one response (e.g. a decision table with Q1/Q2/Q3 each carrying options A/B/C/D), order each list so the *most-recommended* option is row A, second-best B, etc. Scanning "A, A, A" reads as "all recommended"; if any row diverges, that row's letter pops out. Don't randomize order or sort by some other principle (alphabetical, severity) in multi-list layouts — recommendation rank is the only ordering that lets the user scan-confirm in one pass.
 - **Status indicators use circle emojis.** In any `pfc-*` skill output that shows OK / WARN / FAIL (or PASS / WARN / FAIL), prepend a colored circle for fast visual scanning: 🟢 = OK / pass, 🟡 = warning / attention, 🔴 = fail / critical. Use in tables, summary lines, and action lists. Chat-only — raw data files (NDJSON, status.md) keep plain words so they stay greppable.
 
 ## Working with me — agent collaboration
@@ -331,13 +332,13 @@ The dashboard board hosts these lists (user-managed naming, do NOT rename):
 - `✅ 2+1` and `✅ Actions` — interactive (mark complete from widget)
 - `☀️ Daily Habits` and `🌙 Monthly Habits` — interactive
 - `🗓️ Week at a Glance` (calendar, recurring filtered, sorted chronologically)
-- `📧 Email Priorities` (all AA–CC tiers, plain-color labels per tier)
+- `📧 Email Priorities` (all AA–CC tiers, 5-bucket plain-color labels)
 - `⬅ Last 7 Days`, `💎 Values`, `🧭 Areas` (life-wheel surfaces here as a plain color label, not a separate list), `🔭 Visions`, `🛠️ Projects`, `💡 Insights`, `📜 Findings`, `🧪 Hypothesis`, `💊 Supplements`
 
 Key conventions:
 - Card identity lives in description frontmatter: `---\npfc-id: <repo id>\npfc-type: <type>\n---`. The render parses on read-back; user edits to body get overwritten on next render.
 - Project cards carry a `Progress` checklist (Part 1..N, completed_parts checked) for the built-in Trello progress bar. Title also shows `[<percent>%]`.
-- Action / 2+1 / Project cards use named priority labels (AA red, AB orange, ..., CC green); the same priority scheme drives titles like `AA (M) - <description>` for sorting.
+- Action / 2+1 / Project / Email cards use plain (unnamed) priority labels in 5 colors — red (AA), orange (AB/BA), yellow (AC/BB/CA), green (BC/CB), purple (CC). The exact 9-tier impact×urgency code stays visible in titles like `AA (M) - <description>` for sorting; the label conveys priority severity only.
 - Tasks/projects with deadlines populate Trello's `due` field at noon UTC; the Mark Complete checkbox is the bidirectional write-back surface.
 - See `automations/scripts/trello_helper.py` (full Trello CRUD), `trello_render.py` (render engine), `trello_writeback.py` (sync engine).
 
@@ -379,6 +380,10 @@ Three stores, in order of bar:
 - **Findings** (`data/findings.ndjson`) — durable, hard-won insights. Added rarely. A hypothesis graduates to a finding when supporting data meets the bar: n ≥ 30, |r| ≥ 0.3, p < 0.01. Findings may also be added manually from life experience (`source: "experience"`).
 
 See `docs/data-model.md` for full schemas, graduation flows, and the weekly Findings Alignment Check.
+
+## Slippage intervention — pfc-revive
+
+A slipped item is a task or project that's lost momentum: project velocity 🔴, project at 0 parts for ≥14 days, open task ≥30 days, high-impact open task ≥7 days, same task carried in 2+1 ≥3 days without completion, or active project with no `task_event` activity for ≥10 days. The `pfc-revive` skill detects these via `automations/scripts/revive_watchlist.py`, walks each item with a multi-select diagnostic (Initiation / Implementation intention / Dependency / Salience / Delay discounting / Behavioral activation / Honest exit), and brainstorms a tailored intervention. Surfaces in morning check-in (Step 5b2) and weekly check-in. Always available as `/pfc-revive`. Outcomes are reviewed 30 days later via `/pfc-revive --review-outcomes`. Distinct from `pfc-stuck` (body-state).
 
 ## System changes — update audit skills
 

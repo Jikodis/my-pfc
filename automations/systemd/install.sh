@@ -39,6 +39,22 @@ if [ -f "$REPO_ROOT/.env" ]; then
 fi
 echo "==> Using LOCAL_TZ=$LOCAL_TZ_VAL"
 
+# Reconcile: stop and remove any pfc-*.{service,timer} already deployed in
+# $UNIT_DST that's no longer in $UNITS. This auto-cleans orphans left behind
+# when an automation is torn out of the repo (the deployed unit otherwise
+# survives in $UNIT_DST and can crash-loop under `Restart=on-failure`).
+# Stays in sync as long as install.sh is re-run after any teardown commit.
+for deployed in "$UNIT_DST"/pfc-*.service "$UNIT_DST"/pfc-*.timer; do
+    [ -e "$deployed" ] || continue
+    name=$(basename "$deployed")
+    if ! printf '%s\n' "${UNITS[@]}" | grep -qxF "$name"; then
+        echo "==> Removing orphan unit $name (no template in repo)"
+        systemctl --user stop "$name" 2>/dev/null || true
+        systemctl --user disable "$name" 2>/dev/null || true
+        rm -f "$deployed"
+    fi
+done
+
 for unit in "${UNITS[@]}"; do
     src="$UNIT_SRC/${unit}.template"
     dst="$UNIT_DST/${unit}"
