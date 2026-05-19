@@ -174,35 +174,38 @@ class TestListReconciliation(unittest.TestCase):
             cl.assert_called_once_with("K", "T", "BOARD", "🔭 Visions", pos="bottom")
 
 
-PRIORITY_LABEL_COLORS = [
-    ("AA", "red"), ("AB", "orange"), ("AC", "yellow"),
-    ("BA", "pink"), ("BB", "sky"), ("BC", "lime"),
-    ("CA", "purple"), ("CB", "blue"), ("CC", "green"),
-]
+class TestTierPriorityMapping(unittest.TestCase):
+    def test_tier_priority_color_collapses_9_to_5(self):
+        from trello_render import TIER_PRIORITY_COLOR
+        self.assertEqual(TIER_PRIORITY_COLOR["AA"], "red")
+        self.assertEqual(TIER_PRIORITY_COLOR["AB"], "orange")
+        self.assertEqual(TIER_PRIORITY_COLOR["BA"], "orange")
+        self.assertEqual(TIER_PRIORITY_COLOR["AC"], "yellow")
+        self.assertEqual(TIER_PRIORITY_COLOR["BB"], "yellow")
+        self.assertEqual(TIER_PRIORITY_COLOR["CA"], "yellow")
+        self.assertEqual(TIER_PRIORITY_COLOR["BC"], "green")
+        self.assertEqual(TIER_PRIORITY_COLOR["CB"], "green")
+        self.assertEqual(TIER_PRIORITY_COLOR["CC"], "purple")
+        self.assertEqual(set(TIER_PRIORITY_COLOR.values()), {"red", "orange", "yellow", "green", "purple"})
 
+    def test_priority_emoji_matches_label_color(self):
+        from trello_render import PRIORITY_TIER_EMOJI
+        self.assertEqual(PRIORITY_TIER_EMOJI["AA"], "🔴")
+        self.assertEqual(PRIORITY_TIER_EMOJI["AB"], "🟠")
+        self.assertEqual(PRIORITY_TIER_EMOJI["BA"], "🟠")
+        self.assertEqual(PRIORITY_TIER_EMOJI["AC"], "🟡")
+        self.assertEqual(PRIORITY_TIER_EMOJI["BC"], "🟢")
+        self.assertEqual(PRIORITY_TIER_EMOJI["CC"], "🟣")
 
-class TestLabelReconciliation(unittest.TestCase):
-    def test_ensure_priority_labels_all_present(self):
-        from trello_render import ensure_priority_labels
-        existing = [{"id": f"lab_{n}", "name": n, "color": c} for n, c in PRIORITY_LABEL_COLORS]
-        with mpatch("trello_render.list_labels") as ll, mpatch("trello_render.create_label") as cl:
-            ll.return_value = existing
-            result = ensure_priority_labels("K", "T", "BOARD")
-            self.assertEqual(result["AA"], "lab_AA")
-            self.assertEqual(result["CC"], "lab_CC")
-            cl.assert_not_called()
-
-    def test_ensure_priority_labels_creates_missing(self):
-        from trello_render import ensure_priority_labels
-        # Only AA exists, others missing.
-        existing = [{"id": "lab_AA", "name": "AA", "color": "red"}]
-        with mpatch("trello_render.list_labels") as ll, mpatch("trello_render.create_label") as cl:
-            ll.return_value = existing
-            cl.side_effect = lambda k, t, b, name, color: {"id": f"new_{name}", "name": name, "color": color}
-            result = ensure_priority_labels("K", "T", "BOARD")
-            self.assertEqual(result["AA"], "lab_AA")
-            self.assertEqual(result["BC"], "new_BC")
-            self.assertEqual(cl.call_count, 8)
+    def test_priority_emoji_codepoints_sort_in_priority_order(self):
+        """Trello 'Sort by card name' must place AA cards first, CC cards last.
+        Verify emoji codepoints monotonically increase across the priority chain."""
+        from trello_render import PRIORITY_TIER_EMOJI
+        ordered_emojis = [PRIORITY_TIER_EMOJI[t] for t in ("AA", "AB", "AC", "BC", "CC")]
+        codepoints = [ord(e[0]) for e in ordered_emojis]
+        self.assertEqual(codepoints, sorted(codepoints),
+            f"Emoji codepoints {codepoints} not in ascending order — "
+            "alphabetical title sort would mis-order priorities")
 
 
 class TestRenderers(unittest.TestCase):
@@ -230,10 +233,10 @@ class TestRenderers(unittest.TestCase):
             "total_parts": 4, "completed_parts": 1,
             "deadline": "2026-06-01",
         }]}
-        label_map = {"AB": "lab_AB"}
-        cards = render_projects(state, label_map)
-        self.assertEqual(cards[0].name, "[25%] Test")
-        self.assertEqual(cards[0].label_names, ["AB"])
+        # AB tier → orange plain-color label.
+        cards = render_projects(state, plain_color_labels={"orange": "lab_orange"})
+        self.assertEqual(cards[0].name, "🟠 [25%] Test")
+        self.assertEqual(cards[0].label_names, ["_plain:orange"])
         self.assertEqual(cards[0].due, "2026-06-01T12:00:00.000Z")
         self.assertEqual(len(cards[0].checklist), 4)
         self.assertEqual(cards[0].checklist[0], ("Part 1", True))
@@ -246,12 +249,13 @@ class TestRenderers(unittest.TestCase):
             {"id": "t2", "status": "done", "description": "Y", "impact": "high", "urgency": "high", "size": "S", "area": "career"},
             {"id": "t3", "status": "open", "description": "Z", "impact": "high", "urgency": "high", "size": "S", "area": "career"},
         ]}
-        cards = render_actions(state, {"AA": "lab_AA"}, exclude_2plus1_ids={"t3"})
+        # AA tier → red plain-color label.
+        cards = render_actions(state, plain_color_labels={"red": "lab_red"}, exclude_2plus1_ids={"t3"})
         ids = [c.pfc_id for c in cards]
         self.assertEqual(ids, ["t1"])
-        self.assertEqual(cards[0].label_names, ["AA"])
-        # Title format: "<TIER> (<SIZE>) - <description>"
-        self.assertEqual(cards[0].name, "AA (S) - X")
+        self.assertEqual(cards[0].label_names, ["_plain:red"])
+        # Title format: "<emoji> <TIER> (<SIZE>) - <description>"
+        self.assertEqual(cards[0].name, "🔴 AA (S) - X")
 
     def test_render_2plus1_uses_today_focus(self):
         from trello_render import render_2plus1, _today_mt
@@ -263,13 +267,13 @@ class TestRenderers(unittest.TestCase):
                 {"id": "t2", "status": "open", "description": "Bonus", "impact": "low", "urgency": "low", "size": "M", "area": "career"},
             ],
         }
-        cards = render_2plus1(state, {"AA": "x", "CC": "y"})
+        cards = render_2plus1(state, plain_color_labels={"red": "x", "purple": "y"})
         ids = [c.pfc_id for c in cards]
         self.assertEqual(set(ids), {"t1", "t2"})
         # Title format check
         names = {c.pfc_id: c.name for c in cards}
-        self.assertEqual(names["t1"], "AA (S) - Crit")
-        self.assertEqual(names["t2"], "CC (M) - Bonus")
+        self.assertEqual(names["t1"], "🔴 AA (S) - Crit")
+        self.assertEqual(names["t2"], "🟣 CC (M) - Bonus")
 
     def test_render_supplements_active_filter(self):
         from trello_render import render_supplements, _today_mt
@@ -443,11 +447,12 @@ class TestEmailRender(unittest.TestCase):
     def test_render_email_attaches_plain_color_label_when_provided(self):
         from trello_render import render_email
         msgs = [self._msg(mid="m1", tier="AA"), self._msg(mid="m2", tier="BB")]
-        plain_labels = {"red": "lab_red", "sky": "lab_sky"}
+        # AA → red, BB → yellow under the 5-bucket scheme.
+        plain_labels = {"red": "lab_red", "yellow": "lab_yellow"}
         cards = render_email(msgs, plain_color_labels=plain_labels)
         by_id = {c.pfc_id: c for c in cards}
         self.assertEqual(by_id["gmail-m1"].label_names, ["_plain:red"])
-        self.assertEqual(by_id["gmail-m2"].label_names, ["_plain:sky"])
+        self.assertEqual(by_id["gmail-m2"].label_names, ["_plain:yellow"])
 
     def test_render_email_no_label_when_color_map_empty(self):
         from trello_render import render_email

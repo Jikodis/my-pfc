@@ -173,6 +173,21 @@ When running a weekly check-in:
    jq -c 'select(.status != "done")' 5-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/tasks.ndjson
    ```
 
+## Revive walk
+
+After stale-task triage, fetch and walk the full revive watchlist.
+
+```bash
+TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+python3 automations/scripts/revive_watchlist.py --today "$TODAY"
+```
+
+If non-empty, invoke `pfc-revive` to walk every item one-by-one (use that skill's full standard workflow). Weekly is the higher-bandwidth surface for slippage — don't skip items without recording a diagnostic+intervention (use `skip` if needed, which logs and starts the cooldown).
+
+If empty: print `🟢 No revive items this week.`
+
+This step happens once per week regardless of whether items were walked from morning earlier in the week.
+
 10. **Generate a weekly summary** at `notes/weekly/YYYY-WNN.md`
 
 11. **Sync Trello dashboard** (fail-safe)

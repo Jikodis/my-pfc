@@ -28,7 +28,7 @@ fail() { echo "  ✗ $*" >&2; FAIL=1; }
 ok()   { echo "  ✓ $*"; }
 
 # ── 1. NDJSON parse ───────────────────────────────────────────────────────────
-echo "[1/11] NDJSON parse validation"
+echo "[1/13] NDJSON parse validation"
 for f in data/*.ndjson 4-projects/_data/*.ndjson 5-actions/_data/*.ndjson 6-habits/_data/*.ndjson; do
   [ -s "$f" ] || { ok "$(basename "$f") (empty)"; continue; }
   if ! jq -e . "$f" >/dev/null 2>&1; then
@@ -39,7 +39,7 @@ for f in data/*.ndjson 4-projects/_data/*.ndjson 5-actions/_data/*.ndjson 6-habi
 done
 
 # ── 2. Skill frontmatter ──────────────────────────────────────────────────────
-echo "[2/11] Skill frontmatter lint"
+echo "[2/13] Skill frontmatter lint"
 for dir in .agents/skills/*/; do
   skill_name=$(basename "$dir")
   f="${dir}SKILL.md"
@@ -65,7 +65,7 @@ for dir in .agents/skills/*/; do
 done
 
 # ── 3. tasks.ndjson schema ────────────────────────────────────────────────────
-echo "[3/11] tasks.ndjson schema"
+echo "[3/13] tasks.ndjson schema"
 TASKS=5-actions/_data/tasks.ndjson
 if [ -s "$TASKS" ]; then
   bad=$(jq -c '
@@ -95,7 +95,7 @@ if [ -s "$TASKS" ]; then
 fi
 
 # ── 4. habits-daily.ndjson habit_id declared ──────────────────────────────────
-echo "[4/11] habits-daily.ndjson habit_id declared"
+echo "[4/13] habits-daily.ndjson habit_id declared"
 HABITS=6-habits/_data/habits-daily.ndjson
 SCHEMA=config/habit_schema.yaml
 if [ -s "$HABITS" ] && [ -f "$SCHEMA" ]; then
@@ -124,7 +124,7 @@ if [ -s "$HABITS" ] && [ -f "$SCHEMA" ]; then
 fi
 
 # ── 5. projects.ndjson schema ─────────────────────────────────────────────────
-echo "[5/11] projects.ndjson schema"
+echo "[5/13] projects.ndjson schema"
 PROJECTS=4-projects/_data/projects.ndjson
 if [ -s "$PROJECTS" ]; then
   bad=$(jq -c '
@@ -156,7 +156,7 @@ if [ -s "$PROJECTS" ]; then
 fi
 
 # ── 6. Cross-file integrity ──────────────────────────────────────────────────
-echo "[6/11] Cross-file integrity"
+echo "[6/13] Cross-file integrity"
 
 FOCUS=5-actions/_data/daily-focus.ndjson
 ARCHIVE=5-actions/_data/tasks-archive.ndjson
@@ -319,7 +319,7 @@ if [ -f "$PERSONA_CFG" ] && [ -f "$PERSONA_REG" ]; then
 fi
 
 # ── 7. findings.ndjson schema + cross-file ─────────────────────────────────────
-echo "[7/11] findings.ndjson schema + cross-file"
+echo "[7/13] findings.ndjson schema + cross-file"
 FINDINGS=data/findings.ndjson
 if [ -s "$FINDINGS" ]; then
   bad=$(jq -c '
@@ -384,7 +384,7 @@ else
 fi
 
 # ── 8. supplements.ndjson schema ──────────────────────────────────────────────
-echo "[8/11] supplements.ndjson schema"
+echo "[8/13] supplements.ndjson schema"
 SUPP=data/supplements.ndjson
 if [ -s "$SUPP" ]; then
   bad=$(jq -c '
@@ -415,7 +415,7 @@ else
 fi
 
 # ── 9. insights.ndjson schema ─────────────────────────────────────────────────
-echo "[9/11] insights.ndjson schema"
+echo "[9/13] insights.ndjson schema"
 INSIGHTS=data/insights.ndjson
 if [ -s "$INSIGHTS" ]; then
   bad=$(jq -c '
@@ -456,7 +456,7 @@ else
 fi
 
 # ── 10. Future-dated date-stamped fields (UTC vs local slip detection) ───────
-echo "[10/11] No future-dated records (catches UTC vs local-tz date slips)"
+echo "[10/13] No future-dated records (catches UTC vs local-tz date slips)"
 LOCAL_TZ="${LOCAL_TZ:-America/Denver}"
 TODAY_MT=$(TZ="$LOCAL_TZ" date '+%Y-%m-%d')
 
@@ -573,7 +573,7 @@ if [ -s data/hypotheses.ndjson ]; then
 fi
 
 # ── 11. hypotheses.ndjson schema ──────────────────────────────────────────────
-echo "[11/11] hypotheses.ndjson schema"
+echo "[11/13] hypotheses.ndjson schema"
 HYP=data/hypotheses.ndjson
 if [ -s "$HYP" ]; then
   bad=$(jq -c '
@@ -599,7 +599,7 @@ else
 fi
 
 # ── 12. config/onboarding.ndjson schema ───────────────────────────────────────
-echo "[12/12] config/onboarding.ndjson schema"
+echo "[12/13] config/onboarding.ndjson schema"
 ONBOARDING=config/onboarding.ndjson
 if [ ! -f "$ONBOARDING" ]; then
   ok "onboarding.ndjson (not present — skipping)"
@@ -619,6 +619,44 @@ else
     done <<< "$bad"
   else
     ok "onboarding.ndjson ($(wc -l <"$ONBOARDING" | tr -d ' ') records conform)"
+  fi
+fi
+
+# ── 13. revive-events.ndjson schema + cross-ref ───────────────────────────────
+echo "[13/13] revive-events.ndjson schema"
+REVIVE=data/revive-events.ndjson
+if [ ! -s "$REVIVE" ]; then
+  ok "revive-events.ndjson (empty)"
+else
+  bad=$(jq -c '
+    select(
+      (.id // "" | test("^revive-[0-9]{8}-[0-9]{3}$") | not)
+      or (.date // "" | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") | not)
+      or (.item_type // "" | IN("task","project") | not)
+      or ((.item_id // "") == "")
+      or (.signals // [] | type != "array" or any(IN("A","B","C","D","E","F") | not))
+      or (.diagnostic // null | type != "array" or any(IN("A","B","C","D","E","F","G") | not))
+      or (.intervention // [] | type != "array" or length == 0 or any(IN("break_down","pair_stack","reschedule","boost_visibility","lower_scope","pause_archive","walk_aversion","skip") | not))
+    ) | .id // "(no id)"
+  ' "$REVIVE")
+  if [ -n "$bad" ]; then
+    while IFS= read -r id; do
+      fail "revive-events.ndjson — record $id violates schema"
+    done <<< "$bad"
+  else
+    ok "revive-events.ndjson ($(wc -l <"$REVIVE" | tr -d ' ') records conform)"
+  fi
+
+  # Future-date guard
+  future_rev=$(jq -r --arg t "$TODAY_MT" \
+    'select(.date > $t or (.outcome_checked != null and .outcome_checked > $t)) | .id // "(no id)"' \
+    "$REVIVE")
+  if [ -n "$future_rev" ]; then
+    while IFS= read -r id; do
+      fail "revive-events.ndjson — record $id is future-dated"
+    done <<< "$future_rev"
+  else
+    ok "revive-events.ndjson — no future-dated records"
   fi
 fi
 

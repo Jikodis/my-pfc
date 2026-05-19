@@ -22,6 +22,7 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 | **Tool-usage contradictions** | No doc recommends a tool that CLAUDE.md forbids (e.g. `sed`/`echo >>` on NDJSON) |
 | **Deprecated vocabulary** | No doc still references deleted files or removed concepts |
 | **Env-var coverage** | Every var declared in `.env.example` is referenced by at least one script or skill; vars referenced in scripts/skills exist in `.env.example`. `.env` populating is informational only — never a failure. |
+| **pfc-revive plumbing** | `data/revive-events.ndjson` exists and parses (validator §13); `config/revive_event_schema.yaml` exists; `automations/scripts/revive_watchlist.py` exists and runs cleanly against the live repo; integration references intact — `pfc-morning-checkin` SKILL.md cites `revive_watchlist.py`, `pfc-weekly-checkin` SKILL.md cites `pfc-revive`, AGENTS.md mentions `pfc-revive` |
 
 ## Steps
 
@@ -119,14 +120,16 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
      | "Ask before committing" bullets | `docs/automation-policy.md` "Ask-before-commit operations" |
      | "Commit message conventions" bullets | `docs/conventions.md` "Commit messages" |
 
-     For each pair, extract the bulleted lines from both files and diff:
+     For each pair, extract the bulleted lines from both files and diff. The `awk '/start/,/end/'` range form does NOT work here — when the start pattern's prefix (e.g. `^### `) also matches the start line, the range opens and closes on the same line and returns nothing. Use a flag-toggle pattern instead:
      ```bash
-     # Example — compare auto-commit lists
-     awk '/^### Auto-commit/,/^### /' CLAUDE.md | grep -E '^- ' | sort > /tmp/claude.txt
-     awk '/^## Auto-commit/,/^## /' docs/automation-policy.md | grep -E '^- ' | sort > /tmp/mirror.txt
+     # Compare auto-commit lists (CLAUDE.md is canonical via AGENTS.md import)
+     awk '/^### Auto-commit \(no confirmation needed\)$/{f=1;next} /^### /{f=0} f' AGENTS.md \
+       | grep -E '^- ' | sort > /tmp/claude.txt
+     awk '/^## Auto-commit operations \(no confirmation needed\)$/{f=1;next} /^## /{f=0} f' \
+       docs/automation-policy.md | grep -E '^- ' | sort > /tmp/mirror.txt
      diff /tmp/claude.txt /tmp/mirror.txt
      ```
-     Any asymmetric diff → update the mirror (CLAUDE.md is canonical).
+     Any asymmetric diff → update the mirror (AGENTS.md is canonical).
 
    - **Bare-path verification** — unlinked path references in prose should resolve. Grep the live docs (exclude `docs/superpowers/` — historical):
      ```bash
@@ -200,7 +203,48 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
      This v1 audit prints both lists side-by-side for manual eyeballing. Full automated cross-check deferred until catalog stabilizes.
 
-6. **Report:**
+6. **pfc-revive plumbing:**
+
+   Verify the revive-watchlist machinery is intact end-to-end.
+
+   ```bash
+   # (a) Data file exists and parses (validator §13 also covers this — this is the docs-side cross-check)
+   [ -f data/revive-events.ndjson ] && echo "revive-events.ndjson:OK" || echo "revive-events.ndjson:MISSING"
+   if [ -s data/revive-events.ndjson ]; then
+     jq -c '.' data/revive-events.ndjson > /dev/null && echo "revive-events.ndjson:PARSES" || echo "revive-events.ndjson:PARSE-FAIL"
+   fi
+
+   # (b) Schema present
+   [ -f config/revive_event_schema.yaml ] && echo "revive_event_schema.yaml:OK" || echo "revive_event_schema.yaml:MISSING"
+
+   # (c) Watchlist script exists AND runs cleanly against live repo
+   if [ -x automations/scripts/revive_watchlist.py ] || [ -f automations/scripts/revive_watchlist.py ]; then
+     echo "revive_watchlist.py:OK"
+     TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+     if python3 automations/scripts/revive_watchlist.py --today "$TODAY" >/dev/null 2>&1; then
+       echo "revive_watchlist.py:RUNS"
+     else
+       echo "revive_watchlist.py:RUN-FAIL"
+     fi
+   else
+     echo "revive_watchlist.py:MISSING"
+   fi
+
+   # (d) Integration references intact
+   grep -q 'revive_watchlist\.py' .agents/skills/pfc-morning-checkin/SKILL.md \
+     && echo "morning-checkin→revive_watchlist.py:OK" \
+     || echo "morning-checkin→revive_watchlist.py:MISSING"
+   grep -q 'pfc-revive' .agents/skills/pfc-weekly-checkin/SKILL.md \
+     && echo "weekly-checkin→pfc-revive:OK" \
+     || echo "weekly-checkin→pfc-revive:MISSING"
+   grep -q 'pfc-revive' AGENTS.md \
+     && echo "AGENTS.md→pfc-revive:OK" \
+     || echo "AGENTS.md→pfc-revive:MISSING"
+   ```
+
+   Any `MISSING` / `PARSE-FAIL` / `RUN-FAIL` → 🔴 in the report. The script-run check (c) is the load-bearing one — a passing parse doesn't catch broken jq filters inside the script.
+
+7. **Report:**
 
    Output a table sorted by severity:
 
@@ -212,7 +256,7 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
    Then a numbered action list. Autonomously fix trivial drift (normalize enum typos, rewrite dead link paths, patch a stale field in a doc). For anything with judgment stakes (delete a file, merge skills, restructure docs), present the option and wait for the user.
 
-7. **Commit** (if autonomous fixes were made):
+8. **Commit** (if autonomous fixes were made):
    ```bash
    git add -A && git commit -m "system: repo maintenance [YYYY-MM-DD]" && git push
    ```
@@ -230,3 +274,51 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 - **Recommended before** such a change to baseline what's clean.
 - **Monthly** as an idle-time baseline run.
 - **On demand** any time the user asks ("repo maintenance", "audit the repo", "docs check").
+
+## Removing an automation — teardown checklist
+
+When tearing out a system automation (script + systemd unit + binary), the repo and the deployed VPS state drift independently. The Deprecated-vocabulary grep above catches lingering *repo* references; nothing in the repo can detect *VPS* drift. Run both passes — missing either leaves orphans.
+
+**Repo pass:**
+1. Delete the script(s) under `automations/scripts/`.
+2. Delete the unit template(s) under `automations/systemd/`.
+3. Remove the unit name(s) from the `UNITS` array in `automations/systemd/install.sh`.
+4. Append a row to the Deprecated-vocabulary table above with date and reason.
+5. Extend the deprecated-vocabulary grep at the bottom of that subsection so future audits flag stray references.
+6. Commit (`system: tear out <name>`).
+
+**VPS pass** — runs automatically on the next `install.sh` execution. The reconcile block at the top of `install.sh` stops, disables, and removes any `pfc-*.{service,timer}` in `~/.config/systemd/user/` that's no longer in `UNITS`. So: re-run `install.sh` after every teardown commit.
+
+If immediate cleanup is needed (don't want to wait for next deploy):
+
+```bash
+# As the owning user — user-scoped systemd is per-user.
+# Running as the wrong user returns empty results, not an error.
+systemctl --user stop <unit>
+systemctl --user disable <unit>
+rm ~/.config/systemd/user/<unit>
+systemctl --user daemon-reload
+```
+
+**Thorough VPS orphan sweep.** systemd is only one of several places an automation leaves things. The repo cannot track artifacts outside itself — walk this list on the deployed host any time you tear something out (and again periodically if the automation was long-lived). Run every check **as the owning user** — user-scoped state is per-user and returns silently empty when queried from the wrong account.
+
+| Where | Check | Typical content |
+|---|---|---|
+| `~/.config/systemd/user/` | `ls ~/.config/systemd/user/ \| grep <keyword>` | Unit files (auto-reconciled by `install.sh` for `pfc-*`; check anyway) |
+| `systemctl --user` | `systemctl --user list-units --type=service \| grep <keyword>` · `systemctl --user list-unit-files \| grep <keyword>` | Running + enabled units |
+| `~/.local/bin/` | `ls ~/.local/bin/ \| grep <keyword>` · `which <name>` | Installed binaries |
+| `~/.local/lib/` | `ls ~/.local/lib/ \| grep <keyword>` | Bundled libraries / jars |
+| `~/.local/share/` | `ls ~/.local/share/ \| grep <keyword>` | Account / runtime data |
+| `~/.config/` | `ls ~/.config/ \| grep <keyword>` | Per-app config dirs |
+| `~/.cache/` | `ls ~/.cache/ \| grep <keyword>` | Caches, logs |
+| User crontab | `crontab -l \| grep <keyword>` | Cron entries |
+| Running processes | `ps -ef \| grep -i <keyword> \| grep -v grep` | Stragglers still alive |
+| Recent journald | `journalctl --user -u <unit> -n 50 --no-pager` | Confirms the unit actually stopped |
+| Repo-side `.env` | `grep -i <keyword> .env .env.example` | Unused env vars after teardown |
+| Broad sweep | `find ~ -name '*<keyword>*' 2>/dev/null` | Anything missed by the targeted checks |
+
+For each hit: stop/disable/remove using the tool that owns it (`systemctl --user`, `crontab -e`, `rm`), then re-run the sweep until it's clean.
+
+**Scope note.** `<keyword>` should be the automation name *and* its underlying tool name. The first finds the third-party tool's footprint; the second finds the PFC-side wrapper.
+
+**Why this matters.** A deployed systemd unit that survives a repo teardown can crash-loop under `Restart=on-failure` for days unnoticed. The reconcile block in `install.sh` fixes that for `pfc-*` units, but only catches systemd — every other artifact category needs the sweep table above. Every teardown needs a repo commit, an `install.sh` re-run, *and* a walk of the orphan sweep table.

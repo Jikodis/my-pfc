@@ -239,6 +239,30 @@ If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, sync Trello to reflect the new 
 
 ---
 
+## Step 5b2 — Revive watchlist (fail-safe)
+
+After 2+1 is set, surface any slipped items.
+
+```bash
+TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+python3 automations/scripts/revive_watchlist.py --today "$TODAY"
+```
+
+If the array is empty: skip — say nothing in chat. If non-empty, print:
+
+```
+🔁 Revive watchlist (N items)
+  1. <item description> — <signal detail>
+  2. ...
+Walk any of these now? (1, 2, …, all, none)
+```
+
+If the user picks one or more: invoke the `pfc-revive` skill walk-flow on the selected items only (don't re-fetch the watchlist; pass the indices). If `none` or no answer in 30 seconds of typing: leave them for the standalone `/pfc-revive` or weekly walk.
+
+Any error from the helper logs 🟡 (`🟡 Revive watchlist failed: <stderr>. Skipping.`) and the morning check-in continues — never blocks.
+
+---
+
 ## Step 5c — Auto-schedule to calendar
 
 Once the focus record is written (2+1 or 2+1+project), first migrate any carry-forward calendar events from yesterday, then invoke the `pfc-schedule-focus` skill inline.

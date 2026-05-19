@@ -184,11 +184,20 @@ from trello_helper import (
 )
 
 
-PRIORITY_LABELS = [
-    ("AA", "red"), ("AB", "orange"), ("AC", "yellow"),
-    ("BA", "pink"), ("BB", "sky"), ("BC", "lime"),
-    ("CA", "purple"), ("CB", "blue"), ("CC", "green"),
-]
+# 9 impact×urgency tiers collapse to 5 priority colors. The 9-tier distinction
+# stays visible in card titles ("AA (M) - desc"); the label is just the 5-bucket
+# priority severity. Labels are plain (unnamed) Trello labels — color-only.
+TIER_PRIORITY_COLOR = {
+    "AA": "red",
+    "AB": "orange", "BA": "orange",
+    "AC": "yellow", "BB": "yellow", "CA": "yellow",
+    "BC": "green",  "CB": "green",
+    "CC": "purple",
+}
+# Order chosen so emoji codepoints sort red → orange → yellow → green → purple
+# in Trello's "Sort by card name". Avoid ⚫ (U+26AB) or ⬛ (U+2B1B) — both sort
+# BEFORE 🔴 (U+1F534) and broke the Actions list ordering.
+PRIORITY_COLORS = ("red", "orange", "yellow", "green", "purple")
 
 
 def ensure_lists(api_key, token, board_id, list_names):
@@ -212,14 +221,6 @@ LIFEWHEEL_COLOR_BUCKETS = [
     ((7, 8), "lime"),
     ((9, 10), "green"),
 ]
-
-# Email tier → plain color (mirrors PRIORITY_LABELS but unnamed)
-EMAIL_TIER_COLORS = {
-    "AA": "red", "AB": "orange", "AC": "yellow",
-    "BA": "pink", "BB": "sky", "BC": "lime",
-    "CA": "purple", "CB": "blue", "CC": "green",
-}
-
 
 VALID_TRELLO_COLORS = {
     "red", "orange", "yellow", "lime", "green",
@@ -268,19 +269,6 @@ def ensure_plain_color_labels(api_key, token, board_id, colors):
         else:
             new_label = create_label(api_key, token, board_id, "", color)
             result[color] = new_label["id"]
-    return result
-
-
-def ensure_priority_labels(api_key, token, board_id):
-    """Ensure 9 priority labels (AA..CC) exist on the board with canonical colors. Returns {tier: label_id}."""
-    existing = {l["name"]: l["id"] for l in list_labels(api_key, token, board_id) if l.get("name")}
-    result = {}
-    for tier, color in PRIORITY_LABELS:
-        if tier in existing:
-            result[tier] = existing[tier]
-        else:
-            new_label = create_label(api_key, token, board_id, tier, color)
-            result[tier] = new_label["id"]
     return result
 
 
@@ -425,21 +413,16 @@ COLOR_EMOJI = {
     "black": "⚫",
 }
 
-# 5-level priority emoji for AA..CC tiers. Used as a title prefix on cards
-# whose status is also encoded as a Trello label — the emoji is visible on
-# Android Trello widgets where labels are not. Mapping:
-#   AA          = top     → 🔴
-#   AB, BA      = high    → 🟠
-#   AC, BB, CA  = medium  → 🟡
-#   BC, CB      = low     → 🟢
-#   CC          = lowest  → ⚪
-PRIORITY_TIER_EMOJI = {
-    "AA": "🔴",
-    "AB": "🟠", "BA": "🟠",
-    "AC": "🟡", "BB": "🟡", "CA": "🟡",
-    "BC": "🟢", "CB": "🟢",
-    "CC": "⚪",
-}
+# 5-level priority emoji for AA..CC tiers. Matches TIER_PRIORITY_COLOR so the
+# emoji prefix visually agrees with the plain-color label on the card.
+PRIORITY_TIER_EMOJI = {tier: COLOR_EMOJI.get(color, "") for tier, color in TIER_PRIORITY_COLOR.items()}
+
+
+def _priority_plain_label(tier, plain_color_labels):
+    color = TIER_PRIORITY_COLOR.get(tier)
+    if color and color in plain_color_labels:
+        return [f"_plain:{color}"]
+    return []
 
 
 def render_areas(repo_state, plain_color_labels=None) -> list:
@@ -515,7 +498,8 @@ def render_visions(repo_state) -> list:
     return cards
 
 
-def render_projects(repo_state, label_map) -> list:
+def render_projects(repo_state, plain_color_labels=None) -> list:
+    plain_color_labels = plain_color_labels or {}
     cards = []
     for p in repo_state.get("projects", []):
         if not p.get("active"):
@@ -547,7 +531,7 @@ def render_projects(repo_state, label_map) -> list:
             list_name="🛠️ Projects",
             name=project_title,
             body="\n".join(body_lines),
-            label_names=[tier] if tier in label_map else [],
+            label_names=_priority_plain_label(tier, plain_color_labels),
             due=_deadline_to_due(p.get("deadline")),
             due_complete=False,
             checklist=checklist if total > 0 else None,
@@ -561,8 +545,9 @@ def _task_priority_tier(t):
     return f"{impact}{urgency}"
 
 
-def render_2plus1(repo_state, label_map) -> list:
+def render_2plus1(repo_state, plain_color_labels=None) -> list:
     """Render today's 2+1 focus cards. Source: today's daily-focus row + tasks.ndjson."""
+    plain_color_labels = plain_color_labels or {}
     today = _today_mt()
     focus = next((r for r in repo_state.get("daily_focus", []) if r.get("date") == today), None)
     if not focus:
@@ -602,15 +587,16 @@ def render_2plus1(repo_state, label_map) -> list:
             list_name="✅ 2+1",
             name=formatted_name,
             body="\n".join(body_lines),
-            label_names=[tier] if tier in label_map else [],
+            label_names=_priority_plain_label(tier, plain_color_labels),
             due=_deadline_to_due(t.get("deadline")),
             due_complete=None,
         ))
     return cards
 
 
-def render_actions(repo_state, label_map, exclude_2plus1_ids=None) -> list:
+def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
     """Render all open tasks except those in today's 2+1."""
+    plain_color_labels = plain_color_labels or {}
     exclude = set(exclude_2plus1_ids or [])
     cards = []
     for t in repo_state.get("tasks", []):
@@ -638,7 +624,7 @@ def render_actions(repo_state, label_map, exclude_2plus1_ids=None) -> list:
             list_name="✅ Actions",
             name=formatted_name,
             body="\n".join(body_lines),
-            label_names=[tier] if tier in label_map else [],
+            label_names=_priority_plain_label(tier, plain_color_labels),
             due=_deadline_to_due(t.get("deadline")),
             due_complete=None,
         ))
@@ -954,22 +940,17 @@ def render_calendar(events, filters) -> list:
 def render_email(messages, plain_color_labels=None) -> list:
     """Render ALL priority email messages (AA-CC), prefixed with [tier] for
     alphabetical sorting. If plain_color_labels is provided, attach a plain-color
-    label keyed to the tier (AA=red, AB=orange, AC=yellow, BA=pink, BB=sky,
-    BC=lime, CA=purple, CB=blue, CC=green)."""
+    label keyed to the tier's priority bucket (5 colors via TIER_PRIORITY_COLOR)."""
     plain_color_labels = plain_color_labels or {}
-    valid_tiers = set(EMAIL_TIER_COLORS.keys())
     cards = []
     for msg in messages:
         tier = msg.get("tier")
-        if not tier or tier not in valid_tiers:
+        if not tier or tier not in TIER_PRIORITY_COLOR:
             continue
         subject = msg.get("subject") or "(no subject)"
         sender = msg.get("from") or "?"
         snippet = (msg.get("snippet") or "").replace("\n", " ").strip()[:140]
-        color = EMAIL_TIER_COLORS[tier]
-        label_names = []
-        if color in plain_color_labels:
-            label_names = [f"_plain:{color}"]
+        label_names = _priority_plain_label(tier, plain_color_labels)
         tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
         email_title = (f"{tier_emoji} [{tier}] {subject}" if tier_emoji else f"[{tier}] {subject}")[:200]
         cards.append(Card(
@@ -1209,29 +1190,27 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
 
     print("🔧 Reconciling lists and labels...")
     list_map = ensure_lists(api_key, token, board_id, ALL_LIST_NAMES)
-    label_map = ensure_priority_labels(api_key, token, board_id)
-    # Plain (unnamed) color labels for Areas (life-wheel coloring) + Email tiers.
+    # All labels are plain (unnamed) Trello labels: 5 priority colors for tier
+    # cards (tasks/projects/2+1/email) + life-wheel colors for area cards.
     needed_colors = sorted(set(
-        [c for _, c in LIFEWHEEL_COLOR_BUCKETS]
-        + list(EMAIL_TIER_COLORS.values())
+        list(PRIORITY_COLORS)
+        + [c for _, c in LIFEWHEEL_COLOR_BUCKETS]
     ))
     plain_color_label_map = ensure_plain_color_labels(api_key, token, board_id, needed_colors)
     # Card.label_names uses synthetic keys '_plain:<color>' for plain labels.
     plain_label_name_to_id = {f"_plain:{color}": lid for color, lid in plain_color_label_map.items()}
-    # Combined map for the apply engine (named priority + plain color).
-    combined_label_name_to_id = {**label_map, **plain_label_name_to_id}
 
     print("🎨 Rendering desired card sets...")
-    twoplus1 = render_2plus1(state, label_map)
+    twoplus1 = render_2plus1(state, plain_color_labels=plain_color_label_map)
     today_focus_ids = {c.pfc_id for c in twoplus1}
 
     desired = []
     desired += render_values(state)
     desired += render_areas(state, plain_color_labels=plain_color_label_map)
     desired += render_visions(state)
-    desired += render_projects(state, label_map)
+    desired += render_projects(state, plain_color_labels=plain_color_label_map)
     desired += twoplus1
-    desired += render_actions(state, label_map, exclude_2plus1_ids=today_focus_ids)
+    desired += render_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
     desired += render_daily_habits(state)
     desired += render_monthly_habits(state)
     # Life Wheel list: no longer rendered. Existing cards in that list will be
@@ -1260,8 +1239,8 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
     print(f"   {len(desired)} desired cards across {len(set(c.list_name for c in desired))} lists")
 
     print("🔍 Fetching current Trello state...")
-    # Combined id→name map: priority labels by name, plain labels by '_plain:<color>'.
-    label_id_to_name = {v: k for k, v in combined_label_name_to_id.items()}
+    # id→name map: plain labels keyed as '_plain:<color>'.
+    label_id_to_name = {v: k for k, v in plain_label_name_to_id.items()}
     current = fetch_current_state(api_key, token, board_id, list_map, label_id_to_name, exclude_lists=excluded_lists)
     print(f"   {len(current)} current cards on dashboard (excluding {sorted(excluded_lists)})")
 
@@ -1269,9 +1248,9 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
     print(f"📐 Diff: {len(ops['creates'])} creates, {len(ops['updates'])} updates, {len(ops['archives'])} archives")
 
     print("✏️  Applying creates...")
-    apply_creates(api_key, token, ops["creates"], list_map, combined_label_name_to_id)
+    apply_creates(api_key, token, ops["creates"], list_map, plain_label_name_to_id)
     print("✏️  Applying updates...")
-    apply_updates(api_key, token, ops["updates"], list_map, combined_label_name_to_id)
+    apply_updates(api_key, token, ops["updates"], list_map, plain_label_name_to_id)
     print("✏️  Applying archives...")
     apply_archives(api_key, token, ops["archives"])
 

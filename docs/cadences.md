@@ -10,6 +10,7 @@ How and when the productivity system is used. These cadences keep you grounded, 
 | Day tracking | End of day | Rate the day 1-5, log supplements/variables, note observations |
 | Habit logging | Throughout day | Log daily habit completions as they happen |
 | Insight capture | Throughout day | Capture observations / noticings via `/pfc-add-insight`. Lower bar than findings. |
+| Revive watchlist | Surfaced in morning check-in Step 5b2 | `pfc-revive` lists slipped tasks/projects (velocity 🔴, 0 parts ≥14d, open task ≥30d, high-impact ≥7d, 2+1 carry ≥3d, no activity ≥10d). Optional inline walk. |
 
 ## Weekly
 
@@ -19,6 +20,7 @@ How and when the productivity system is used. These cadences keep you grounded, 
 | Stale task triage | During weekly check-in | Identify tasks that have been open for 2+ weeks. For each: eliminate it (was it ever important?), break it down smaller (overwhelm barrier?), or re-prioritize it. ADHD-aware — if a task keeps getting skipped, the problem is usually the task definition, not motivation. |
 | Insights triage | During weekly check-in | Surface this week's active insights (`data/insights.ndjson`). For each: keep / archive / graduate to a task, project, or habit. |
 | Findings Alignment Check | During weekly check-in | Cross-reference active findings (`data/findings.ndjson`) against values, projects, habits, and last week's day-tracking for conflicts. Consider superseding any finding that life has moved past. |
+| Revive walk | During weekly check-in, after stale-task triage | Run `/pfc-revive` and walk the full watchlist one-by-one — multi-select diagnostic + tailored intervention for each slipped item. |
 
 ## Monthly
 
@@ -31,6 +33,7 @@ How and when the productivity system is used. These cadences keep you grounded, 
 | Monthly habit review | → part of monthly check-in | Check monthly habit completion rates vs. target frequency. Adjust habits if needed. |
 | Monthly insights review | → part of monthly check-in | Review last 30 days of active insights via `/pfc-insights` (Monthly mode). Triage each: keep / archive / graduate. Look for patterns across captures. |
 | Trend analysis | → part of monthly check-in | Analyze day tracking data for patterns. What correlates with 5-star days? What predicts 1-2 star days? Cross-reference with your wearable, habits, and check-in data. Also runs as part of the yearly check-in. |
+| Revive outcome review | → part of monthly check-in | Run `/pfc-revive --review-outcomes` to update outcomes on revive rows ≥30 days old (revived / still stuck / exited). |
 
 ## Yearly
 

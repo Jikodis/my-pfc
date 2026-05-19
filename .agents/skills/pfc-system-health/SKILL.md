@@ -104,6 +104,18 @@ OVERDUE=$(jq -r --arg c "$CUTOFF_7D" \
 echo "overdue_tasks:$(echo "$OVERDUE" | grep -c . 2>/dev/null || echo 0)"
 [ -n "$OVERDUE" ] && echo "$OVERDUE"
 
+echo "=== REVIVE WATCHLIST ==="
+# Slippage signals across tasks, projects, and habits.
+# Helper exits non-zero on real bug; zero with a JSON array (possibly empty) otherwise.
+REVIVE_OUT=$(python3 automations/scripts/revive_watchlist.py --today "$TODAY" 2>&1)
+REVIVE_RC=$?
+if [ "$REVIVE_RC" -ne 0 ]; then
+  echo "revive_watchlist:error:$REVIVE_OUT"
+else
+  REVIVE_COUNT=$(echo "$REVIVE_OUT" | jq 'length' 2>/dev/null || echo "parse-error")
+  echo "revive_watchlist_count:$REVIVE_COUNT"
+fi
+
 echo "=== CADENCES ==="
 REVIEW_LAST=$(ls notes/weekly/*.md 2>/dev/null | grep -v '\.gitkeep' | sort | tail -1 | sed -E 's|notes/weekly/||; s|\.md$||')
 echo "weekly_review_last:${REVIEW_LAST:-never}"
@@ -228,6 +240,7 @@ Use this table to determine status for each result:
 | Phantom task dates | 0 tasks | 1–3 tasks | > 3 tasks |
 | Task volume | < 150 lines | 150–199 lines | ≥ 200 lines |
 | Overdue tasks | 0 tasks | 1–2 tasks | 3+ tasks |
+| Revive watchlist freshness | exit 0, 0 items ("Nothing slipping right now.") | exit 0, 1–5 items ("Some slippage — walk via `/pfc-revive` when convenient.") | exit non-zero (real bug — surface stderr), OR exit 0 with ≥ 6 items ("Heavy slippage — triage thresholds may need adjustment, or batch through `/pfc-revive` now.") |
 | Weekly review | last ≤ 8d ago | last 9–14d ago | never or > 14d |
 | Monthly checkin note | note exists for last month, OR day-of-month ≤ 15 | note missing and day-of-month > 15 | — |
 | Yearly checkin note | note exists for last year, OR not yet Feb 15 of current year | note missing and current date ≥ Feb 15 | — |
@@ -350,6 +363,9 @@ This turns audit data into an actionable suggestion rather than a flat report. D
 | Phantom task dates | Ask Claude to strip completed field from open tasks |
 | Task volume near threshold | Ask Claude to archive completed tasks |
 | Overdue tasks | Review each: complete, reschedule, or delete |
+| Revive watchlist — 1–5 items slipping | Run `/pfc-revive` when convenient to walk the watchlist and triage each item |
+| Revive watchlist — ≥ 6 items slipping | Batch through `/pfc-revive` now, or revisit the signal thresholds in `automations/scripts/revive_watchlist.py` if the volume looks systemic rather than real slippage |
+| Revive watchlist — helper errored | Capture stderr and investigate `automations/scripts/revive_watchlist.py` — real bug, not a data issue |
 | No weekly review | Run /pfc-weekly-checkin |
 | Monthly checkin note missing (past mid-month) | Run /pfc-monthly-checkin — note should exist for last month by the 15th of the new month |
 | Yearly checkin note missing (past Feb 15) | Run /pfc-yearly-checkin — note should exist for last year by Feb 15 of the new year |

@@ -54,6 +54,8 @@ Same shape as `tasks.ndjson`. Done tasks are moved here at weekly check-in (or w
 - `event_id` — optional `evt-YYYYMMDD-NNN` for the event record itself
 - `source` — optional origin
 
+**Legacy schema drift (pre-2026-05-18):** historical rows in this file may use older field names — `id` (instead of `task_id`) and/or `ts` / `date` (instead of `timestamp`). Readers should accept both forms: `task_id` falls back to `id`, `timestamp` falls back to `ts` then `date`. New writers MUST use the canonical names above. The slippage detector at `automations/scripts/revive_watchlist.py` (`load_events`) is the reference reader implementation — it normalizes the aliases on read and silently skips rows that have no usable task linkage under any field name. Do not backfill the legacy rows in place; the schema-fault is a known historical artifact, and rewriting append-only audit history is worse than tolerating it.
+
 ### `4-projects/_data/projects.ndjson`
 
 Registry of short-term projects (max 3 active — see [CLAUDE.md](../CLAUDE.md)).
@@ -251,6 +253,7 @@ Fields:
 - [`config/finding_schema.yaml`](../config/finding_schema.yaml) — finding record schema (enforced by `scripts/validate.sh`)
 - [`config/insight_schema.yaml`](../config/insight_schema.yaml) — insight record schema (enforced by `scripts/validate.sh`)
 - [`config/supplement_schema.yaml`](../config/supplement_schema.yaml) — supplement record schema (enforced by `scripts/validate.sh`)
+- [`config/onboarding_schema.yaml`](../config/onboarding_schema.yaml) — schema for the append-only onboarding event log at `config/onboarding.ndjson` (one record per `{feature, status, date}` event, where `status` is `introduced`/`tried`/`dismissed`; most-recent event wins). Enforced by `scripts/validate.sh` § 12. Drives the `/pfc-onboarding` skill's feature-coverage tracking.
 - `config/automation_config.yaml` — thresholds and (future) schedule settings; `task_archive_threshold` mirrors the 200-line rule referenced in CLAUDE.md
 - `config/persona.yaml` — single field `active: <persona-id>` (or `none`). Selects the assistant's voice overlay. Switched via `/pfc-persona`. Validator confirms `active` resolves to a section in `personas.md`.
 - `config/personas.md` — registry of available personas. Each persona is a `## <id>` markdown section with **Vibe**, **Voice rules**, and **Sample**. Injected at session start by `scripts/hook-session-date.sh`.
