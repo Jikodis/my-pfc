@@ -107,8 +107,8 @@ For continuous auto-fetch:
 
 - **Local with cron:** add a twice-daily job around 8 AM and 10:30 PM local time (the defaults below; edit to suit your sleep schedule):
   ```
-  0 8,22 * * * cd /path/to/modular-pfc && /usr/bin/python3 automations/scripts/auto_log_habits.py >> /tmp/pfc-habit-autolog.log 2>&1
-  30 22 * * * cd /path/to/modular-pfc && /usr/bin/python3 automations/scripts/auto_fetch_health.py >> /tmp/pfc-fetch-health.log 2>&1
+  0 8,22 * * * cd /path/to/your/pfc && /usr/bin/python3 automations/scripts/auto_log_habits.py >> /tmp/pfc-habit-autolog.log 2>&1
+  30 22 * * * cd /path/to/your/pfc && /usr/bin/python3 automations/scripts/auto_fetch_health.py >> /tmp/pfc-fetch-health.log 2>&1
   ```
 - **VPS with systemd:** see [`docs/install/vps.md`](vps.md). The `automations/systemd/install.sh` script wires up `pfc-habit-autolog.timer`.
 

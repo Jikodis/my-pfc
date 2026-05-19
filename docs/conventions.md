@@ -42,7 +42,6 @@ See CLAUDE.md "Commit message conventions" for the canonical list. Summary:
 - `report: generate monthly check-in`
 - `report: generate yearly check-in`
 - `system: [description of structural change]`
-- `personal: [description]` — for structural changes that intentionally stay maintainer-only and must NOT propagate to the public template. `/pfc-update-template` skips these commits entirely (no diff inspection, no PR proposal). Use when a change touches template-eligible files (skills, automations, schemas, docs) but is bespoke to this fork.
 
 ## Dates
 

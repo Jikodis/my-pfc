@@ -5,7 +5,7 @@ description: Introduce PFC system features one at a time. Use when the user says
 
 # PFC Onboarding
 
-Walk new users through the system one feature at a time. This skill covers the full feature catalog (33 features across 9 categories). State persists across sessions in `config/onboarding.ndjson`.
+Walk new users through the system one feature at a time. This skill covers the full feature catalog (41 features across 9 categories). State persists across sessions in `config/onboarding.ndjson`.
 
 ---
 
@@ -54,7 +54,7 @@ When appending a `tried` event, always append it immediately after the user comp
 
 ## Step 3: Feature catalog
 
-39 features across 9 categories. Auth-gated features require external service setup before the lesson can proceed.
+41 features across 9 categories. Auth-gated features require external service setup before the lesson can proceed.
 
 | Category | Feature key | Description | Auth-gated? |
 |---|---|---|---|
@@ -82,6 +82,7 @@ When appending a `tried` event, always append it immediately after the user comp
 | reviews | reviews/weekly-checkin | Sunday 30-min retro | No |
 | reviews | reviews/monthly-checkin | First-of-month deeper review | No |
 | reviews | reviews/yearly-checkin | Annual reflection | No |
+| reviews | reviews/revive | Detect and revive stalled tasks and projects | No |
 | areas | areas/areas | Life-area folder structure | No |
 | areas | areas/area-statements | Write what each area means to you | No |
 | areas | areas/second-brain | Drop docs into 2-areas/<area>/ | No |
@@ -97,6 +98,7 @@ When appending a `tried` event, always append it immediately after the user comp
 | meta | meta/core-psychology | Deep neuropsych / EF / alexithymia reference (`0-me/core-psychology.md`) | No |
 | meta | meta/working-with-me | Collaboration profile (interview) | No |
 | meta | meta/system-is-editable | How to ask the system to change itself | No |
+| meta | meta/pull-template-updates | Pull upstream template changes into your fork | No |
 
 ---
 
@@ -407,6 +409,30 @@ Auth-gated — requires Google Health setup. See `docs/install/connectors.md`. *
 <!-- TODO: full lesson content -->
 
 **Try it now:** `/pfc-yearly-checkin` | **Skip:** `/pfc-onboarding skip reviews/yearly-checkin`
+
+---
+
+### Lesson: reviews/revive
+
+**What it is**
+A diagnostic skill that finds stalled work and walks you through a structured revival. It scans for six signals — projects with no measurable velocity, projects sitting at zero parts completed for ≥14 days, open tasks older than 30 days, high-impact open tasks older than 7 days, tasks that have been in the 2+1 for ≥3 days without completing, and active projects with no activity in the event log for ≥10 days. For each stalled item, it asks why (using a multi-select diagnostic across seven frameworks: initiation deficit, missing implementation intention, external dependency, low salience, delay discounting, behavioral-activation drift, or the honest answer that it's time to drop the work) and proposes a tailored intervention. Outcomes are appended to `data/revive-events.ndjson` so the pattern of what works for you compounds over time.
+
+**Why use it**
+Stalled work is the most expensive state in any productivity system because it taxes you without producing anything. Asking "what should I do next?" reaches for the easiest item; asking "what's stalled and why?" reaches for the item your system already failed once. Revive is automatically suggested from the morning check-in (Step 5b2) and built into the weekly check-in, but it's also worth running standalone when you feel the drag of unfinished work without being able to name it.
+
+**Try it now**
+Run the revive walk. If nothing is stalled by the watchlist thresholds, the skill will say so and exit — that's a healthy outcome.
+
+```
+/pfc-revive
+```
+
+After 30 days, `/pfc-revive --review-outcomes` shows which past interventions worked.
+
+*(After user runs the walk or says they understand, append `tried` event for `reviews/revive`.)*
+
+**Skip / dismiss**
+`/pfc-onboarding skip reviews/revive`
 
 ---
 
@@ -898,6 +924,28 @@ Example: "When I add a task, also ask me what time of day is best for it. Add th
 
 **Skip / dismiss**
 `/pfc-onboarding skip meta/system-is-editable`
+
+---
+
+### Lesson: meta/pull-template-updates
+
+**What it is**
+Your fork of the PFC template will drift from upstream over time as new skills, refinements, and bug fixes ship. `/pfc-pull-template-updates` is the skill that pulls those upstream changes into your fork without clobbering your customizations. It reads upstream commits, surfaces what's new, and lets you merge selectively. Skip changes you've already diverged from; accept the ones you want.
+
+**Why use it**
+Most people fork a template, customize it, and then never pull updates because merging hand-edited skills is painful. This skill exists so you can stay on the upstream cadence (new features, fixed bugs, evolved conventions) while keeping the personal edits you've made. The longer you defer, the harder the merge — running it every few weeks is the cheap path.
+
+**Try it now**
+```
+/pfc-pull-template-updates
+```
+
+The skill will show you what's available, ask which items to bring in, and stage the merge as a branch + draft PR you can review before merging to `main`.
+
+*(After user runs it or says they understand the flow, append `tried` event for `meta/pull-template-updates`.)*
+
+**Skip / dismiss**
+`/pfc-onboarding skip meta/pull-template-updates`
 
 ---
 
