@@ -120,73 +120,20 @@ Convention: each VAVPAH-numbered folder uses a `_data/` subfolder for structured
 
 Connections between values, areas, visions, projects, actions, and habits happen naturally. Do not over-formalize the links.
 
-## Task operations
+### Per-subtree instructions (nested AGENTS.md)
 
-**Tasks** (`5-actions/_data/tasks.ndjson`) — all tasks, both strategic and operational:
-- Fields: id, status, description, size, location, impact, urgency, project, deadline, created, completed, source
-- ID format: `task-YYYYMMDD-NNN`
+Folder-scoped operational rules live in nested `AGENTS.md` files. Claude Code's autoloader walks up the directory tree and loads every `CLAUDE.md` along the way; each subtree has a one-line `CLAUDE.md` shim that `@`-imports the local `AGENTS.md` (Claude Code does not auto-load `AGENTS.md` by name — the shim is what surfaces the content). Root-level context is never lost on subtree loads. Consult the local `AGENTS.md` when working in a subtree:
 
-**NEVER read entire task files into context.** Use `jq` for all NDJSON reads and writes — never string concatenation, `echo >>` raw JSON, or `sed` for structured edits. This ensures correct escaping, types, and formatting.
+| Subtree | Loader | Content | Covers |
+|---|---|---|---|
+| `4-projects/` | [`CLAUDE.md`](4-projects/CLAUDE.md) → | [`AGENTS.md`](4-projects/AGENTS.md) | Project schema, velocity calc, daily project status, vision linkage, `pfc-revive` slippage |
+| `5-actions/` | [`CLAUDE.md`](5-actions/CLAUDE.md) → | [`AGENTS.md`](5-actions/AGENTS.md) | Task ops + `jq` patterns, archival policy, daily focus 2+1, task breakdown, slippage pointer |
+| `6-habits/` | [`CLAUDE.md`](6-habits/CLAUDE.md) → | [`AGENTS.md`](6-habits/AGENTS.md) | Habit tracking, auto-log rule, missed-logging ≠ missed-habit, append pattern |
+| `data/` | [`CLAUDE.md`](data/CLAUDE.md) → | [`AGENTS.md`](data/AGENTS.md) | Supplements, insights / hypotheses / findings, graduation flow |
 
-**Querying:**
-```bash
-jq -c 'select(.status == "open" and .urgency == "high")' 5-actions/_data/tasks.ndjson
-jq -c 'select(.id == "task-20260412-001")' 5-actions/_data/tasks.ndjson
-```
+When adding a new subtree with operational rules, create both files: a single-line `<subtree>/CLAUDE.md` containing `@AGENTS.md`, and the `<subtree>/AGENTS.md` with the actual content.
 
-**Appending a new record:**
-```bash
-jq -cn '{id:"task-YYYYMMDD-NNN", status:"open", description:"...", ...}' >> 5-actions/_data/tasks.ndjson
-```
-
-**Updating a record in place:**
-```bash
-jq -c 'if .id == "task-YYYYMMDD-NNN" then .status = "done" | .completed = "YYYY-MM-DD" else . end' 5-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/tasks.ndjson
-```
-
-**Multiple field updates:**
-```bash
-jq -c 'if .id == "X" then . + {status:"done", completed:"YYYY-MM-DD"} else . end' 5-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/tasks.ndjson
-```
-
-All tasks go to `5-actions/_data/tasks.ndjson`. For operational items without clear impact/urgency, default to `medium` / `low`.
-
-When completing a task, search `5-actions/_data/tasks.ndjson`. Update status to `"done"` and add `"completed"` date. Archive completed tasks during weekly check-in or when file exceeds ~200 lines. Only completed ("done") tasks are archived. **Audits do not archive.** `pfc-repo-maintenance`, `pfc-system-health`, and ad-hoc audits report done-task counts informationally only — they never propose archival, even when the file crosses the 200-line threshold. Archival is batched at weekly check-in so the live file stays coherent as a "recent working set."
-
-Always log task lifecycle events to `5-actions/_data/task_events.ndjson` (append-only).
-
-## Supplements & medications
-
-Baseline daily registry lives in `data/supplements.ndjson`. Schema: `config/supplement_schema.yaml`. A supplement is "active on date D" iff `started <= D AND (stopped is null OR stopped > D)` — `started` inclusive, `stopped` exclusive. Dose changes are stop + add, never in-place edits of `dose`. Use `pfc-supplement` to add, stop, or list.
-
-## Daily focus — 2+1 (+ optional project slot)
-
-Each morning, pick 3 deliberate tasks plus an optional 4th:
-- **2 critical items** — most important things to accomplish
-- **1 bonus task** — stretch item if time and energy allow
-- **(optional) 1 project task** — a 4th slot reserved for a pre-planned active-project task
-
-Logged in `5-actions/_data/daily-focus.ndjson` under `critical` (2 ids), `bonus` (1 id), and optionally `project` (1 id).
-
-**Project tasks live outside the 2+1.** A task with `project != "none"` is pre-planned work; it should NOT compete with standalone tasks for the 2 critical slots. Reserving the 4th slot for an active-project task makes that work visible in the daily flow without crowding the standalone 2+1. Just because a project task isn't in the 2+1 doesn't mean it isn't important — project work is run on its own deadline cadence and surfaced via the project status block (below), not via 2+1 prioritization.
-
-**Daily project status — surface active projects in morning + evening.** `pfc-morning-checkin` and `pfc-evening-checkin` must show, for each active project: name, completion %, today's project task (if any), estimated completion date based on observed velocity (see below), and an OK/WARN flag if velocity slipped past the project deadline. Goal: keep multiple active projects in view daily so the user can shift effort instead of rediscovering drift at weekly check-in.
-
-**Project velocity.** For each active project, compute completion velocity from `completed_parts` and elapsed time since `started`:
-- `parts_per_day = completed_parts / max(1, days_elapsed_since_started)`
-- `remaining_days = (total_parts - completed_parts) / parts_per_day` (skip if `parts_per_day == 0`)
-- `estimated_completion = today + remaining_days`
-- Compare against project `deadline`: 🟢 on track · 🟡 within 7 days late · 🔴 >7 days late
-
-Show this in `pfc-summarize-project`, `pfc-status`, `pfc-daily-summary`, `pfc-morning-checkin`, and `pfc-evening-checkin`. The user uses velocity to know when to speed up or slow down — do NOT pre-schedule 30 calendar events for a project to "lock in" the pace; life gets in the way and the calendar churn is wasted work. Velocity is the steering wheel, not the cement.
-
-## Habit tracking
-
-- **Daily habits** (`6-habits/_data/habits-daily.ndjson`): max 5 tracked, frequency 1-7 per week
-- **Monthly habits** (`6-habits/_data/habits-monthly.ndjson`): max 5 tracked, frequency 1-4 per month
-- Definitions in `config/habit_schema.yaml`
-- **Never prompt for auto-logged habits.** Any habit with an `auto_log:` block in `habit_schema.yaml` (e.g. `active-zone-minutes`, sleep fields) is fetched by automation (typically `automations/scripts/auto_fetch_health.py` via Google Health). Skip these in every ask-loop — evening check-in, morning focus, log-habit, daily summary. If today's auto-fetch hasn't populated yet, leave the habit blank; the automation will backfill.
-- **Missed logging is not the same as a missed habit.** During an active check-in, ask what the user DID do — don't enumerate yes/no for each habit. List unlogged manual habits in one prompt ("Which of these did you do?") and log positives; anything unmentioned **in that active check-in** logs as `completed: false`. **If no check-in happened that day, leave entries absent — do NOT backfill `completed: false` after the fact.** Absence of a log entry means "not logged," not "habit missed." Health, stats, and review skills must distinguish the two: a logging gap is a system-hygiene signal (prompt to log), not evidence the user failed a habit.
+If a rule applies cross-cutting (e.g. dates, commits, response style, calendar scheduling), it stays in this root file. If it applies only when working in a subtree, it lives in that subtree's `AGENTS.md`.
 
 ## Commit policy
 
@@ -363,28 +310,6 @@ When creating a new project or habit, always ask for area and values if not prov
 
 The weekly check-in runs a Values Alignment Check — see `pfc-weekly-checkin` skill. For standalone strategic tasks (tasks.ndjson, no project assigned), ask which area they serve.
 
-## Project breakdown & percentage tracking
-
-Projects have `total_parts` and `completed_parts` fields. Completion % = completed / total. See `pfc-summarize-project` skill for breakdown workflow.
-
-## Task breakdown
-
-Any time a task feels too big, offer to break it down into 15-minute chunks. ADHD context: overwhelm often prevents starting — the problem is usually the task definition, not motivation. See `pfc-pick-tasks` skill for stale task triage during reviews.
-
-## Hypotheses, insights, and findings
-
-Three stores, in order of bar:
-
-- **Insights** (`data/insights.ndjson`) — personal observations / noticings / revelations. Captured freely throughout the week via `/pfc-add-insight`. Lower bar than a finding. Reviewed weekly + monthly via `/pfc-insights`. May graduate into a task, project, or habit (status → `graduated`, `graduated_to` set).
-- **Hypotheses** (`data/hypotheses.ndjson`) — experiments to run. Track patterns to test against data.
-- **Findings** (`data/findings.ndjson`) — durable, hard-won insights. Added rarely. A hypothesis graduates to a finding when supporting data meets the bar: n ≥ 30, |r| ≥ 0.3, p < 0.01. Findings may also be added manually from life experience (`source: "experience"`).
-
-See `docs/data-model.md` for full schemas, graduation flows, and the weekly Findings Alignment Check.
-
-## Slippage intervention — pfc-revive
-
-A slipped item is a task or project that's lost momentum: project velocity 🔴, project at 0 parts for ≥14 days, open task ≥30 days, high-impact open task ≥7 days, same task carried in 2+1 ≥3 days without completion, or active project with no `task_event` activity for ≥10 days. The `pfc-revive` skill detects these via `automations/scripts/revive_watchlist.py`, walks each item with a multi-select diagnostic (Initiation / Implementation intention / Dependency / Salience / Delay discounting / Behavioral activation / Honest exit), and brainstorms a tailored intervention. Surfaces in morning check-in (Step 5b2) and weekly check-in. Always available as `/pfc-revive`. Outcomes are reviewed 30 days later via `/pfc-revive --review-outcomes`. Distinct from `pfc-stuck` (body-state).
-
 ## System changes — update audit skills
 
 Any change to system machinery (schemas, data files, skill structure, config, workflows) must include a corresponding update to the audit skills:
@@ -436,14 +361,3 @@ Optional voice/character overlay for the assistant. Active persona stored in `co
 **No new mental models.** Personas may change voice (catchphrases, diction, rhythm, metaphorical flavor), but **must not introduce new taxonomies, classifications, or renamings on top of the productivity system** — no fictional or game-world taxonomy on tasks, no "Primary / Secondary / Contingency" focus numbering, no renaming of existing artifacts (`task`, `project`, `habit`, `focus`, `area`). The user already has `impact` / `urgency` / `size` / `area`; a persona doesn't get to layer a parallel taxonomy on top. If a persona feels "hard to follow," strip the classification/renaming layer first, keep the voice. The Solo Leveling System persona is the carved-out exception — it opts into the full game-UI frame deliberately.
 
 A game-UI persona may opt into the full bracketed-window frame (`[QUEST RECEIVED]`, `[DAILY QUEST COMPLETE]`, etc.). No prose. No XP ledger maintained — purely flavor.
-
-## Browser Automation
-
-Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
-
-Core workflow:
-
-1. `agent-browser open <url>` - Navigate to page
-2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
-3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
-4. Re-snapshot after page changes

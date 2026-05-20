@@ -136,7 +136,8 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
      # -rnE (no -h): keep filenames so the superpowers/ filter actually fires.
      grep -rnE '\b(data|config|0-me|1-values|2-areas|3-visions|4-projects|5-actions|6-habits|notes|goals|automations)/[A-Za-z0-9_.-]+' \
        --include='*.md' \
-       CLAUDE.md README.md docs/ 0-me/ 1-values/ \
+       CLAUDE.md AGENTS.md README.md docs/ 0-me/ 1-values/ \
+       4-projects/AGENTS.md 5-actions/AGENTS.md 6-habits/AGENTS.md data/AGENTS.md \
        | grep -vE '^docs/superpowers/' \
        | grep -oE '\b(data|config|0-me|1-values|2-areas|3-visions|4-projects|5-actions|6-habits|notes|goals|automations)/[A-Za-z0-9_./-]+' \
        | grep -vE 'YYYY|MM|NN|/\.[a-z_]+\.tmp$|XX|<area>|<slug>|<area-folder-name>' \
@@ -147,7 +148,8 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
    - **Tool-usage contradictions** — CLAUDE.md forbids certain tools on structured data. Grep secondary docs for the forbidden forms:
      ```bash
      grep -rnE 'via sed|sed.*ndjson|echo.*>>.*\.ndjson|sed -i.*ndjson' \
-       --include='*.md' docs/ CLAUDE.md 0-me/ 1-values/ README.md \
+       --include='*.md' docs/ CLAUDE.md AGENTS.md 0-me/ 1-values/ README.md \
+       4-projects/AGENTS.md 5-actions/AGENTS.md 6-habits/AGENTS.md data/AGENTS.md \
        | grep -vE '^docs/superpowers/|forbidden|never|do not|no raw'
      ```
      Preferred form for any NDJSON edit is `jq` with a temp file. Flag any remaining recommendation of `sed`, `awk -i`, `echo >>`, or raw `>>` appends targeting NDJSON.
@@ -175,7 +177,8 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
      # Build a regex from the Old column of the table above, then:
      # grep -rnE "<old1>|<old2>|..." \
      #   --include='*.md' \
-     #   CLAUDE.md README.md docs/ 0-me/ 1-values/ 2-areas/ .agents/skills/
+     #   CLAUDE.md AGENTS.md README.md docs/ 0-me/ 1-values/ 2-areas/ .agents/skills/ \
+     #   4-projects/AGENTS.md 5-actions/AGENTS.md 6-habits/AGENTS.md data/AGENTS.md
      ```
 
      Track vocab migrations here so audits catch stale references.
