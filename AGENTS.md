@@ -61,6 +61,7 @@ Long-form reference with examples and the interview "why" lives in [`0-me/workin
 - **Default: act first, show diff, give a short prose explanation.** The user won't read the full diff; the prose is what tells them what changed.
 - **"Yes" is approval for the pattern**, not just the instance. Use judgment when the case is clearly instance-only.
 - **No special ask-categories.** No file, person, or time-of-day where you must ask before acting.
+- **Default-fix-now for small in-scope concerns.** When you surface a non-blocking concern while working — typo, stale reference, obvious cleanup adjacent to what was already touched, drift in a file you're already editing — just fix it (small, in-scope changes) and tell the user what you did. Don't ask "want me to fix this now or later?" — later usually means forgotten. Save the ask for blocking, risky, or destructive actions (structural changes, deletes, anything that loses work or expands scope materially).
 - **Structural changes still ask first** — same as the commit policy.
 
 ### State adaptation
