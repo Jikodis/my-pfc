@@ -15,6 +15,12 @@ Folder-scoped operational rules for any agent reading or writing in `data/`. Cro
 
 Schemas: `config/{insight,hypothesis,finding,supplement}_schema.yaml`.
 
+## Three stores, in order of bar
+
+- **Insights** (`insights.ndjson`) — personal observations / noticings / revelations. Captured freely throughout the week via `/pfc-add-insight`. Lower bar than a finding. Reviewed weekly + monthly via `/pfc-insights`. May graduate into a task, project, or habit (status → `graduated`, `graduated_to` set).
+- **Hypotheses** (`hypotheses.ndjson`) — experiments to run. Track patterns to test against data.
+- **Findings** (`findings.ndjson`) — durable, hard-won insights. Added rarely. A hypothesis graduates to a finding when supporting data meets the bar: n ≥ 30, |r| ≥ 0.3, p < 0.01. Findings may also be added manually from life experience (`source: "experience"`).
+
 ## Hard rules
 
 1. **All structured writes go through `jq`.** Same rule as everywhere else.
