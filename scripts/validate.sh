@@ -396,6 +396,7 @@ if [ -s "$SUPP" ]; then
       (.times | type != "array") or
       ((.times // []) | length == 0) or
       ((.times // []) - ["morning","afternoon","evening","bedtime","with meals"] | length > 0) or
+      ((.food_requirement // null) != null and ([.food_requirement] | inside(["empty_stomach","with_food","with_fat","either"]) | not)) or
       ([.status] | inside(["active","stopped"]) | not) or
       ((.started // "") == "") or
       (.status == "active"  and (.stopped // null) != null) or

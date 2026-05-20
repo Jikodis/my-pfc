@@ -1,6 +1,6 @@
 ---
 name: pfc-supplement
-description: Add, stop, or list daily supplements and medications in the baseline registry. Use when the user says "I started taking X", "add supplement", "stop taking X", "discontinue Y", "show my supplements", "current regimen", "list my medications", or similar.
+description: Add, stop, list, or assess daily supplements and medications in the baseline registry. Use when the user says "I started taking X", "add supplement", "stop taking X", "discontinue Y", "show my supplements", "current regimen", "list my medications", "assess my supplements", "check my dosing", "review my regimen", "audit my stack", or similar.
 ---
 
 # Supplement Registry
@@ -13,11 +13,12 @@ Schema: `config/supplement_schema.yaml`. Date-range semantics: a supplement is a
 
 ## Intents
 
-Parse the user's request into one of three intents:
+Parse the user's request into one of four intents:
 
 - **add** — phrases like "I started taking X", "add supplement Y", "new medication Z", "put X on the list"
 - **stop** — phrases like "I stopped X", "discontinue Y", "took X off the list", "off Z now"
 - **list** — phrases like "show my supplements", "current regimen", "what am I taking", "list my medications"
+- **assess** — phrases like "assess my supplements", "check my dosing", "review my regimen", "audit my stack", "are my supplements right", "is this dose right for X"
 
 Dose-change requests ("I switched from `2000 IU` to `5000 IU` on <supplement-name>") are a compound **stop + add**. Confirm with the user, then execute the two operations as separate records.
 
@@ -31,15 +32,15 @@ Gather fields, confirming defaults inline rather than interrogating one at a tim
 2. `type` — `supplement` or `medication` (infer from context; confirm if unclear)
 3. `dose` — free text; ask only if the user did not state it
 4. `times` — one or more of `morning`, `afternoon`, `evening`, `bedtime`, `with meals`; default `["morning"]` if the user did not specify
-5. `purpose` — optional; skip if not offered
-6. `started` — default today (`TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'`); override if the user specifies
-7. `status` — always `active`
+5. `food_requirement` — one of `empty_stomach`, `with_food`, `with_fat`, `either`; null if unknown. Inline-suggest the typical answer for the named compound (e.g. fish oil → `with_fat`; most B-complex → `with_food`; free-form amino acids → `empty_stomach`) and confirm in one line rather than asking blind.
+6. `purpose` — optional; skip if not offered
+7. `started` — default today (`TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'`); override if the user specifies
+8. `status` — always `active`
 
 Generate the id: `supp-YYYYMMDD-NNN` where YYYYMMDD is today and NNN is the next unused sequence for today (check existing ids in the file).
 
-Append with jq. When a purpose was provided, use the "with purpose" template; otherwise use the "no purpose" template and the `purpose` field is literally `null`.
+Append with jq. Use `--argjson` for the nullable fields (`purpose`, `food_requirement`) so they land as JSON `null` when not provided.
 
-**With purpose:**
 ```bash
 jq -cn \
   --arg id "supp-YYYYMMDD-NNN" \
@@ -47,7 +48,8 @@ jq -cn \
   --arg type "supplement" \
   --arg dose "DOSE" \
   --argjson times '["morning"]' \
-  --arg purpose "PURPOSE" \
+  --argjson food '"with_fat"' \
+  --argjson purpose '"PURPOSE"' \
   --arg started "YYYY-MM-DD" \
   '{
     id: $id,
@@ -56,6 +58,7 @@ jq -cn \
     type: $type,
     dose: $dose,
     times: $times,
+    food_requirement: $food,
     purpose: $purpose,
     started: $started,
     stopped: null,
@@ -64,29 +67,7 @@ jq -cn \
   }' >> data/supplements.ndjson
 ```
 
-**No purpose:**
-```bash
-jq -cn \
-  --arg id "supp-YYYYMMDD-NNN" \
-  --arg name "NAME" \
-  --arg type "supplement" \
-  --arg dose "DOSE" \
-  --argjson times '["morning"]' \
-  --arg started "YYYY-MM-DD" \
-  '{
-    id: $id,
-    status: "active",
-    name: $name,
-    type: $type,
-    dose: $dose,
-    times: $times,
-    purpose: null,
-    started: $started,
-    stopped: null,
-    stopped_reason: null,
-    notes: null
-  }' >> data/supplements.ndjson
-```
+Pass `null` (literal) to `--argjson` for any nullable field with no value — e.g. `--argjson food 'null'` and `--argjson purpose 'null'`.
 
 Commit and push:
 ```bash
@@ -154,11 +135,101 @@ Do not commit anything for list.
 
 ---
 
+## Intent: assess
+
+Walk every active record and evaluate it on four axes. Output is a markdown table plus a suggestions block. **No silent writes** — assess only writes when the user accepts a proposed `food_requirement` backfill.
+
+### Read
+
+```bash
+jq -c 'select(.status == "active")' data/supplements.ndjson
+```
+
+### Axes to evaluate
+
+For each compound, judge:
+
+1. **Timing fit** — does the `times` slot match the compound's pharmacology?
+   - Stimulants (prescription ADHD meds, caffeine): morning or early afternoon only; flag any dose past ~3 PM as sleep-disruptive.
+   - Sleep aids and calmers (magnesium glycinate, l-theanine, phosphatidyl serine for cortisol): bedtime ✓.
+   - Cognitive / cholinergic (choline donors, ALCAR, TMG): morning or midday.
+   - Anti-inflammatories (turmeric, omega-3): with the largest meal of the day.
+   - Fat-soluble vitamins (D, K, A, E): with a fat-containing meal.
+   - Creatine: any consistent time; pharmacology is saturation-based, not timing-sensitive.
+
+2. **Food fit** — does `food_requirement` agree with the chosen time AND with the user's actual meal pattern (e.g. a stimulant on waking is often pre-breakfast)?
+   - Empty-stomach items at "with meals" → 🔴 mismatch.
+   - Fat-soluble at "morning" with no breakfast fat → 🟡 absorption loss.
+   - Empty-stomach items taken alongside other amino acids (whey, collagen, BCAAs, other free aminos like ALCAR or carnitine) → 🟡 absorption competition.
+
+3. **Dose vs typical range** — recall the commonly cited adult dose range for whatever compound is on the user's list and flag clearly low or high. A few anchor examples (treat as recall, verify before acting):
+   - Vitamin D-3: typical 2000–5000 IU for adults without regular sun.
+   - Omega-3: combined EPA+DHA 1000–3000 mg/day typical.
+   - Magnesium (any common form): 200–400 mg elemental.
+   - Creatine monohydrate: 3–5 g/day maintenance, no loading needed.
+   - Vitamin B12: 500–1000 mcg/day for general supplementation; higher for documented deficiency.
+
+   Extend per compound as needed — when the regimen includes anything not on this short list, recall its typical range at assess time. Always cite "typical adult" not "your dose should be," and never persist these numbers into the repo.
+
+4. **Stack interactions** — surface notable pairs across the regimen:
+   - Methylation cofactors (choline donors, betaine/TMG, methylated B-vitamin variants) often share a morning/midday window and reinforce each other when grouped.
+   - Mineral competition: Calcium ↔ Magnesium ↔ Zinc ↔ Iron — separate by 2+ hours when possible.
+   - Free amino acid competition: free-form aminos (carnitine, lysine, tyrosine, etc.) compete with each other and with whey/collagen at intake — separate from protein meals.
+   - Sleep-window stacking: most calming compounds (magnesium, l-theanine, glycine, ashwagandha, phosphatidyl serine) reinforce each other when grouped at bedtime — usually intentional, but worth surfacing.
+
+### Output format
+
+Status icons use the repo's standard circle convention: 🟢 fits / typical, 🟡 worth a look, 🔴 likely wrong.
+
+```
+| Name | Dose | Time | Food | Timing | Food fit | Dose | Notes |
+|---|---|---|---|---|---|---|---|
+| Vitamin C | 1000 mg | morning | with_food | 🟢 | 🟢 | 🟢 typical | water-soluble; safe to split if dose ↑ |
+```
+
+Below the table, two prose blocks:
+
+**Suggested adjustments** — concrete options the user can accept. Each one specifies the operation (set food_requirement / change dose via stop+add / shift time via stop+add) and a one-line reason. Sort red-first.
+
+**Stack notes** — cross-cutting observations that don't belong to a single row.
+
+End with the disclaimer block (literal):
+
+> ⚠️ **LLM judgment, not medical advice.** Typical-range numbers and timing rules are recall-based and don't account for labs, prescriptions, or individual response. Verify any dose or timing change with a doctor or your own primary sources before acting.
+
+### Food-requirement backfill (in-place edit, allowed)
+
+`food_requirement` is metadata about HOW to take a compound — not part of the dated dose record. This is the **one field** the skill may edit in place (everything else still requires the stop+add flow). When the user accepts backfill suggestions, batch them into a single commit:
+
+```bash
+jq -c --arg id "SUPP_ID" --arg food "with_fat" \
+  'if .id == $id then . + {food_requirement: $food} else . end' \
+  data/supplements.ndjson > data/.jq_update.tmp \
+  && mv data/.jq_update.tmp data/supplements.ndjson
+```
+
+Repeat the jq update once per accepted record (each writes through the temp file). Then commit once:
+
+```bash
+git add data/supplements.ndjson
+git commit -m "supplement: backfill food_requirement (N records)"
+git push
+```
+
+Then run the Trello render fail-safe (see below).
+
+### What assess does NOT do
+
+- Never edits `dose`, `name`, `type`, `times`, or `purpose` in place. Dose / time / name changes require the stop+add flow.
+- Never writes without explicit user approval. Even backfills are batched, shown as a diff, and confirmed.
+- Never persists "reference ranges" into the repo. Recall-based numbers belong in the chat output only, with the disclaimer.
+- If no backfills are accepted, assess never commits.
+
 ---
 
 ## Refresh Trello dashboard (fail-safe)
 
-After **any successful add or stop commit**, refresh the dashboard so the `💊 Supplements` list reflects the new state immediately. List intent never triggers a render.
+After **any successful add, stop, or assess-backfill commit**, refresh the dashboard so the `💊 Supplements` list reflects the new state immediately. List intent and a no-write assess never trigger a render.
 
 ```bash
 python3 automations/scripts/trello_render.py 2>&1
@@ -171,6 +242,7 @@ On error: print `🟡 Trello render failed (non-blocking): <error>` and continue
 ## Rules
 
 - Always use `jq` — never `echo >>`, `sed`, or string concatenation for record writes.
-- Auto-commit for **add** and **stop**. **List** never commits.
+- Auto-commit for **add** and **stop**. **List** never commits. **Assess** commits only when the user accepts a food_requirement backfill.
+- `food_requirement` is the **one field** that may be edited in place. Everything else (dose, name, type, times, purpose) requires the stop+add flow.
 - Always run `scripts/validate.sh` after a write and before committing. If red, revert the write.
-- After every add/stop commit, run the Trello render fail-safe (see section above).
+- After every commit that touches `data/supplements.ndjson`, run the Trello render fail-safe (see section above).

@@ -31,6 +31,19 @@ supplement:
       enum: ["morning", "afternoon", "evening", "bedtime", "with meals"]
     required: true
     description: "Non-empty. Labels indicating when in the day it is taken."
+  food_requirement:
+    type: string
+    enum: ["empty_stomach", "with_food", "with_fat", "either"]
+    nullable: true
+    description: |
+      How the compound should be taken relative to food. Metadata about
+      the compound itself, NOT part of the dated dose record — may be
+      edited in place via the assess intent (this is the only field that
+      can change without a stop+add). Null = not yet assessed.
+       - empty_stomach: take 30+ min before food or 2+ hr after
+       - with_food: take with any meal
+       - with_fat: take with a meal containing dietary fat (fat-soluble vitamins, fish oil, PS)
+       - either: no meaningful food interaction
   purpose:
     type: string
     nullable: true
