@@ -162,23 +162,20 @@ For each compound, judge:
    - Fat-soluble at "morning" with no breakfast fat → 🟡 absorption loss.
    - Empty-stomach items taken alongside other amino acids (whey, collagen, BCAAs, other free aminos like ALCAR or carnitine) → 🟡 absorption competition.
 
-3. **Dose vs typical range** — recall the commonly cited adult dose range and flag clearly low or high. Examples (treat as recall, verify before acting):
-   - Vitamin D-3: typical 2000–5000 IU for adults without sun.
+3. **Dose vs typical range** — recall the commonly cited adult dose range for whatever compound is on the user's list and flag clearly low or high. A few anchor examples (treat as recall, verify before acting):
+   - Vitamin D-3: typical 2000–5000 IU for adults without regular sun.
    - Omega-3: combined EPA+DHA 1000–3000 mg/day typical.
-   - Magnesium glycinate: 200–400 mg elemental.
-   - Creatine: 3–5 g/day maintenance, no loading needed.
-   - CDP choline: 250–500 mg/day common.
-   - Acetyl L-Carnitine: 500–2000 mg/day.
-   - L-Theanine: 100–400 mg.
-   - Turmeric curcumin: 500–1500 mg/day with piperine or fat.
-   - TMG: 500–2000 mg/day for methylation support.
-   - Phosphatidyl Serine: 100–300 mg/day.
+   - Magnesium (any common form): 200–400 mg elemental.
+   - Creatine monohydrate: 3–5 g/day maintenance, no loading needed.
+   - Vitamin B12: 500–1000 mcg/day for general supplementation; higher for documented deficiency.
+
+   Extend per compound as needed — when the regimen includes anything not on this short list, recall its typical range at assess time. Always cite "typical adult" not "your dose should be," and never persist these numbers into the repo.
 
 4. **Stack interactions** — surface notable pairs across the regimen:
-   - Methylation/cognitive synergy: CDP choline + ALCAR + TMG.
+   - Methylation cofactors (choline donors, betaine/TMG, methylated B-vitamin variants) often share a morning/midday window and reinforce each other when grouped.
    - Mineral competition: Calcium ↔ Magnesium ↔ Zinc ↔ Iron — separate by 2+ hours when possible.
-   - Amino acid competition: ALCAR and other free aminos compete with each other and with whey/collagen at intake.
-   - Sleep stack: magnesium glycinate + l-theanine + phosphatidyl serine all reinforce each other at bedtime.
+   - Free amino acid competition: free-form aminos (carnitine, lysine, tyrosine, etc.) compete with each other and with whey/collagen at intake — separate from protein meals.
+   - Sleep-window stacking: most calming compounds (magnesium, l-theanine, glycine, ashwagandha, phosphatidyl serine) reinforce each other when grouped at bedtime — usually intentional, but worth surfacing.
 
 ### Output format
 
@@ -187,7 +184,7 @@ Status icons use the repo's standard circle convention: 🟢 fits / typical, �
 ```
 | Name | Dose | Time | Food | Timing | Food fit | Dose | Notes |
 |---|---|---|---|---|---|---|---|
-| Vitamin D-3 + K-2 | 1000 IU / 45 mcg | morning | (unset) | 🟡 | 🔴 needs fat | 🟡 low (typical 2000–5000) | fat-soluble |
+| Vitamin C | 1000 mg | morning | with_food | 🟢 | 🟢 | 🟢 typical | water-soluble; safe to split if dose ↑ |
 ```
 
 Below the table, two prose blocks:
