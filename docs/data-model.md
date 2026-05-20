@@ -225,7 +225,7 @@ Schema enforced by `scripts/validate.sh` against [`config/insight_schema.yaml`](
 Baseline registry of daily supplements and medications — items taken every single day, consistently. Governs `pfc-analyze-trends` supplement joins.
 
 ```json
-{"id":"supp-20260418-001","status":"active","name":"Vitamin D","type":"supplement","dose":"5000 IU","times":["morning"],"purpose":"bone health / immune support","started":"2026-04-18","stopped":null,"notes":null}
+{"id":"supp-20260418-001","status":"active","name":"Vitamin D","type":"supplement","dose":"5000 IU","times":["morning"],"food_requirement":"with_fat","purpose":"bone health / immune support","started":"2026-04-18","stopped":null,"stopped_reason":null,"notes":null}
 ```
 
 Canonical schema: [`config/supplement_schema.yaml`](../config/supplement_schema.yaml). Validated by `scripts/validate.sh`.
@@ -239,9 +239,11 @@ Fields:
 - `type` — `"supplement"` | `"medication"`
 - `dose` — free text (`"2000 IU"`, `"5000 IU"`, `"1 tablet"`, etc.)
 - `times` — non-empty array from `["morning", "afternoon", "evening", "bedtime", "with meals"]`
+- `food_requirement` — `"empty_stomach"` | `"with_food"` | `"with_fat"` | `"either"` | `null`. Metadata about HOW to take the compound, not part of the dated dose record — the **one field** that may be edited in place (no stop+add) via `/pfc-supplement` assess intent. `null` = not yet assessed.
 - `purpose` — optional free text
 - `started` — `YYYY-MM-DD`
-- `stopped` — `YYYY-MM-DD` when stopped, `null` while active; must be `>= started`
+- `stopped` — `YYYY-MM-DD` when stopped, `null` while active; must be `>= started`. May be future-dated to schedule a planned stop.
+- `stopped_reason` — optional brief reason, `null` while active
 - `notes` — optional free text
 
 

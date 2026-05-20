@@ -815,6 +815,15 @@ def render_supplements(repo_state) -> list:
             # Schema requires non-empty times, but be defensive.
             title = f"9. {name} {dose}".strip()
         body_lines = [f"Started: {started}"]
+        food = s.get("food_requirement")
+        if food:
+            food_label = {
+                "empty_stomach": "Take: empty stomach",
+                "with_food": "Take: with food",
+                "with_fat": "Take: with fat",
+                "either": "Take: any time",
+            }.get(food, f"Take: {food}")
+            body_lines.append(food_label)
         if s.get("purpose"):
             body_lines.append(f"Purpose: {s['purpose']}")
         if s.get("notes"):
