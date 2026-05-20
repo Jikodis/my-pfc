@@ -122,14 +122,16 @@ Connections between values, areas, visions, projects, actions, and habits happen
 
 ### Per-subtree instructions (nested AGENTS.md)
 
-Folder-scoped operational rules live in nested `AGENTS.md` files. Claude Code walks up the directory tree and loads every `AGENTS.md` along the way, so root-level context is never lost. Consult the local file when working in a subtree:
+Folder-scoped operational rules live in nested `AGENTS.md` files. Claude Code's autoloader walks up the directory tree and loads every `CLAUDE.md` along the way; each subtree has a one-line `CLAUDE.md` shim that `@`-imports the local `AGENTS.md` (Claude Code does not auto-load `AGENTS.md` by name — the shim is what surfaces the content). Root-level context is never lost on subtree loads. Consult the local `AGENTS.md` when working in a subtree:
 
-| Subtree | File | Covers |
-|---|---|---|
-| `4-projects/` | [`4-projects/AGENTS.md`](4-projects/AGENTS.md) | Project schema, velocity calc, daily project status, vision linkage, slippage / `pfc-revive` |
-| `5-actions/` | [`5-actions/AGENTS.md`](5-actions/AGENTS.md) | Task ops + `jq` patterns, archival policy, daily focus 2+1, task breakdown, slippage pointer |
-| `6-habits/` | [`6-habits/AGENTS.md`](6-habits/AGENTS.md) | Habit tracking, auto-log rule, missed-logging ≠ missed-habit, append pattern |
-| `data/` | [`data/AGENTS.md`](data/AGENTS.md) | Supplements, insights / hypotheses / findings, graduation flow |
+| Subtree | Loader | Content | Covers |
+|---|---|---|---|
+| `4-projects/` | [`CLAUDE.md`](4-projects/CLAUDE.md) → | [`AGENTS.md`](4-projects/AGENTS.md) | Project schema, velocity calc, daily project status, vision linkage, `pfc-revive` slippage |
+| `5-actions/` | [`CLAUDE.md`](5-actions/CLAUDE.md) → | [`AGENTS.md`](5-actions/AGENTS.md) | Task ops + `jq` patterns, archival policy, daily focus 2+1, task breakdown, slippage pointer |
+| `6-habits/` | [`CLAUDE.md`](6-habits/CLAUDE.md) → | [`AGENTS.md`](6-habits/AGENTS.md) | Habit tracking, auto-log rule, missed-logging ≠ missed-habit, append pattern |
+| `data/` | [`CLAUDE.md`](data/CLAUDE.md) → | [`AGENTS.md`](data/AGENTS.md) | Supplements, insights / hypotheses / findings, graduation flow |
+
+When adding a new subtree with operational rules, create both files: a single-line `<subtree>/CLAUDE.md` containing `@AGENTS.md`, and the `<subtree>/AGENTS.md` with the actual content.
 
 If a rule applies cross-cutting (e.g. dates, commits, response style, calendar scheduling), it stays in this root file. If it applies only when working in a subtree, it lives in that subtree's `AGENTS.md`.
 
