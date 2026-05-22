@@ -174,7 +174,7 @@ def compute_diff(desired, current):
 
 # Import the helper functions we depend on.
 from trello_helper import (
-    list_lists, create_list,
+    list_lists, create_list, archive_list,
     list_labels, create_label,
     list_cards_on_board,
     create_card, update_card, archive_card,
@@ -211,6 +211,26 @@ def ensure_lists(api_key, token, board_id, list_names):
             new_list = create_list(api_key, token, board_id, name, pos="bottom")
             result[name] = new_list["id"]
     return result
+
+
+# ── Per-active-project lists ──────────────────────────────────────────────────
+#
+# Each active project (projects.ndjson `active: true`) gets its own list
+# `🎯 <project name>` so the project backlog doesn't drown the standalone
+# Actions list on the mobile dashboard. When a project flips inactive, its list
+# is archived on the next render. Tasks belonging to inactive projects don't
+# render to Trello at all — they remain in NDJSON until the project reactivates.
+
+PROJECT_LIST_PREFIX = "🎯 "
+PROJECT_LIST_NAME_MAX = 50  # Trello list-name character cap (safer than 100 for mobile)
+
+
+def _project_list_name(project_name: str) -> str:
+    return f"{PROJECT_LIST_PREFIX}{project_name.strip()}"[:PROJECT_LIST_NAME_MAX]
+
+
+def _is_project_list_name(name: str) -> bool:
+    return name.startswith(PROJECT_LIST_PREFIX)
 
 
 # Life-wheel color buckets (score 1-10 → label color)
@@ -595,7 +615,8 @@ def render_2plus1(repo_state, plain_color_labels=None) -> list:
 
 
 def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
-    """Render all open tasks except those in today's 2+1."""
+    """Render open standalone tasks (no project) except those in today's 2+1.
+    Project-linked tasks render via render_project_actions instead."""
     plain_color_labels = plain_color_labels or {}
     exclude = set(exclude_2plus1_ids or [])
     cards = []
@@ -603,6 +624,8 @@ def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None)
         if t.get("status") != "open":
             continue
         if t["id"] in exclude:
+            continue
+        if (t.get("project") or "none") != "none":
             continue
         tier = _task_priority_tier(t)
         body_lines = [
@@ -622,6 +645,54 @@ def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None)
             pfc_id=t["id"],
             pfc_type="task",
             list_name="✅ Actions",
+            name=formatted_name,
+            body="\n".join(body_lines),
+            label_names=_priority_plain_label(tier, plain_color_labels),
+            due=_deadline_to_due(t.get("deadline")),
+            due_complete=None,
+        ))
+    return cards
+
+
+def render_project_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
+    """Render open tasks for each active project to that project's dedicated list.
+    Tasks belonging to inactive/done/missing projects are NOT rendered to Trello —
+    they remain in NDJSON until the project reactivates."""
+    plain_color_labels = plain_color_labels or {}
+    exclude = set(exclude_2plus1_ids or [])
+    active_projects = {
+        p["id"]: p
+        for p in repo_state.get("projects", [])
+        if p.get("active")
+    }
+    cards = []
+    for t in repo_state.get("tasks", []):
+        if t.get("status") != "open":
+            continue
+        if t["id"] in exclude:
+            continue
+        proj_id = t.get("project") or "none"
+        project = active_projects.get(proj_id)
+        if project is None:
+            continue
+        tier = _task_priority_tier(t)
+        body_lines = [
+            f"Impact: {t.get('impact')} · Urgency: {t.get('urgency')} · Size: {t.get('size')}",
+            f"Area: {t.get('area', 'none')} · Project: {project['name']}",
+        ]
+        if t.get("deadline"):
+            body_lines.append(f"Deadline: {t['deadline']}")
+        if t.get("notes"):
+            body_lines.append(f"Notes: {t['notes']}")
+        size = t.get("size", "?")
+        desc_text = t.get("description", "")
+        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
+        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
+                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
+        cards.append(Card(
+            pfc_id=t["id"],
+            pfc_type="task",
+            list_name=_project_list_name(project["name"]),
             name=formatted_name,
             body="\n".join(body_lines),
             label_names=_priority_plain_label(tier, plain_color_labels),
@@ -907,6 +978,28 @@ def _event_sort_key(evt):
     return ""
 
 
+def _event_to_due(start):
+    """Convert a calendar event start to a Trello due ISO 8601 timestamp (UTC).
+    Lets users sort the Week-at-a-Glance list by Due Date in Trello.
+    All-day events anchor to noon UTC of the date (matches task convention)."""
+    if "dateTime" in start:
+        raw = start["dateTime"]
+        try:
+            dt = _dt.datetime.fromisoformat(raw)
+            dt_utc = dt.astimezone(_dt.timezone.utc)
+            return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        except Exception:
+            return None
+    if "date" in start:
+        raw = start["date"]
+        try:
+            dt = _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            return dt.strftime("%Y-%m-%dT12:00:00.000Z")
+        except (ValueError, AttributeError):
+            return f"{raw}T12:00:00.000Z"
+    return None
+
+
 def render_calendar(events, filters) -> list:
     """Render Calendar events to cards. Skips events that are instances of a
     recurring series (i.e. have recurringEventId set) — recurring noise is
@@ -942,6 +1035,7 @@ def render_calendar(events, filters) -> list:
             list_name="🗓️ Week at a Glance",
             name=f"{time_part} · {title}"[:200],
             body="\n".join(body_lines),
+            due=_event_to_due(evt.get("start", {})),
         ))
     return cards
 
@@ -1197,8 +1291,17 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
     print("📋 Loading repo state...")
     state = load_repo_state()
 
+    # Compute per-active-project list names. Each active project gets its own
+    # backlog list (`🎯 <name>`); inactive-project lists are archived below.
+    active_project_lists = [
+        _project_list_name(p["name"])
+        for p in state.get("projects", [])
+        if p.get("active")
+    ]
+    all_list_names = list(ALL_LIST_NAMES) + active_project_lists
+
     print("🔧 Reconciling lists and labels...")
-    list_map = ensure_lists(api_key, token, board_id, ALL_LIST_NAMES)
+    list_map = ensure_lists(api_key, token, board_id, all_list_names)
     # All labels are plain (unnamed) Trello labels: 5 priority colors for tier
     # cards (tasks/projects/2+1/email) + life-wheel colors for area cards.
     needed_colors = sorted(set(
@@ -1220,6 +1323,7 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
     desired += render_projects(state, plain_color_labels=plain_color_label_map)
     desired += twoplus1
     desired += render_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
+    desired += render_project_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
     desired += render_daily_habits(state)
     desired += render_monthly_habits(state)
     # Life Wheel list: no longer rendered. Existing cards in that list will be
@@ -1263,6 +1367,20 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
     print("✏️  Applying archives...")
     apply_archives(api_key, token, ops["archives"])
 
+    # Archive stale per-project lists. A 🎯-prefixed list on the board whose
+    # project is no longer active (or has been deleted from projects.ndjson)
+    # gets archived so the dashboard reflects current active-project state.
+    active_set = set(active_project_lists)
+    stale_lists = [
+        l for l in list_lists(api_key, token, board_id, filter_="open")
+        if _is_project_list_name(l["name"]) and l["name"] not in active_set
+    ]
+    for l in stale_lists:
+        archive_list(api_key, token, l["id"])
+    if stale_lists:
+        print(f"   Archived {len(stale_lists)} stale per-project list(s): "
+              + ", ".join(l["name"] for l in stale_lists))
+
     # Write last-render timestamp
     stamp = REPO_ROOT / "data" / ".trello-last-render"
     stamp.write_text(_dt.datetime.now(_ZoneInfo(_os.environ.get("LOCAL_TZ", "America/Denver"))).isoformat())
@@ -1273,6 +1391,7 @@ def render(api_key, token, board_id, calendar_events=None, email_messages=None, 
         "archives": len(ops["archives"]),
         "desired_total": len(desired),
         "current_total": len(current),
+        "project_lists_archived": len(stale_lists),
     }
 
 

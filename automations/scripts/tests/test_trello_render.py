@@ -257,6 +257,53 @@ class TestRenderers(unittest.TestCase):
         # Title format: "<emoji> <TIER> (<SIZE>) - <description>"
         self.assertEqual(cards[0].name, "🔴 AA (S) - X")
 
+    def test_render_actions_excludes_project_tasks(self):
+        from trello_render import render_actions
+        state = {
+            "projects": [{"id": "p1", "name": "P1", "active": True}],
+            "tasks": [
+                {"id": "t1", "status": "open", "description": "standalone", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "none"},
+                {"id": "t2", "status": "open", "description": "linked", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+            ],
+        }
+        cards = render_actions(state, plain_color_labels={"red": "lab_red"})
+        self.assertEqual([c.pfc_id for c in cards], ["t1"])
+        self.assertEqual(cards[0].list_name, "✅ Actions")
+
+    def test_render_project_actions_groups_by_active_project(self):
+        from trello_render import render_project_actions
+        state = {
+            "projects": [
+                {"id": "p1", "name": "Sample Course", "active": True},
+                {"id": "p2", "name": "Paused Thing", "active": False},
+            ],
+            "tasks": [
+                {"id": "t1", "status": "open", "description": "Day 1", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+                {"id": "t2", "status": "open", "description": "Day 2", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+                {"id": "t3", "status": "open", "description": "Standalone", "impact": "low", "urgency": "low", "size": "S", "area": "career", "project": "none"},
+                {"id": "t4", "status": "open", "description": "Paused project task", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p2"},
+                {"id": "t5", "status": "done", "description": "done active", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+            ],
+        }
+        cards = render_project_actions(state, plain_color_labels={"red": "lab_red"})
+        # Only t1 + t2 should render (active project, open status).
+        self.assertEqual(sorted(c.pfc_id for c in cards), ["t1", "t2"])
+        self.assertEqual(cards[0].list_name, "🎯 Sample Course")
+        # Excludes 2+1 ids
+        cards2 = render_project_actions(state, exclude_2plus1_ids={"t1"})
+        self.assertEqual(sorted(c.pfc_id for c in cards2), ["t2"])
+
+    def test_project_list_name_truncates(self):
+        from trello_render import _project_list_name, _is_project_list_name, PROJECT_LIST_NAME_MAX
+        short = _project_list_name("My Project")
+        self.assertEqual(short, "🎯 My Project")
+        self.assertTrue(_is_project_list_name(short))
+        self.assertFalse(_is_project_list_name("✅ Actions"))
+        long_name = "A" * 100
+        truncated = _project_list_name(long_name)
+        self.assertLessEqual(len(truncated), PROJECT_LIST_NAME_MAX)
+        self.assertTrue(truncated.startswith("🎯 "))
+
     def test_render_2plus1_uses_today_focus(self):
         from trello_render import render_2plus1, _today_mt
         today = _today_mt()

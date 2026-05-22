@@ -15,7 +15,7 @@ import sys
 import os
 import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -73,6 +73,25 @@ def api_get(data_type, access_token, filter_str):
 def next_day(date_str):
     return (datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
+
+def _to_local_iso(raw):
+    """Convert Google Health interval timestamp to ISO 8601 in LOCAL_TZ with offset.
+
+    Accepts either a Zulu UTC string ('2026-05-21T04:45:30Z') or an already-civil
+    local string ('2026-05-20T22:45:30'). Returns the local-timezone form like
+    '2026-05-20T22:45:30-06:00'. Returns None for falsy input or parse failure."""
+    if not raw:
+        return None
+    try:
+        s = raw[:-1] + "+00:00" if raw.endswith("Z") else raw
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=LOCAL_TZ).isoformat()
+    return dt.astimezone(LOCAL_TZ).isoformat()
+
+
 def fetch_sleep(access_token, date_str):
     nd = next_day(date_str)
     f  = f'sleep.interval.civil_end_time >= "{date_str}" AND sleep.interval.civil_end_time < "{nd}"'
@@ -86,10 +105,20 @@ def fetch_sleep(access_token, date_str):
     target = main_pts if main_pts else points
     total_asleep = total_awake = 0
     stages = {"deep": 0, "light": 0, "rem": 0, "wake": 0}
+    starts = []
+    ends   = []
     for point in target:
-        summary = point.get("sleep", {}).get("summary", {})
+        sleep_obj = point.get("sleep", {})
+        summary   = sleep_obj.get("summary", {})
         total_asleep += int(summary.get("minutesAsleep", 0) or 0)
         total_awake  += int(summary.get("minutesAwake",  0) or 0)
+        interval = sleep_obj.get("interval", {}) or {}
+        start = interval.get("civilStartTime") or interval.get("startTime")
+        end   = interval.get("civilEndTime")   or interval.get("endTime")
+        if start:
+            starts.append(start)
+        if end:
+            ends.append(end)
         for s in summary.get("stagesSummary", []):
             stype = s.get("type", "").upper()
             mins  = int(s.get("minutes", 0) or 0)
@@ -106,6 +135,8 @@ def fetch_sleep(access_token, date_str):
         "sleep_deep_minutes":  stages["deep"],
         "sleep_rem_minutes":   stages["rem"],
         "sleep_light_minutes": stages["light"],
+        "sleep_bedtime":       _to_local_iso(min(starts)) if starts else None,
+        "sleep_wake_time":     _to_local_iso(max(ends))   if ends   else None,
     }
 
 def fetch_resting_hr(access_token, date_str):
