@@ -1,0 +1,10 @@
+{% assign qsize = text_size %}
+{% if text_size == "giga" %}{% assign qsize = "xlarge" %}{% endif %}
+<div class="layout layout--col layout--center">
+  <span class="value value--{{ qsize }}" data-clamp="4">{{ text }}</span>
+</div>
+
+<div class="title_bar">
+  <span class="title">Compass</span>
+  <span class="instance">{{ position }}</span>
+</div>

@@ -1,0 +1,14 @@
+<div class="layout layout--col gap--small">
+  <div class="col gap--xsmall">
+    {% for area in attention limit: 3 %}
+      <span class="label" data-clamp="1">{{ area.mark }} - {{ area.title }}{% if area.note != "" %} - {{ area.note }}{% endif %}</span>
+    {% else %}
+      <span class="label">Every area is green.</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Areas</span>
+  <span class="instance">{{ reds }}R {{ yellows }}Y {{ greens }}G</span>
+</div>

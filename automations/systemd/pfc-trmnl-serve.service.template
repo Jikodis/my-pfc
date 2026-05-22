@@ -1,0 +1,24 @@
+[Unit]
+Description=PFC — Serve TRMNL plugin payloads to the polling endpoint
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+# Binds loopback only. A reverse proxy (Caddy) terminates TLS and forwards to
+# it; this process must never face the internet directly. Auth is the bearer
+# token in .env (TRMNL_SERVE_TOKEN) — the server refuses to start without one.
+#
+# Payloads are built per request rather than cached, so the screen reflects
+# repo state at the moment TRMNL asks for it.
+ExecStart=/usr/bin/python3 __REPO_ROOT__/automations/scripts/trmnl_serve.py --host 127.0.0.1
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-trmnl-serve
+
+[Install]
+WantedBy=default.target

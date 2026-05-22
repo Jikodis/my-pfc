@@ -1,4 +1,4 @@
-> Generated from modular-pfc commit `9ef7cd0` on 2026-05-20.
+> Generated from modular-pfc commit `2348cb2` on 2026-08-13.
 
 # PFC — Personal Productivity System
 
@@ -16,7 +16,7 @@ The bias is toward **less surface for new users on day one** — you don't need 
 
 Examples of things you can ask your agent to do:
 
-- "Edit `pfc-morning-checkin` to also ask about water intake."
+- "Edit `pfc-evening-checkin` to also ask about water intake."
 - "Add a new skill that pulls weather and tells me if it's a good outdoor-walking day."
 - "Delete the `legal` area — I don't track regulatory work."
 - "Change the daily-focus model from 2+1 to 3+0 — I don't want the bonus slot."
@@ -50,7 +50,7 @@ Trello is highly recommended for the visualization benefit — externalizing the
 
 ## What's in the box
 
-The system follows a **VAVPAH** model: Values → Areas → Visions → Projects → Actions → Habits.
+The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus → Projects → Actions → Habits.
 
 | Folder | What it holds |
 |---|---|
@@ -58,13 +58,15 @@ The system follows a **VAVPAH** model: Values → Areas → Visions → Projects
 | `1-values/` | Your values list (start with the menu of 30 in `values.md`) |
 | `2-areas/` | Areas of life — career, health, finances, relationships, etc. |
 | `3-visions/` | Long-term direction tied to an area (no deadlines) |
-| `4-projects/` | Short-term projects (1-3 months, max 3 active) |
-| `5-actions/` | Tasks, daily focus picks, event log |
-| `6-habits/` | Daily + monthly habit tracking |
-| `data/` | Day tracking, insights, hypotheses, findings, supplements |
+| `4-focus/` | Current Focus — the capped, traffic-lit set of what you're on this quarter |
+| `5-projects/` | Short-term projects (1-3 months; backstop of 12 active) |
+| `6-actions/` | Tasks, daily focus picks, event log |
+| `7-habits/` | Daily + monthly habit tracking |
+| `data/` | Day tracking, insights, hypotheses, findings, supplements, review ledger |
 | `config/` | Schemas + integration config |
-| `docs/` | System documentation |
+| `docs/` | System documentation (start with `docs/system-map.md`) |
 | `automations/` | Python scripts for auto-fetched data + systemd units |
+| `trmnl/` | Optional TRMNL e-ink dashboard plugins |
 | `.agents/skills/` | Skill definitions (read by Codex and most other agents) |
 | `.claude/skills/` | Symlink mirror for Claude Code |
 

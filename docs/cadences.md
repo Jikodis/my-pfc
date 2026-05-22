@@ -2,38 +2,37 @@
 
 How and when the productivity system is used. These cadences keep you grounded, focused, and moving forward.
 
-## Daily
+## Daily — the evening spine
+
+The daily loop is one ritual: the evening check-in. It closes out today and pre-commits tomorrow, so there's no separate morning ritual to remember.
 
 | Activity | When | What happens |
 |---|---|---|
-| Morning check-in | First thing | Run `/pfc-morning-checkin`: rate sleep/energy/focus, review email priorities, set daily focus (2 critical + 1 bonus) |
-| Day tracking | End of day | Rate the day 1-5, log supplements/variables, note observations |
-| Habit logging | Throughout day | Log daily habit completions as they happen |
+| Evening check-in | End of day | Run `/pfc-evening-checkin`: rate/log today (energy, focus, mood → derived rating), log supplements, walk the habit tracker, run the rolling reviews (≤2 due items), trickle Current Focus into view, then pick tomorrow's 2+1 and annotate tomorrow's anchor slot. |
+| Rolling reviews | → part of evening check-in | At most 2 due-and-actionable items from `data/review-ledger.ndjson` surface per night, most-overdue first. Each is a one-line pointer at its owning skill. See "Rolling Reviews" below. |
+| Current Focus trickle | → part of evening check-in | Read-only display of Foundations + 🟢 Pursuits with landings — keeps long-running interests (e.g. an instrument, a language) in perception before picking tomorrow's 2+1. Manage via `/pfc-focus`. |
+| Set tomorrow's 2+1 | → part of evening check-in | Pick 2 critical + 1 bonus (+ optional project slot) for tomorrow and annotate tomorrow's anchor-slot calendar instance. |
+| Habit logging | Throughout day | Log daily habit completions as they happen. |
 | Insight capture | Throughout day | Capture observations / noticings via `/pfc-add-insight`. Lower bar than findings. |
-| Revive watchlist | Surfaced in morning check-in Step 5b2 | `pfc-revive` lists slipped tasks/projects (velocity 🔴, 0 parts ≥14d, open task ≥30d, high-impact ≥7d, 2+1 carry ≥3d, no activity ≥10d). Optional inline walk. |
+| Open-day plan | The evening before, or on demand | When tomorrow is a weekend / holiday / PTO day with under ~2 h of hard commitments, the evening check-in offers `/pfc-plan-open-day`. It lays the whole day out as a chain of calendar blocks — each anchored to the one before it — sized against real free hours, and replaces that day's 2+1 rather than sitting beside it. |
 
-## Weekly
+## Rolling Reviews (folded into the evening)
+
+The old weekly, monthly, and quarterly ritual check-ins are gone. Their review work is now a **rolling ledger** (`data/review-ledger.ndjson`). Each item carries a `cadence_days` and a `last_done`; it becomes due once `today − last_done ≥ cadence_days`.
+
+- **The evening drip.** The evening check-in surfaces at most **2** due items per night — only ones that both are due AND have something to act on — pointing at each item's owning skill (`/pfc-revive`, `/pfc-focus`, `/pfc-insights`, `/pfc-analyze-trends`, life-wheel rating, etc.). A no-review night stays fast. Engaging with an item stamps its `last_done` to today; ignoring it lets it re-surface on cadence.
+- **The catch-up.** `/pfc-review` runs the **same** ledger with **no cap** — every currently-due, actionable item in one deliberate sitting, tier-ordered (weekly → monthly → quarterly). Use it when reviews have piled up.
+
+The former weekly items (stale-task triage, tasks-missing-area, focus accuracy, vision relevance, habit rates, values alignment, day-trend peek), monthly items (life wheel, project progress, vision activation, monthly habits, insights review, trend analysis, revive outcomes, usage audit — the "is the system being used" check: data freshness, possibly-unused surfaces, logging gaps), and quarterly items (Focus re-pick, vision brainstorm, strengths refresh) all live in the ledger. The gate logic and owning-skill map are canonical in the `pfc-evening-checkin` skill.
+
+## Quarterly
 
 | Activity | When | What happens |
 |---|---|---|
-| Weekly check-in | End of week | Run `/pfc-weekly-checkin`: summarize tasks completed, habit rates, energy trends, project progress. Archive completed tasks. Ask: what went well, what didn't, what to adjust. |
-| Stale task triage | During weekly check-in | Identify tasks that have been open for 2+ weeks. For each: eliminate it (was it ever important?), break it down smaller (overwhelm barrier?), or re-prioritize it. ADHD-aware — if a task keeps getting skipped, the problem is usually the task definition, not motivation. |
-| Insights triage | During weekly check-in | Surface this week's active insights (`data/insights.ndjson`). For each: keep / archive / graduate to a task, project, or habit. |
-| Findings Alignment Check | During weekly check-in | Cross-reference active findings (`data/findings.ndjson`) against values, projects, habits, and last week's day-tracking for conflicts. Consider superseding any finding that life has moved past. |
-| Revive walk | During weekly check-in, after stale-task triage | Run `/pfc-revive` and walk the full watchlist one-by-one — multi-select diagnostic + tailored intervention for each slipped item. |
-
-## Monthly
-
-| Activity | When | What happens |
-|---|---|---|
-| Monthly check-in | First week of month | Run `/pfc-monthly-checkin`: orchestrates all monthly items below. |
-| Life wheel check-in | → part of monthly check-in | Rate each life area red/yellow/green. For anything not green, identify what would move it up and create a habit, action, or project. |
-| Household status check-in | → part of monthly check-in | Rate each house area red/yellow/green. Create tasks for anything that needs attention. |
-| Project progress review | → part of monthly check-in | Review active projects: percentage complete, blockers, excitement level still accurate? Should a project be paused or swapped? |
-| Monthly habit review | → part of monthly check-in | Check monthly habit completion rates vs. target frequency. Adjust habits if needed. |
-| Monthly insights review | → part of monthly check-in | Review last 30 days of active insights via `/pfc-insights` (Monthly mode). Triage each: keep / archive / graduate. Look for patterns across captures. |
-| Trend analysis | → part of monthly check-in | Analyze day tracking data for patterns. What correlates with 5-star days? What predicts 1-2 star days? Cross-reference with your wearable, habits, and check-in data. Also runs as part of the yearly check-in. |
-| Revive outcome review | → part of monthly check-in | Run `/pfc-revive --review-outcomes` to update outcomes on revive rows ≥30 days old (revived / still stuck / exited). |
+| Current Focus re-pick | Start of each quarter | Run `/pfc-focus` (re-pick): the deliberate swap — for each 🎯 Active Pursuit keep 🟢 / ease 🟡 / pause 🔴 / retire / graduate to a 🧱 Foundation; confirm foundations; build or refresh each pursuit's **landing** anchor-first against the calendar + `0-me/schedule-patterns.md`; bump the `quarter` tag. Respect the hard cap of 6 pursuits. |
+| Vision brainstorm | Start of each quarter | Run `/pfc-vision-brainstorm`: dump what you want; triage into visions / projects / focuses / habits. |
+| Strengths update | Quarterly | Refresh the strengths/profile picture if new assessments or shifts. |
+| Trend analysis | Quarterly | Deeper day-tracking trend pass (also runs monthly + yearly). |
 
 ## Yearly
 
@@ -43,9 +42,9 @@ How and when the productivity system is used. These cadences keep you grounded, 
 | Values review | → part of yearly check-in | Re-read values list. Still accurate? Reorder if priorities have shifted. |
 | Area statements review | → part of yearly check-in | Re-read each area statement. Revise any that no longer resonate. Update the year tag. |
 | Questions review | → part of yearly check-in | Revisit the questions list. Remove answered ones, add new ones. |
-| Passion brainstorm refresh | → part of yearly check-in | 5-minute brainstorm session. Add new items. Move accomplished items to Done. |
+| Vision brainstorm refresh | → part of yearly check-in | 5-minute brainstorm session. Add new items. Move accomplished items to Done. |
 | Personality & psychology review | → part of yearly check-in | Re-read `0-me/personality.md` + `0-me/core-psychology.md`. Update anything that no longer reflects current self-understanding. |
-| Trend analysis | → part of yearly check-in | Analyze day tracking data for patterns over the past year. Cross-reference with your wearable, habits, and check-in data. Also runs monthly as part of `/pfc-monthly-checkin`. |
+| Trend analysis | → part of yearly check-in | Analyze day tracking data for patterns over the past year. Cross-reference with your wearable, habits, and check-in data. Also runs on its monthly cadence as the `trend-analysis` rolling-review item (`/pfc-analyze-trends`). |
 
 ## ADHD-Aware Design
 
@@ -53,4 +52,4 @@ How and when the productivity system is used. These cadences keep you grounded, 
 - **Project breakdown reduces overwhelm.** When a project feels too big, break it into the smallest possible next actions.
 - **Task breakdown on request.** Any time a task feels daunting, ask Claude to break it into 15-minute chunks.
 - **Daily focus limits scope.** Only 3 tasks per day keeps the system from becoming a source of stress.
-- **Flexible cadences.** These are guidelines, not obligations. Skipping a weekly check-in is fine — the system is here to help, not to judge.
+- **Flexible cadences.** These are guidelines, not obligations. Skipping an evening check-in or letting a review sit is fine — the ledger just re-surfaces it on cadence, and the system is here to help, not to judge.

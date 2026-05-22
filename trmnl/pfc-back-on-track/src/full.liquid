@@ -1,0 +1,68 @@
+{% if all_clear %}
+  <div class="layout layout--col layout--center">
+    <span class="value value--xlarge lg:value--xxlarge">ALL ON TRACK</span>
+    <span class="label label--gray lg:label--large">Nothing needs a restart. Keep going.</span>
+  </div>
+{% else %}
+  <div class="layout layout--col gap">
+    <div class="grid">
+      <div class="col col--span-7 gap--small">
+        <span class="title title--small lg:title--base">Focus — this quarter</span>
+        <div class="columns" data-overflow-max-cols="1">
+          <div class="column">
+            {% for item in focus %}
+              <div class="item">
+                <div class="meta"></div>
+                <div class="content">
+                  <span class="label lg:label--large" data-clamp="1">{{ item.status }} - {{ item.title }}</span>
+                  {% if item.step != "" %}
+                    <span class="label label--small lg:label--base label--gray" data-clamp="1">back in: {{ item.step }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            {% else %}
+              <div class="item">
+                <div class="meta"></div>
+                <div class="content">
+                  <span class="label label--gray">Focus is all on track</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col col--span-5 gap--small">
+        <span class="title title--small lg:title--base">Projects — stalled</span>
+        {% for item in projects %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="label lg:label--large" data-clamp="1">{{ item.days }}d - {{ item.title }}</span>
+              <span class="label label--small lg:label--base label--gray" data-clamp="1">next: {{ item.step }}</span>
+            </div>
+          </div>
+        {% else %}
+          <span class="label label--gray">No stalled projects</span>
+        {% endfor %}
+
+        <span class="title title--small lg:title--base">Habits — behind this week</span>
+        {% for item in habits %}
+          <span class="label lg:label--large" data-clamp="1">{{ item.week }} - {{ item.title }}</span>
+        {% else %}
+          <span class="label label--gray">No habit gaps</span>
+        {% endfor %}
+        {% for item in monthly %}
+          <span class="label lg:label--large" data-clamp="1">{{ item.count }} - {{ item.title }} (month)</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<div class="title_bar">
+  <span class="title">Back on Track</span>
+  {% unless all_clear %}
+    <span class="instance">{{ total }} to recover</span>
+  {% endunless %}
+</div>

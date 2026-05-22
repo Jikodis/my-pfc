@@ -75,7 +75,7 @@ class TestCompleteTaskFromCard(unittest.TestCase):
                 "trello_card_id": "c1", "card_name": "X"}
         result = complete_task_from_card(
             "K", "T", card, tasks_path=self.tasks_path, events_path=self.events_path,
-            today="2026-05-10",
+            log_date="2026-05-10",
         )
         self.assertEqual(result, "completed")
         # Verify task status updated
@@ -99,7 +99,7 @@ class TestCompleteTaskFromCard(unittest.TestCase):
                 "trello_card_id": "c2", "card_name": "Y"}
         result = complete_task_from_card(
             "K", "T", card, tasks_path=self.tasks_path, events_path=self.events_path,
-            today="2026-05-10",
+            log_date="2026-05-10",
         )
         self.assertEqual(result, "already_done")
         # Task unchanged; only archive_card called (so we clean up the rogue Trello state)
@@ -116,7 +116,7 @@ class TestCompleteTaskFromCard(unittest.TestCase):
                 "trello_card_id": "cX", "card_name": "?"}
         result = complete_task_from_card(
             "K", "T", card, tasks_path=self.tasks_path, events_path=self.events_path,
-            today="2026-05-10",
+            log_date="2026-05-10",
         )
         self.assertEqual(result, "unknown")
         mock_archive.assert_not_called()
@@ -143,7 +143,7 @@ class TestHabitCompletion(unittest.TestCase):
         result = log_habit_from_card(
             "K", "T", card,
             daily_path=self.daily_path, monthly_path=self.monthly_path,
-            today="2026-05-10",
+            log_date="2026-05-10",
         )
         self.assertEqual(result, "logged")
         records = [json.loads(l) for l in self.daily_path.read_text().splitlines()]
@@ -159,9 +159,9 @@ class TestHabitCompletion(unittest.TestCase):
         card = {"pfc_id": "habit-daily-morning-walk", "pfc_type": "habit-daily", "list_name": "☀️ Daily Habits",
                 "trello_card_id": "c1", "card_name": "✓ Morning walk"}
         # First log
-        log_habit_from_card("K", "T", card, daily_path=self.daily_path, monthly_path=self.monthly_path, today="2026-05-10")
+        log_habit_from_card("K", "T", card, daily_path=self.daily_path, monthly_path=self.monthly_path, log_date="2026-05-10")
         # Second log on same day should not duplicate
-        result = log_habit_from_card("K", "T", card, daily_path=self.daily_path, monthly_path=self.monthly_path, today="2026-05-10")
+        result = log_habit_from_card("K", "T", card, daily_path=self.daily_path, monthly_path=self.monthly_path, log_date="2026-05-10")
         self.assertEqual(result, "already_logged")
         records = [json.loads(l) for l in self.daily_path.read_text().splitlines()]
         self.assertEqual(len(records), 1)
@@ -174,7 +174,7 @@ class TestHabitCompletion(unittest.TestCase):
         result = log_habit_from_card(
             "K", "T", card,
             daily_path=self.daily_path, monthly_path=self.monthly_path,
-            today="2026-05-10",
+            log_date="2026-05-10",
         )
         self.assertEqual(result, "logged")
         records = [json.loads(l) for l in self.monthly_path.read_text().splitlines()]
@@ -225,3 +225,18 @@ class TestMoveHelpers(unittest.TestCase):
         called_ids = [call.args[2] for call in mock_update.call_args_list]
         self.assertEqual(called_ids, ["c1"])
         self.assertEqual(mock_update.call_args_list[0].kwargs.get("idList"), "L_actions")
+
+
+class TestCheckTimeDating(unittest.TestCase):
+    """Completions are dated from when the card was checked, not when the sync
+    runs — a card checked at 11:56 PM local must not land on the next day."""
+
+    def test_utc_timestamp_converts_to_local_date(self):
+        from trello_writeback import _local_date_from_iso
+        # 05:56 UTC on the 11th is 11:56 PM on the 10th in America/Denver (MDT).
+        self.assertEqual(_local_date_from_iso("2026-05-11T05:56:00.000Z"), "2026-05-10")
+
+    def test_absent_or_bad_timestamp_returns_none(self):
+        from trello_writeback import _local_date_from_iso
+        self.assertIsNone(_local_date_from_iso(None))
+        self.assertIsNone(_local_date_from_iso("not-a-date"))

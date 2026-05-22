@@ -1,0 +1,21 @@
+{"id":"stale-task-triage","label":"Stale task triage","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"tasks-missing-area","label":"Tasks missing an area","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"focus-accuracy","label":"Current Focus accuracy","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"vision-relevance","label":"Vision relevance spot-check","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"habit-rate","label":"Daily habit completion rates","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"values-alignment","label":"Values alignment on active projects","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"day-trend-peek","label":"Day-rating trend peek","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"hypotheses-review","label":"Hypotheses touch pass","tier":"weekly","cadence_days":7,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"life-wheel","label":"Life wheel rating","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"household-status","label":"Household status rating","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"project-progress","label":"Project progress review","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"vision-activation","label":"Vision activation — lean in or let rest","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"monthly-habits","label":"Monthly habit completion","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"insights-review","label":"Insights review","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"findings-alignment","label":"Findings alignment check","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"trend-analysis","label":"Day-tracking trend analysis","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"revive-outcomes","label":"Revive outcome review","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"usage-audit","label":"Usage audit","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"focus-repick","label":"Quarterly Current Focus re-pick","tier":"quarterly","cadence_days":90,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"vision-brainstorm","label":"Vision / passion brainstorm","tier":"quarterly","cadence_days":90,"weekday_hint":null,"last_done":"2000-01-01"}
+{"id":"strengths-refresh","label":"Strengths & profile refresh","tier":"quarterly","cadence_days":90,"weekday_hint":null,"last_done":"2000-01-01"}

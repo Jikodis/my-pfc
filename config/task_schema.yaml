@@ -1,4 +1,4 @@
-# Task schema for 5-actions/_data/tasks.ndjson.
+# Task schema for 6-actions/_data/tasks.ndjson.
 # All tasks — strategic and operational — live in one list.
 
 task:
@@ -10,6 +10,14 @@ task:
     type: string
     enum: ["open", "done"]
     required: true
+  deferred:
+    type: boolean
+    default: false
+    description: "Parked by the user — still open, but deliberately out of the daily-pick rotation until they say otherwise. Hidden from pick pools, the Trello Actions list, and pfc-revive slippage signals. NOT a status: a deferred task is still open work, just not being offered right now. Clear it (set false / remove) when the user asks for it back."
+  deferred_reason:
+    type: string
+    nullable: true
+    description: "Why it was parked, in the user's own words. Shown when listing deferred tasks so the reason is visible at un-park time."
   description:
     type: string
     required: true
@@ -39,7 +47,7 @@ task:
   sequence:
     type: integer
     nullable: true
-    description: "Order of this task within its project (1-based). Set on project tasks where order matters (e.g. course curricula). pfc-pick-tasks and pfc-morning-checkin only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (project='none') leave this null."
+    description: "Order of this task within its project (1-based). Set on project tasks where order matters (e.g. course curricula). pfc-pick-tasks and the evening check-in only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (project='none') leave this null."
   area:
     type: string
     nullable: true
@@ -65,3 +73,11 @@ task:
     type: string
     enum: ["phone", "laptop", "automation", "chat", "morning-planning", "email-triage"]
     default: "phone"
+  source_email_thread_id:
+    type: string
+    nullable: true
+    description: "Gmail thread ID — the stable canonical identifier of the email this task came from. Primary dedup key for the email→task pipeline (pfc-email-triage Step 0): before creating a task from a labeled email, query tasks.ndjson + tasks-archive.ndjson by this field. Also drives reverse reconciliation — when the thread leaves the inbox, the linked task auto-completes. Set when source='email-triage'."
+  source_email_subject:
+    type: string
+    nullable: true
+    description: "Subject line of the source email (raw, including any Re:/Fwd: prefix). Fallback dedup key when the thread ID is missing; also shown during dedup confirmation. Set when source='email-triage'."

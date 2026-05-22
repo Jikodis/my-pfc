@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Run trmnlp against the plugin folder you are standing in.
+#
+#   cd trmnl/pfc-today
+#   ../bin/trmnlp serve      # preview at http://localhost:4567
+#   ../bin/trmnlp lint
+#   ../bin/trmnlp build --png
+#   ../bin/trmnlp push
+#
+# Resolution order:
+#   1. A native `trmnlp` on $PATH (the gem — fastest startup, needs Ruby >= 3.4)
+#   2. $TRMNL_CONTAINER_RUNTIME, if set
+#   3. The first of docker / podman / nerdctl found on $PATH
+#
+# macOS ships Ruby 2.6, which is too old for the gem — either install a modern
+# Ruby (`brew install ruby`, then `gem install trmnl_preview`) or let this script
+# fall back to a container runtime.
+#
+# The TRMNL API key comes from $TRMNL_API_KEY (see .env.example) or from
+# ~/.config/trmnlp/config.yml after `trmnlp login`.
+set -euo pipefail
+
+if command -v trmnlp >/dev/null 2>&1; then
+  exec trmnlp "$@"
+fi
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [[ -f "$REPO_ROOT/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a; source "$REPO_ROOT/.env"; set +a
+fi
+
+runtime="${TRMNL_CONTAINER_RUNTIME:-}"
+if [[ -z "$runtime" ]]; then
+  for candidate in docker podman nerdctl; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      runtime="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$runtime" ]]; then
+  cat >&2 <<'EOF'
+No way to run trmnlp found.
+
+Pick one:
+  gem       brew install ruby && gem install trmnl_preview
+  container install Docker, Podman, or nerdctl
+  override  TRMNL_CONTAINER_RUNTIME="lima nerdctl" ../bin/trmnlp serve
+
+See docs/trmnl-plugins.md.
+EOF
+  exit 1
+fi
+
+# `-it` only when stdin is a terminal — a container started with -it from a
+# non-TTY caller (a script, a cron job, an agent's Bash tool) fails outright
+# with "cannot attach stdin to a TTY-enabled container".
+# Always `-i` so the container gets stdin; add `-t` only when stdin is a real
+# terminal. A container started with `-t` from a non-TTY caller (a script, a
+# cron job, an agent's Bash tool) fails outright with "cannot attach stdin to a
+# TTY-enabled container" — but dropping `-i` too closes stdin, and any command
+# that prompts (`trmnlp push` asks before overwriting server settings) then dies
+# on `undefined method 'chomp' for nil`. With `-i`, `yes | trmnlp push` works
+# from a non-interactive caller.
+tty_flags=(-i)
+[[ -t 0 ]] && tty_flags=(-i -t)
+
+# TRMNL_CONTAINER_RUNTIME may carry arguments ("lima nerdctl"), so it is split
+# on whitespace deliberately.
+# shellcheck disable=SC2086
+exec $runtime run --rm ${tty_flags[@]+"${tty_flags[@]}"} \
+  --pull always \
+  --publish 4567:4567 \
+  --volume "$(pwd):/plugin" \
+  --volume "$HOME/.config/trmnlp:/root/.config/trmnlp" \
+  --env "TRMNL_API_KEY=${TRMNL_API_KEY:-}" \
+  docker.io/trmnl/trmnlp "$@"

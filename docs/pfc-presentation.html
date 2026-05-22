@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PFC — An AI-Operated Personal Productivity System</title>
+<style>
+  :root {
+    /* Solarized Light */
+    --base3:  #fdf6e3;  /* background */
+    --base2:  #eee8d5;  /* background highlights */
+    --base1:  #93a1a1;  /* comments / faint */
+    --base0:  #839496;
+    --base00: #657b83;  /* body text */
+    --base01: #586e75;  /* emphasized text */
+    --base02: #073642;  /* headings */
+    --base03: #002b36;
+    --yellow:  #b58900;
+    --orange:  #cb4b16;
+    --red:     #dc322f;
+    --magenta: #d33682;
+    --violet:  #6c71c4;
+    --blue:    #268bd2;
+    --cyan:    #2aa198;
+    --green:   #859900;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--base3);
+    color: var(--base00);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 5vh 7vw 10vh;
+    flex-direction: column;
+    justify-content: center;
+    overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+  .kicker {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+  }
+  h1 {
+    color: var(--base02);
+    font-size: clamp(2rem, 4.5vw, 3.4rem);
+    line-height: 1.15;
+    margin-bottom: 1.2rem;
+    font-weight: 800;
+  }
+  h2 { color: var(--base02); font-size: clamp(1.5rem, 3.2vw, 2.4rem); margin-bottom: 1.4rem; font-weight: 800; }
+  h3 { color: var(--base01); font-size: 1.05rem; margin-bottom: 0.4rem; }
+  p.lede { font-size: clamp(1.05rem, 1.8vw, 1.35rem); max-width: 60ch; line-height: 1.55; }
+  ul.big { list-style: none; font-size: clamp(1rem, 1.6vw, 1.25rem); line-height: 1.5; }
+  ul.big li { margin-bottom: 0.85rem; padding-left: 1.6rem; position: relative; }
+  ul.big li::before { content: "▸"; position: absolute; left: 0; color: var(--blue); }
+  ul.big li b, .card b, td b { color: var(--base01); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4rem; align-items: stretch; }
+  .card {
+    background: var(--base2);
+    border-radius: 10px;
+    padding: 1.1rem 1.3rem;
+    font-size: 0.98rem;
+    line-height: 1.5;
+  }
+  .card h3 { display: flex; align-items: center; gap: 0.5rem; }
+  code, pre {
+    font-family: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  code { background: var(--base2); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.92em; color: var(--base01); }
+  pre {
+    background: var(--base2);
+    border-left: 4px solid var(--cyan);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    font-size: clamp(0.8rem, 1.3vw, 1rem);
+    line-height: 1.55;
+    overflow-x: auto;
+    color: var(--base01);
+  }
+  pre .c { color: var(--base1); }
+  table { border-collapse: collapse; width: 100%; font-size: clamp(0.85rem, 1.4vw, 1.02rem); }
+  th { text-align: left; color: var(--base01); border-bottom: 2px solid var(--base1); padding: 0.45rem 0.9rem 0.45rem 0; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.06em; }
+  td { border-bottom: 1px solid var(--base2); padding: 0.5rem 0.9rem 0.5rem 0; vertical-align: top; line-height: 1.45; }
+  tr:last-child td { border-bottom: none; }
+  .stack { display: flex; flex-direction: column; gap: 0.55rem; max-width: 780px; }
+  .layer {
+    display: grid; grid-template-columns: 9.5rem 1fr 11rem; gap: 1rem; align-items: baseline;
+    background: var(--base2); border-radius: 8px; padding: 0.7rem 1.1rem;
+  }
+  .layer .name { font-weight: 800; color: var(--base02); }
+  .layer .horizon { text-align: right; font-size: 0.85rem; color: var(--base1); font-style: italic; }
+  .flow { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin: 1.2rem 0; }
+  .node {
+    background: var(--base2); border: 2px solid var(--base1); border-radius: 10px;
+    padding: 0.7rem 1.1rem; text-align: center; font-size: 0.95rem; line-height: 1.35;
+  }
+  .node b { display: block; color: var(--base02); }
+  .node small { color: var(--base1); }
+  .arrow { color: var(--base1); font-size: 1.4rem; font-weight: 700; }
+  .hub-wrap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1.5rem; align-items: center; max-width: 1000px; }
+  .hub {
+    background: var(--base2); border: 3px solid var(--yellow); border-radius: 14px;
+    padding: 1.4rem 1.6rem; text-align: center;
+  }
+  .hub b { display: block; color: var(--base02); font-size: 1.2rem; }
+  .pill { display: inline-block; background: var(--base2); border-radius: 999px; padding: 0.25em 0.9em; margin: 0.18em 0.18em; font-size: 0.92rem; }
+  .accent-yellow  { color: var(--yellow); }  .b-yellow  { border-color: var(--yellow); }
+  .accent-orange  { color: var(--orange); }  .b-orange  { border-color: var(--orange); }
+  .accent-red     { color: var(--red); }     .b-red     { border-color: var(--red); }
+  .accent-magenta { color: var(--magenta); } .b-magenta { border-color: var(--magenta); }
+  .accent-violet  { color: var(--violet); }  .b-violet  { border-color: var(--violet); }
+  .accent-blue    { color: var(--blue); }    .b-blue    { border-color: var(--blue); }
+  .accent-cyan    { color: var(--cyan); }    .b-cyan    { border-color: var(--cyan); }
+  .accent-green   { color: var(--green); }   .b-green   { border-color: var(--green); }
+  .foot { position: absolute; bottom: 3.2rem; left: 7vw; right: 7vw; color: var(--base1); font-size: 0.9rem; }
+  /* chrome */
+  #bar { position: fixed; bottom: 0; left: 0; height: 5px; background: var(--blue); width: 0; transition: width 0.25s ease; z-index: 10; }
+  #hud {
+    position: fixed; bottom: 0.85rem; right: 1.2rem; z-index: 10;
+    display: flex; align-items: center; gap: 0.7rem; color: var(--base1); font-size: 0.9rem;
+    user-select: none;
+  }
+  #hud button {
+    background: var(--base2); color: var(--base01); border: 1px solid var(--base1);
+    border-radius: 6px; font-size: 1rem; width: 2.1rem; height: 2.1rem; cursor: pointer;
+  }
+  #hud button:hover { background: var(--base3); }
+  @media (max-width: 820px) {
+    .cols, .cols3, .hub-wrap { grid-template-columns: 1fr; }
+    .layer { grid-template-columns: 7rem 1fr; }
+    .layer .horizon { display: none; }
+    .slide { justify-content: flex-start; padding-top: 3vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1 · Title -->
+<section class="slide">
+  <div class="kicker accent-yellow">Personal infrastructure</div>
+  <h1>PFC<br><span style="font-weight:400; font-size:0.55em; color:var(--base01);">An AI-operated personal productivity system</span></h1>
+  <p class="lede">A Git repository as the brain. An AI agent as the operator. Plain text all the way down.</p>
+  <div style="margin-top:2rem;">
+    <span class="pill">Markdown + NDJSON + YAML</span>
+    <span class="pill">Claude Code</span>
+    <span class="pill">Python stdlib</span>
+    <span class="pill">$6/month VPS</span>
+    <span class="pill">e-ink wall display</span>
+  </div>
+  <div class="foot">PFC = prefrontal cortex — the part of the brain that plans, initiates, and follows through.</div>
+</section>
+
+<!-- 2 · Premise -->
+<section class="slide">
+  <div class="kicker accent-yellow">Why build this</div>
+  <h2>Executive function is the scarce resource</h2>
+  <div class="cols">
+    <div>
+      <h3 class="accent-red">Every productivity app assumes…</h3>
+      <ul class="big">
+        <li>You will open the app</li>
+        <li>You will remember why the item is there</li>
+        <li>You will plan, prioritize, and review on your own</li>
+        <li>The app owns your data, in its format</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="accent-green">This system inverts that</h3>
+      <ul class="big">
+        <li>An <b>agent operates the system</b> — you converse with it</li>
+        <li>State lives in <b>files you own</b>, in a Git repo</li>
+        <li>Planning, reviews, and nudges are <b>pushed to you</b></li>
+        <li>Apps become <b>rendered views</b>, never the source of truth</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · Core principles -->
+<section class="slide">
+  <div class="kicker accent-yellow">Design principles</div>
+  <h2>Five rules the whole system follows</h2>
+  <ul class="big" style="max-width:62ch;">
+    <li><b>The repo is canonical.</b> If it matters, it lives in a file. Everything else is a cache.</li>
+    <li><b>File-based truth over hidden memory.</b> The agent never relies on chat history for durable state.</li>
+    <li><b>The agent is an operator, not the owner.</b> All state stays visible, greppable, and hand-editable.</li>
+    <li><b>Idempotent automation.</b> Every render and fetch can run twice safely — which makes aggressive scheduling free.</li>
+    <li><b>Forward-moving.</b> Retired mechanisms are deleted, not preserved. Git history is the audit trail.</li>
+  </ul>
+</section>
+
+<!-- 4 · VAVFPAH -->
+<section class="slide">
+  <div class="kicker accent-blue">The mental model</div>
+  <h2>Seven layers, from enduring to daily</h2>
+  <div class="stack">
+    <div class="layer"><span class="name accent-violet">Values</span><span>What matters, ranked — the criteria everything is judged against</span><span class="horizon">enduring</span></div>
+    <div class="layer"><span class="name accent-violet">Areas</span><span>Domains of life (health, family, career…) — never "done"</span><span class="horizon">permanent</span></div>
+    <div class="layer"><span class="name accent-blue">Visions</span><span>Long-term direction per area — no deadlines, direction over dates</span><span class="horizon">years</span></div>
+    <div class="layer"><span class="name accent-blue">Focus</span><span>What's actively pursued now — scarce, capped, traffic-lit 🟢🟡🔴</span><span class="horizon">a quarter</span></div>
+    <div class="layer"><span class="name accent-cyan">Projects</span><span>Short-term outcomes, max 3 active at a time</span><span class="horizon">1–3 months</span></div>
+    <div class="layer"><span class="name accent-cyan">Actions</span><span>Tasks, scored by impact × urgency × size</span><span class="horizon">days</span></div>
+    <div class="layer"><span class="name accent-green">Habits</span><span>Daily and monthly reps, binary log</span><span class="horizon">today</span></div>
+  </div>
+  <p style="margin-top:1.1rem; color:var(--base1); font-size:0.95rem;">Every object names exactly one Area — nothing floats. Vertical links are optional and only recorded when real.</p>
+</section>
+
+<!-- 5 · On disk -->
+<section class="slide">
+  <div class="kicker accent-blue">On disk</div>
+  <h2>The folder tree <em>is</em> the model</h2>
+  <div class="cols">
+    <pre>
+1-values/      values.md
+2-areas/       one folder per life area
+3-visions/     one markdown file per vision
+4-focus/       _data/focus.ndjson
+5-projects/    _data/projects.ndjson
+6-actions/     _data/tasks.ndjson
+7-habits/      _data/habits-daily.ndjson
+
+0-me/          profile, schedule patterns
+data/          day tracking, insights,
+               hypotheses, findings…
+config/        YAML schemas
+docs/          how the system works
+automations/   Python scripts + systemd units
+.claude/skills/  38 agent workflows
+scripts/       validation + hooks</pre>
+    <ul class="big">
+      <li>Numbered folders mirror the seven layers</li>
+      <li>Convention: structured data in <code>_data/*.ndjson</code>, prose in Markdown beside it</li>
+      <li>Human-readable <em>and</em> machine-operable — same files</li>
+      <li>Nested agent-instruction files scope rules to each subtree</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 6 · Data layer -->
+<section class="slide">
+  <div class="kicker accent-blue">Data layer</div>
+  <h2>Three formats, one write discipline</h2>
+  <table style="max-width:900px; margin-bottom:1.4rem;">
+    <tr><th>Format</th><th>Used for</th><th>Why</th></tr>
+    <tr><td><b>Markdown</b></td><td>Values, area statements, project notes, docs, skills</td><td>Prose humans edit</td></tr>
+    <tr><td><b>NDJSON</b></td><td>Tasks, habits, projects, day tracking, event logs</td><td>One record per line — append- and diff-friendly, <code>jq</code>-queryable</td></tr>
+    <tr><td><b>YAML</b></td><td>Schemas and configuration</td><td>Every NDJSON file has a schema to validate against</td></tr>
+  </table>
+  <pre>
+<span class="c"># every structured write goes through jq: temp file + atomic rename</span>
+jq -c 'select(.id != "…") …' tasks.ndjson > .jq_update.tmp \
+  && mv .jq_update.tmp tasks.ndjson</pre>
+  <p style="margin-top:1rem; max-width:62ch;">No raw string appends, no sed on structured data. Records mutate in place — <b>Git carries the history</b>, so the live files stay small and current.</p>
+</section>
+
+<!-- 7 · The operator -->
+<section class="slide">
+  <div class="kicker accent-cyan">The operator</div>
+  <h2>Claude Code is the runtime</h2>
+  <div class="cols3">
+    <div class="card"><h3><span class="accent-cyan">◆</span> Skills</h3>38 slash-command workflows (<code>/pfc-*</code>) — each a Markdown file of instructions the agent follows verbatim. Versioned prompts, reviewed like code.</div>
+    <div class="card"><h3><span class="accent-cyan">◆</span> Hooks</h3>Shell scripts the harness runs at session start, on every prompt, after every file edit, and at end of turn — injecting context and enforcing rules the model can't skip.</div>
+    <div class="card"><h3><span class="accent-cyan">◆</span> Connectors (MCP)</h3>Google Calendar, Gmail, and Drive via Model Context Protocol — schedule awareness, email-to-task triage, spreadsheet output.</div>
+  </div>
+  <p class="lede" style="margin-top:1.6rem;">Chat is the primary UI — from a laptop terminal or a phone via remote control. "Add a task", "what should I work on", "run my evening check-in" are all just conversation.</p>
+</section>
+
+<!-- 8 · Skills -->
+<section class="slide">
+  <div class="kicker accent-cyan">Skills</div>
+  <h2>Workflows as version-controlled prompts</h2>
+  <table style="max-width:950px;">
+    <tr><th>Skill</th><th>What it does</th></tr>
+    <tr><td><code>/pfc-evening-checkin</code></td><td>The daily spine — rate the day, log habits, drip due reviews, set tomorrow's focus</td></tr>
+    <tr><td><code>/pfc-pick-tasks</code></td><td>Suggests what to work on, ranked by impact × urgency × size</td></tr>
+    <tr><td><code>/pfc-stuck</code></td><td>State-based unstick protocol — diagnoses the block type, prescribes one physical action</td></tr>
+    <tr><td><code>/pfc-review</code></td><td>Clears the whole rolling-review backlog at once</td></tr>
+    <tr><td><code>/pfc-analyze-trends</code></td><td>Statistical pass over day-tracking data — what actually predicts good days</td></tr>
+    <tr><td><code>/pfc-usage-audit</code> · <code>/pfc-repo-maintenance</code></td><td>The system audits itself — data freshness, schema drift, broken references</td></tr>
+  </table>
+  <p style="margin-top:1.3rem; color:var(--base01);">A skill edit is a Git commit — the system's behavior has a reviewable diff history.</p>
+</section>
+
+<!-- 9 · Day in the life -->
+<section class="slide">
+  <div class="kicker accent-green">Day to day</div>
+  <h2>A day through the system</h2>
+  <table style="max-width:980px;">
+    <tr><th style="width:11rem;">When</th><th>What happens</th><th>Driven by</th></tr>
+    <tr><td><b>6:00–10:30 AM</b></td><td>Health data auto-fetch retries every 30 min until the watch syncs</td><td>systemd timer</td></tr>
+    <tr><td><b>Noon</b></td><td>Full health fetch (today + yesterday), auto-committed if changed</td><td>systemd timer</td></tr>
+    <tr><td><b>All day</b></td><td>Quick captures dictated into a phone widget → Inbox list; done items checked off from the same widget</td><td>Trello + phone</td></tr>
+    <tr><td><b>Every 2 hours</b></td><td>Check-offs sync back to the repo; dashboard re-renders</td><td>systemd timer</td></tr>
+    <tr><td><b>Ambient</b></td><td>E-ink wall display polls for a fresh screen before each refresh</td><td>TRMNL + VPS endpoint</td></tr>
+    <tr><td><b>Evening</b></td><td>Check-in conversation: rate the day → log habits → ≤2 rolling reviews → pick tomorrow's <b>2+1</b> focus tasks → annotate tomorrow's calendar anchor</td><td>Claude Code skill</td></tr>
+  </table>
+  <p style="margin-top:1.2rem; color:var(--base01);">One ritual per day, in the evening. No morning routine to fail at.</p>
+</section>
+
+<!-- 10 · Rolling reviews -->
+<section class="slide">
+  <div class="kicker accent-green">Cadences</div>
+  <h2>Reviews drip — they don't pile up</h2>
+  <div class="cols">
+    <div>
+      <h3 class="accent-red">The usual failure</h3>
+      <p style="line-height:1.6; margin-bottom:1rem;">Weekly / monthly / quarterly review rituals demand an hour of a resource the system exists to conserve. Skip two and the backlog is demoralizing; the ritual dies.</p>
+      <h3 class="accent-green">The replacement</h3>
+      <p style="line-height:1.6;">Every review type lives in a <b>ledger</b> with its own cadence — stale-task triage, life wheel, project progress, focus accuracy, trend analysis, quarterly re-picks…</p>
+    </div>
+    <ul class="big">
+      <li>The evening check-in serves <b>at most 2 due items</b> per night</li>
+      <li>Each takes a minute or two inside a ritual that already happens</li>
+      <li>A catch-up command clears the whole backlog when wanted</li>
+      <li>Nothing is ever "overdue by six weeks" — just next in line</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 11 · Guardrails -->
+<section class="slide">
+  <div class="kicker accent-red">Guardrails</div>
+  <h2>Letting an LLM write your data — safely</h2>
+  <ul class="big" style="max-width:66ch;">
+    <li><b>Schema validation on every commit.</b> A pre-commit hook runs ~19 check groups: NDJSON parses, schema conformance, cross-file referential integrity, future-date detection.</li>
+    <li><b>Validation after every edit.</b> A post-edit hook re-validates touched data files immediately and forces the agent to fix failures before moving on.</li>
+    <li><b>Date injection.</b> The server clock is UTC; hooks inject the local date at session start and on every prompt, so date-stamped records never silently shift a day.</li>
+    <li><b>End-of-turn ledger.</b> A stop hook prints uncommitted state files, so "done" claims get reconciled against Git, not memory.</li>
+    <li><b>Commit policy.</b> Routine data writes auto-commit and push; structural changes require explicit approval.</li>
+  </ul>
+</section>
+
+<!-- 12 · Surfaces -->
+<section class="slide">
+  <div class="kicker accent-magenta">Surfaces</div>
+  <h2>One source of truth, many renders</h2>
+  <div class="hub-wrap">
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+      <div class="node b-cyan"><b>Chat (Claude Code)</b><small>operate the system — read/write</small></div>
+      <div class="node b-blue"><b>Trello board</b><small>phone glance + check-off write-back</small></div>
+    </div>
+    <div class="hub"><b>Git repo</b><span style="color:var(--base1);">canonical state</span></div>
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+      <div class="node b-violet"><b>E-ink wall display</b><small>ambient, read-only</small></div>
+      <div class="node b-green"><b>Google Calendar</b><small>time anchors for focus tasks</small></div>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:1.8rem;">Each surface fits a context: deep work at the keyboard, glances on the phone, ambient awareness on the wall. All are <b>rendered caches</b> — losing any of them loses nothing.</p>
+</section>
+
+<!-- 13 · Trello -->
+<section class="slide">
+  <div class="kicker accent-magenta">Surface · phone</div>
+  <h2>Trello as a declarative UI</h2>
+  <div class="cols">
+    <ul class="big">
+      <li>A render script reads ~16 repo files and computes the <b>desired board</b>, then diffs against the live board and applies only the minimum API calls</li>
+      <li>Card identity lives in description frontmatter (<code>pfc-id</code>), so renders are <b>idempotent</b> — a no-change run is a no-op</li>
+      <li><b>Write-back:</b> checking a card's Mark Complete box from the phone widget completes the task or logs the habit in the repo on the next sync</li>
+      <li>An <b>Inbox list</b> catches dictated quick-captures; the agent later processes each card as if it were typed in chat</li>
+    </ul>
+    <div class="card" style="align-self:center;">
+      <h3>Board lists (a sample)</h3>
+      <p style="line-height:1.9;">
+        <span class="pill">📥 Inbox</span> <span class="pill">✅ Today's focus</span> <span class="pill">✅ Actions</span>
+        <span class="pill">☀️ Daily Habits</span> <span class="pill">🗓️ Week at a Glance</span>
+        <span class="pill">🛠️ Projects</span> <span class="pill">💡 Insights</span> <span class="pill">🧪 Hypotheses</span>
+      </p>
+      <p style="margin-top:0.7rem; color:var(--base1);">Re-rendered automatically by a Git post-commit hook and a 2-hourly timer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 14 · TRMNL -->
+<section class="slide">
+  <div class="kicker accent-magenta">Surface · wall</div>
+  <h2>E-ink screens from repo data</h2>
+  <div class="cols">
+    <ul class="big">
+      <li><b>TRMNL</b> e-ink device polls an HTTPS endpoint on the VPS right before each screen refresh</li>
+      <li>A tiny stdlib Python server builds the payload <b>per request</b> from current repo state — the wall is as fresh as the moment you look at it</li>
+      <li>13 plugins: today's focus, habits, projects, trends, weekly calendar, slipping work, and more</li>
+      <li><b>Shape data in Python, not templates</b> — Liquid markup just prints pre-formatted values</li>
+      <li>Local preview renders 4-bit PNGs before any deploy — lint checks rules, eyes check layout</li>
+    </ul>
+    <pre style="align-self:center;">
+TRMNL device ──HTTPS──▶ Caddy (TLS, bearer auth)
+                           │ /p/&lt;plugin&gt;
+                           ▼
+                 loopback-only Python server
+                           │ builds payload per request
+                           ▼
+                     Git repo (pulled every 5 min)</pre>
+  </div>
+</section>
+
+<!-- 15 · Health pipeline -->
+<section class="slide">
+  <div class="kicker accent-orange">Data in</div>
+  <h2>Wearable data, automatically</h2>
+  <div class="cols">
+    <ul class="big">
+      <li>Nightly-worn tracker → <b>Google Health API</b>, read with OAuth 2 (headless VPS authorizes via an SSH tunnel from the laptop)</li>
+      <li>Pulls sleep sessions, resting heart rate, active-zone minutes, workouts, HRV, SpO₂, respiratory rate, skin temperature…</li>
+      <li>Two layers: a <b>derived daily block</b> merged into the day-tracking record, and a <b>gzipped raw archive</b> per day as insurance</li>
+      <li>Composite sleep score computed from quantity, quality, and timing</li>
+    </ul>
+    <div>
+      <pre>
+<span class="c"># systemd user timers</span>
+06:00–10:30  fetch every 30 min
+             (until the watch syncs)
+12:00        full fetch: today + yesterday
+<span class="c"># idempotent: unchanged data → no commit</span>
+changed?  →  git commit -m "track: auto-fetch health"
+          →  git push</pre>
+      <p style="margin-top:0.9rem; color:var(--base01);">Morning retries are free <em>because</em> the fetch is idempotent — no data change, no commit, no noise.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 16 · Self-experimentation -->
+<section class="slide">
+  <div class="kicker accent-orange">Data out</div>
+  <h2>Running experiments on your own life</h2>
+  <div class="cols3">
+    <div class="card"><h3><span class="accent-orange">1</span> Track</h3>Every day gets a 1–5 rating plus the auto-fetched health block — sleep, exercise, recovery — in one NDJSON record.</div>
+    <div class="card"><h3><span class="accent-orange">2</span> Analyze</h3>A stats script computes correlations and effect sizes: which levers actually separate a great day from a mediocre one.</div>
+    <div class="card"><h3><span class="accent-orange">3</span> Learn</h3>Claims live as <b>hypotheses</b> with evidence attached over time; confirmed ones graduate to <b>findings</b> the agent cites when giving advice.</div>
+  </div>
+  <p class="lede" style="margin-top:1.8rem;">The agent also watches for slippage — stalled projects, focus picks that never land, habits quietly failing — and raises them before they're weeks old.</p>
+</section>
+
+<!-- 17 · Infrastructure -->
+<section class="slide">
+  <div class="kicker accent-violet">Infrastructure</div>
+  <h2>The whole thing runs on a $6 droplet</h2>
+  <div class="flow" style="margin-bottom:1.6rem;">
+    <div class="node"><b>Phone / laptop</b><small>chat + SSH</small></div>
+    <span class="arrow">→</span>
+    <div class="node"><b>Anthropic API</b><small>all inference</small></div>
+    <span class="arrow">→</span>
+    <div class="node b-violet"><b>VPS</b><small>repo + timers</small></div>
+    <span class="arrow">→</span>
+    <div class="node"><b>GitHub</b><small>sync + backup</small></div>
+  </div>
+  <div class="cols">
+    <div>
+      <ul class="big">
+        <li>Ubuntu 24.04 · 1 vCPU · 1 GB RAM</li>
+        <li>Claude Code in tmux for persistent sessions</li>
+        <li>Caddy for TLS; firewall passes only 80/443 + SSH</li>
+        <li>The VPS holds no intelligence — just files and schedules</li>
+      </ul>
+    </div>
+    <div>
+      <h3>systemd user timers</h3>
+      <table>
+        <tr><td><code>health-fetch-morning</code></td><td>every 30 min, 6–10:30 AM</td></tr>
+        <tr><td><code>health-fetch</code></td><td>daily at noon</td></tr>
+        <tr><td><code>pulse-refresh</code></td><td>every 2 h — Trello sync + render</td></tr>
+        <tr><td><code>trello-daily-render</code></td><td>00:05 — reset habit cards</td></tr>
+        <tr><td><code>repo-sync</code></td><td>every 5 min — <code>git pull</code></td></tr>
+        <tr><td><code>trmnl-serve</code></td><td>always on — e-ink endpoint</td></tr>
+      </table>
+      <p style="margin-top:0.8rem; color:var(--base1);">One idempotent installer renders the units, enables lingering, and removes orphans.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 18 · Tech philosophy -->
+<section class="slide">
+  <div class="kicker accent-violet">Tech choices</div>
+  <h2>Aggressively boring on purpose</h2>
+  <ul class="big" style="max-width:66ch;">
+    <li><b>No database, no web framework, no dashboard app.</b> Flat files + Git cover state, sync, backup, and audit history.</li>
+    <li><b>Python standard library almost everywhere.</b> Two dependencies total (YAML parsing, spreadsheet output). HTTP is <code>urllib</code>; the web server is <code>http.server</code>.</li>
+    <li><b>Every integration is a rendered cache</b> with one canonical direction — plus exactly one narrow write-back path (the phone check-off).</li>
+    <li><b>Secrets in one gitignored <code>.env</code></b>; tokens never touch the repo; the e-ink endpoint is bearer-authenticated and loopback-bound behind the proxy.</li>
+    <li><b>Tests and audits for the plumbing:</b> a pytest suite for the automation scripts, and skills that audit the system's own health.</li>
+  </ul>
+</section>
+
+<!-- 19 · Closing -->
+<section class="slide">
+  <div class="kicker accent-yellow">Takeaways</div>
+  <h2>What transfers to your own build</h2>
+  <ul class="big" style="max-width:64ch;">
+    <li><b>Make the agent the operator</b>, not a chatbot bolted onto an app — conversation is a better interface than forms.</li>
+    <li><b>Plain text in Git beats every productivity app</b> for longevity, portability, and agent-operability.</li>
+    <li><b>Idempotency is the keystone</b> — it turns risky automation into something you can run every two hours without thinking.</li>
+    <li><b>Guardrail the model with hooks and validators</b>, not hope. Enforce schemas where the agent can't skip them.</li>
+    <li><b>Design for the brain you have</b> — one daily ritual, dripped reviews, external triggers, ambient displays.</li>
+  </ul>
+  <p class="lede" style="margin-top:1.6rem;">Built — and operated daily — with Claude Code.</p>
+</section>
+
+<div id="bar"></div>
+<div id="hud">
+  <button id="prev" aria-label="Previous slide">‹</button>
+  <span id="count"></span>
+  <button id="next" aria-label="Next slide">›</button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let i = Math.min(Math.max((parseInt(location.hash.slice(1), 10) || 1) - 1, 0), slides.length - 1);
+  function show(n) {
+    i = Math.min(Math.max(n, 0), slides.length - 1);
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    document.getElementById('count').textContent = (i + 1) + ' / ' + slides.length;
+    document.getElementById('bar').style.width = ((i + 1) / slides.length * 100) + '%';
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.getElementById('next').onclick = () => show(i + 1);
+  addEventListener('hashchange', () => {
+    const n = (parseInt(location.hash.slice(1), 10) || 1) - 1;
+    if (n !== i) show(n);
+  });
+  addEventListener('keydown', e => {
+    if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  show(i);
+</script>
+</body>
+</html>

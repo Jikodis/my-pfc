@@ -26,3 +26,50 @@ monthly_checkin:
   time: "18:00"
   # Edit to your local timezone (IANA name)
   timezone: "America/Denver"
+
+# ── Health thresholds ─────────────────────────────────────────────────────────
+# Every number here is a GENERIC STARTING DEFAULT taken from general adult sleep
+# guidance — not a target you have to hit, and not tuned to you. Leave the whole
+# block out and the scripts use these same values as built-in defaults.
+#
+# HOW TO TUNE: log days for ~6 weeks, then run `/pfc-analyze-trends`. Its
+# gate/gradient pass prints each factor's mean inside every rating bucket — move a
+# bar to where YOUR good days actually sit. Two rules of thumb:
+#   - A bar almost every night clears carries no information. Tighten it.
+#   - A bar you never clear stops being actionable. Loosen it, or it just reads
+#     "always failing" and you'll learn to ignore the readout.
+health:
+  # QQRT sleep composite — read by automations/scripts/qqrt.py.
+  # SCORE = quantity + quality + timing (0–3). Regularity is computed and stored
+  # but deliberately NOT scored until you have a steady stretch to compare against.
+  sleep:
+    quantity_min_hours: 7.0            # general guidance is 7–9 hours
+    quality_min_efficiency_pct: 90.0   # asleep ÷ (asleep + awake)
+    quality_min_deep_pct: 15.0         # deep sleep normally runs 13–23% of total
+    timing_asleep_by_min: 0            # signed minutes from midnight: -60 = 11 PM, 0 = midnight
+    regularity_window_nights: 14       # trailing window for sleep-midpoint spread
+    regularity_min_nights: 7           # fewer nights than this → regularity unjudged
+    regularity_max_spread_min: 60      # midpoint spread that still counts as "regular"
+    # Sleep debt — an operational target, not a biological-need claim. Shortfall per
+    # night = max(0, need - hours); surplus sleep earns no credit; the window rolls off.
+    need_hours: 8.0
+    debt_window_nights: 14
+    debt_min_nights: 5
+
+  # Daily Pulse lever bands — read by automations/scripts/pulse.py.
+  # Each lever is (green, amber); anything past amber is red. Levers whose lower
+  # value is better (awake minutes, debt, awakenings, bedtime, wake time) pass at
+  # <= the band; the rest pass at >=. Clock levers are minutes from midnight,
+  # signed for bedtime (-60 = 11:00 PM), unsigned for wake (420 = 7:00 AM).
+  pulse:
+    verdict_min_critical_green: 3      # CRITICAL levers that must be green for a 🟢 verdict
+    levers:
+      continuity: {green: 20, amber: 40}     # minutes awake during the night
+      rem:        {green: 90, amber: 75}     # REM minutes
+      hours:      {green: 7.5, amber: 7.0}   # total sleep hours
+      debt:       {green: 30, amber: 60}     # trailing debt, avg minutes short per night
+      deep:       {green: 75, amber: 60}     # deep sleep minutes
+      awakenings: {green: 1, amber: 3}       # real wakings
+      bedtime:    {green: -60, amber: 0}     # asleep by 11:00 PM / midnight
+      wake:       {green: 420, amber: 450}   # awake by 7:00 AM / 7:30 AM
+      qqrt:       {green: 2, amber: 1}       # QQRT composite score, 0–3

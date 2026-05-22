@@ -5,24 +5,24 @@ description: Mark a task as complete. Use when the user says "done", "complete",
 
 # Complete Task
 
-All tasks live in `5-actions/_data/tasks.ndjson`.
+All tasks live in `6-actions/_data/tasks.ndjson`.
 
 1. Parse the task description or ID from the user's input.
 2. Search for open matches with jq:
    ```bash
-   jq -c 'select(.status == "open" and (.description | test("keyword"; "i")))' 5-actions/_data/tasks.ndjson
+   jq -c 'select(.status == "open" and (.description | test("keyword"; "i")))' 6-actions/_data/tasks.ndjson
    ```
 3. If multiple matches, show the user and ask which one.
 4. Update status in place:
    ```bash
    jq -c 'if .id == "TASK_ID" then . + {status:"done", completed:"YYYY-MM-DD"} else . end' \
-     5-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/tasks.ndjson
+     6-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-actions/_data/tasks.ndjson
    ```
-5. Append completion event to `5-actions/_data/task_events.ndjson`:
+5. Append completion event to `6-actions/_data/task_events.ndjson`:
    ```bash
    jq -cn --arg id "TASK_ID" --arg ts "YYYY-MM-DD" \
      '{task_id:$id, event:"completed", timestamp:$ts}' \
-     >> 5-actions/_data/task_events.ndjson
+     >> 6-actions/_data/task_events.ndjson
    ```
 6. If this task is in today's `daily-focus.ndjson` record, update the focus record's `completed` array (or `bonus_completed`):
    ```bash
@@ -32,7 +32,7 @@ All tasks live in `5-actions/_data/tasks.ndjson`.
        if (.critical // [] | index($id)) then .completed = ((.completed // []) + [$id] | unique)
        elif .bonus == $id then .bonus_completed = true
        else . end
-     else . end' 5-actions/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/daily-focus.ndjson
+     else . end' 6-actions/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-actions/_data/daily-focus.ndjson
    ```
 
 7. **REQUIRED — do not skip.** Update any matching calendar events on today's primary calendar so the `✅` prefix appears on the title. Without this, the write-path is broken and the calendar will silently drift out of sync with `tasks.ndjson`. Scope is today only — past/future days are not touched. See `docs/calendar-scheduling.md` §Completion sync for the full rules. In brief:

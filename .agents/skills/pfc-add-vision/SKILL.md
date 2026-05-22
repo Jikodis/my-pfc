@@ -5,7 +5,7 @@ description: Add a new vision to 3-visions/. Use when the user says "add vision"
 
 # Add Vision
 
-A **vision** sits between Areas and Projects in VAVPAH. It expresses direction without a SMART deadline. See [`../../../3-visions/README.md`](../../../3-visions/README.md) and [`../../../0-me/working-with-me.md`](../../../0-me/working-with-me.md) § Long-term vision for the why.
+A **vision** sits between Areas and the Focus layer in VAVFPAH. It expresses direction without a SMART deadline. See [`../../../3-visions/README.md`](../../../3-visions/README.md) and [`../../../0-me/working-with-me.md`](../../../0-me/working-with-me.md) § Long-term vision for the why.
 
 ## When to use
 
@@ -31,7 +31,7 @@ A **vision** sits between Areas and Projects in VAVPAH. It expresses direction w
    ```
    If ≥ 2, surface the existing active visions for that area and ask whether to retire one before adding.
 
-3. **Walk through each part.** Ask in this order, accept partial answers and infer where reasonable:
+3. **Draft first — don't interrogate.** Articulating a statement, a why, and a "fulfilled looks like" from a blank page is the single hardest step in this flow, and a question-by-question interview is the slowest way through it. So do **not** ask the parts below as a Q&A. Instead: read `1-values/values.md`, `2-areas/<area>/statement.md`, any `raw` records in `3-visions/_data/vision-brainstorm.ndjson`, and `0-me/profile.md`, then **write a complete first draft of every field**, create the file, show it, and ask only for edits or confirmation. People react to a concrete draft far more easily than they generate one from zero. The list below is the *structure to fill in the draft*, not a question script — only fall back to asking when a field genuinely can't be inferred from the user's files.
    - **Slug** — short kebab-case identifier (e.g. `learn-language-x`). Suggest one based on the title; let the user confirm.
    - **Title** — plain-words name in the H1.
    - **Statement** — one sentence, what does this vision look like when it's true?
@@ -67,7 +67,7 @@ A **vision** sits between Areas and Projects in VAVPAH. It expresses direction w
 ## Pushback patterns
 
 - User offers a deadline ("by 2027 I want to...") → redirect: "deadlines aren't part of vision shape. What are the habits and projects that move probability up?"
-- User can't articulate "fulfilled looks like" → that's a flag the vision is too vague. Either narrow it or capture as `passion-brainstorm.md` material instead.
+- User can't articulate "fulfilled looks like" — and your draft didn't land either → that's a flag the vision is too vague. Either narrow it or capture it as a brainstorm record instead (via `/pfc-vision-brainstorm`).
 - User wants to add a 3rd vision to an area that already has 2 → ask which existing vision to retire (`fulfilled`, `paused`, `abandoned`) before adding.
 
 ## Reference
@@ -75,4 +75,6 @@ A **vision** sits between Areas and Projects in VAVPAH. It expresses direction w
 - Folder: `3-visions/`
 - Template: `3-visions/_template.md`
 - README: `3-visions/README.md`
+- Brainstorm that feeds visions: `/pfc-vision-brainstorm`
+- The quarter-horizon layer below a vision: `/pfc-focus` (`4-focus/README.md`)
 - Long-form rationale: `0-me/working-with-me.md` § Long-term vision

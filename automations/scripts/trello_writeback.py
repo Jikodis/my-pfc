@@ -36,6 +36,25 @@ HABIT_DAILY_LIST = "☀️ Daily Habits"
 HABIT_MONTHLY_LIST = "🌙 Monthly Habits"
 
 
+def _local_date_from_iso(iso) -> "str | None":
+    """Convert a Trello UTC timestamp (`dateCompleted`) to a local-timezone date.
+
+    Everything in the repo is dated in local time, but Trello stamps UTC. A card
+    checked at 11:56 PM local lands on the *next* UTC day, so converting is what
+    keeps the log on the day the thing was actually done.
+
+    Returns None when the timestamp is absent or unparseable so callers fall back
+    to sync-time today.
+    """
+    if not iso:
+        return None
+    try:
+        dt_parsed = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt_parsed.astimezone(LOCAL_TZ).strftime("%Y-%m-%d")
+
+
 def _today_mt() -> str:
     return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d")
 
@@ -47,7 +66,9 @@ def _this_month_mt() -> str:
 def poll_completed_cards(api_key, token, board_id):
     """Return cards in interactive lists with dueComplete=true and a valid pfc-id.
 
-    Each entry: {"pfc_id", "pfc_type", "list_name", "trello_card_id", "card_name"}.
+    Each entry: {"pfc_id", "pfc_type", "list_name", "trello_card_id", "card_name",
+    "date_completed"}. `date_completed` is Trello's UTC check timestamp; handlers
+    convert it to a local date so a late-night check is not dated to the next day.
     """
     lists = list_lists(api_key, token, board_id, filter_="open")
     list_id_to_name = {l["id"]: l["name"] for l in lists}
@@ -70,6 +91,7 @@ def poll_completed_cards(api_key, token, board_id):
             "list_name": list_name,
             "trello_card_id": c["id"],
             "card_name": c.get("name", ""),
+            "date_completed": c.get("dateCompleted"),
         })
     return out
 
@@ -92,17 +114,20 @@ def _append_ndjson(path, record):
         f.write(json.dumps(record) + "\n")
 
 
-def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=None, today=None):
+def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=None, log_date=None):
     """Mark the task done in tasks.ndjson, log event, archive the Trello card.
+
+    The completion date comes from *when the card was checked*, not when this sync
+    runs — see `log_habit_from_card` for why.
 
     Returns:
       'completed' — task was open, now marked done; archive triggered.
       'already_done' — task was already done; archive triggered (cleans up Trello state).
       'unknown' — task id not found in tasks.ndjson; no changes; no archive.
     """
-    tasks_path = tasks_path or REPO_ROOT / "5-actions/_data/tasks.ndjson"
-    events_path = events_path or REPO_ROOT / "5-actions/_data/task_events.ndjson"
-    today = today or _today_mt()
+    tasks_path = tasks_path or REPO_ROOT / "6-actions/_data/tasks.ndjson"
+    events_path = events_path or REPO_ROOT / "6-actions/_data/task_events.ndjson"
+    log_date = log_date or _local_date_from_iso(card.get("date_completed")) or _today_mt()
 
     tasks = _read_ndjson(tasks_path)
     task_idx = next((i for i, t in enumerate(tasks) if t.get("id") == card["pfc_id"]), None)
@@ -116,7 +141,7 @@ def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=N
 
     # Update in place
     task["status"] = "done"
-    task["completed"] = today
+    task["completed"] = log_date
     tasks[task_idx] = task
     _write_ndjson(tasks_path, tasks)
 
@@ -124,7 +149,7 @@ def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=N
     _append_ndjson(events_path, {
         "task_id": card["pfc_id"],
         "event": "completed",
-        "timestamp": today,
+        "timestamp": log_date,
         "source": "trello",
     })
 
@@ -132,14 +157,22 @@ def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=N
     return "completed"
 
 
-def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None, today=None):
+def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None, log_date=None):
     """Log a habit completion from a Trello card. Daily and monthly handled differently.
+
+    The log is dated from *when the card was checked*, not when this sync runs.
+    Dating from sync time corrupts the record whenever the two straddle local
+    midnight: the render checks a card the moment the habit is logged for that
+    day, and the midnight rollover render is what unchecks it. Any writeback that
+    fires in between — the git post-commit hook, for instance, which renders
+    *with* writeback — would otherwise read yesterday's still-checked card as a
+    fresh completion and stamp it today.
 
     Returns 'logged' or 'already_logged'. Card is NOT archived — habits cycle on next render.
     """
-    daily_path = daily_path or REPO_ROOT / "6-habits/_data/habits-daily.ndjson"
-    monthly_path = monthly_path or REPO_ROOT / "6-habits/_data/habits-monthly.ndjson"
-    today = today or _today_mt()
+    daily_path = daily_path or REPO_ROOT / "7-habits/_data/habits-daily.ndjson"
+    monthly_path = monthly_path or REPO_ROOT / "7-habits/_data/habits-monthly.ndjson"
+    log_date = log_date or _local_date_from_iso(card.get("date_completed")) or _today_mt()
 
     pfc_id = card["pfc_id"]
     if pfc_id.startswith("habit-daily-"):
@@ -154,12 +187,12 @@ def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None
     existing = _read_ndjson(log_path)
     # Idempotency: same habit + same date already logged?
     for r in existing:
-        if r.get("habit_id") == habit_id and r.get("date") == today and r.get("completed"):
+        if r.get("habit_id") == habit_id and r.get("date") == log_date and r.get("completed"):
             return "already_logged"
 
     _append_ndjson(log_path, {
         "habit_id": habit_id,
-        "date": today,
+        "date": log_date,
         "completed": True,
         "source": "trello",
     })

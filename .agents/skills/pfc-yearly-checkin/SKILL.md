@@ -37,21 +37,31 @@ Read for trend comparison if it exists.
 
 ---
 
-## Step 2 — Load monthly notes for the reviewed year
+## Step 2 — Load source material for the reviewed year
 
 ```bash
-ls notes/monthly/${REVIEWED_YEAR}-*.md 2>/dev/null
+ls notes/daily/${REVIEWED_YEAR}-*.md 2>/dev/null | tail -20
+ls notes/monthly/${REVIEWED_YEAR}-*.md 2>/dev/null   # archival only — the monthly ritual was retired
 ```
 
-Read all available monthly notes for the reviewed year — these are the primary source material.
+Read a sampling of daily notes plus any archival monthly notes that exist, and pull the reviewed year out of `data/day-tracking.ndjson` and `data/review-ledger.ndjson`. These are the primary source material for the synthesis in Step 9.
 
 ---
 
-## Step 3 — Run monthly-checkin steps with the yearly window
+## Step 3 — Run the review passes with the yearly window
 
-`WINDOW_FROM` and `WINDOW_TO` are already exported. Read `.claude/skills/pfc-monthly-checkin/SKILL.md` and execute its steps 3–6 (the weekly-embedded steps + project progress review + monthly habit review + trend analysis) with the yearly window.
+`WINDOW_FROM` and `WINDOW_TO` are already exported. The former weekly and monthly rituals are now the **rolling-review ledger** (`data/review-ledger.ndjson`). For the yearly check-in, run those same passes over the full-year window, unbounded by cadence — this is the year-scoped counterpart to `/pfc-review`. Stamp nothing: `last_done` tracks the daily drip, not this pass.
 
-Skip the monthly skill's step 0 (window detection — already done), step 1–2 (monthly note context — different here), step 7 (monthly reflection questions — replaced by yearly's), step 8 (monthly summary file), and step 9 (monthly commit). The yearly checkin produces its own summary and commit.
+- **Life wheel** — rate each life area against the year (`2-areas/_data/life-wheel.ndjson`).
+- **Household status** — rate each house area against the year (`2-areas/_data/household-status.ndjson`).
+- **Project progress** — every project's full-year arc (`/pfc-summarize-project` per project).
+- **Vision activation** — which directions got fed this year and which rested (`/pfc-focus`).
+- **Habit rates** — daily + monthly completion across the year (`7-habits/_data/`).
+- **Insights review** — the year's active insights (`/pfc-insights`).
+- **Trend analysis** — full-year statistical pass (`/pfc-analyze-trends`).
+- **Values / findings alignment** — cross-check active findings and project `values` links against the year.
+
+The owning-skill map in `pfc-evening-checkin` Step 3c section 2 is the canonical list of review passes and the skill that owns each. Skip any cadence-stamping and the monthly-only reflection questions — the yearly reflection in Step 9 replaces them. This check-in produces its own summary and commit.
 
 ---
 
@@ -83,12 +93,13 @@ If a questions list exists (e.g., `0-me/questions.md`), revisit it:
 
 ---
 
-## Step 7 — Passion brainstorm refresh (yearly extra)
+## Step 7 — Vision brainstorm refresh (yearly extra)
 
-Read `3-visions/passion-brainstorm.md`. Spend 5 minutes brainstorming:
-- New items to add.
-- Items completed this year — move to Done.
-- Items no longer interesting — remove.
+Run `/pfc-vision-brainstorm` against `3-visions/_data/vision-brainstorm.ndjson`. Spend 5 minutes brainstorming:
+- New ideas to add (status `raw`).
+- Ideas that came true this year — mark `done`.
+- Ideas no longer wanted — mark `dropped`.
+- Ideas worth pursuing now — promote toward a vision / focus / project / task.
 
 ---
 
@@ -141,7 +152,7 @@ On error: print `🟡 Trello render failed (non-blocking): <error>` and continue
 ## Step 12 — Commit
 
 ```bash
-git add notes/yearly/ data/ 2-areas/ 5-actions/_data/ 4-projects/_data/ 6-habits/_data/ config/ 1-values/ 3-visions/
+git add notes/yearly/ data/ 2-areas/ 6-actions/_data/ 5-projects/_data/ 7-habits/_data/ config/ 1-values/ 3-visions/
 git commit -m "report: generate yearly check-in ${REVIEWED_YEAR}"
 git push
 ```

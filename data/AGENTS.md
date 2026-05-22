@@ -11,13 +11,21 @@ Folder-scoped operational rules for any agent reading or writing in `data/`. Cro
 | `findings.ndjson` | One finding per line | Mutable but rare |
 | `day-tracking.ndjson` | One entry per day | Append for new day; mutable in place during the day |
 | `supplements.ndjson` | One supplement entry per line | Mutable for stop-date; new doses are new records, never edits to `dose` |
+| `grounding.ndjson` | One Front-of-Mind topic per line | Mutable (status → `retired`, `retired_date`) |
+| `review-ledger.ndjson` | One rolling-review item per line | Mutable (`last_done` stamped on engagement) |
+| `revive-events.ndjson` | One revive intervention per line | Append; `outcome` updated in place later |
+| `health-raw/` | One gzipped JSON per day | Written by the health fetch; not NDJSON, not validated |
 | `.jq_update.tmp` | Temp file | Should NEVER persist between operations |
 
-Schemas: `config/{insight,hypothesis,finding,supplement}_schema.yaml`.
+Schemas: `config/{insight,hypothesis,finding,supplement,grounding,review_ledger,revive_event}_schema.yaml`.
+
+## Front of Mind (`grounding.ndjson`)
+
+A small, cycling set of "keep this front-of-mind right now" anchors, rendered to the Trello `🧠 Front of Mind` list. The bar is **critical, present-tense importance** — genuinely load-bearing stuff, not trivia or reference. Distinct from an insight (a noticing to triage) and a finding (a proven conclusion). One record per **topic** (title + bulleted body), soft cap 10 active — curate by retiring, never delete.
 
 ## Three stores, in order of bar
 
-- **Insights** (`insights.ndjson`) — personal observations / noticings / revelations. Captured freely throughout the week via `/pfc-add-insight`. Lower bar than a finding. Reviewed weekly + monthly via `/pfc-insights`. May graduate into a task, project, or habit (status → `graduated`, `graduated_to` set).
+- **Insights** (`insights.ndjson`) — personal observations / noticings / revelations. Captured freely throughout the week via `/pfc-add-insight`. Lower bar than a finding. Reviewed via the `insights-review` rolling review or on demand via `/pfc-insights`. May graduate into a task, project, or habit (status → `graduated`, `graduated_to` set).
 - **Hypotheses** (`hypotheses.ndjson`) — experiments to run. Track patterns to test against data.
 - **Findings** (`findings.ndjson`) — durable, hard-won insights. Added rarely. A hypothesis graduates to a finding when supporting data meets the bar: n ≥ 30, |r| ≥ 0.3, p < 0.01. Findings may also be added manually from life experience (`source: "experience"`).
 

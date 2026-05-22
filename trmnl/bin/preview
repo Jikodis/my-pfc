@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Verify loop for one plugin: refresh sample data, lint, render PNGs at the
+# device's real profile.
+#
+#   trmnl/bin/preview pfc-today           # data → lint → PNGs in _build/
+#   trmnl/bin/preview pfc-today --serve   # same, then a live-reloading server
+#
+# Renders at $TRMNL_COLOR_DEPTH (default 4 — the TRMNL X panel is 16-grayscale).
+# trmnlp defaults to 1-bit, which dithers every gray into dot patterns and makes
+# a perfectly fine screen look broken. Set TRMNL_COLOR_DEPTH=1 in .env if you
+# are targeting a 1-bit device instead.
+set -euo pipefail
+
+PLUGIN="${1:-}"
+[[ -z "$PLUGIN" ]] && { echo "usage: trmnl/bin/preview <plugin> [--serve]" >&2; exit 1; }
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+[[ -d "$REPO_ROOT/trmnl/$PLUGIN" ]] || { echo "No plugin at trmnl/$PLUGIN" >&2; exit 1; }
+
+if [[ -f "$REPO_ROOT/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a; source "$REPO_ROOT/.env"; set +a
+fi
+DEPTH="${TRMNL_COLOR_DEPTH:-4}"
+
+echo "==> refreshing sample data from repo state"
+python3 "$REPO_ROOT/automations/scripts/trmnl_push.py" "$PLUGIN" --local >/dev/null
+
+cd "$REPO_ROOT/trmnl/$PLUGIN"
+# Stale renders masquerade as current ones if a later step dies — a preview run
+# that failed after this point must leave no PNGs behind to misread.
+rm -f _build/*.png
+echo "==> lint"
+"$REPO_ROOT/trmnl/bin/trmnlp" lint
+echo "==> rendering PNGs at ${DEPTH}-bit"
+"$REPO_ROOT/trmnl/bin/trmnlp" build --png --color-depth "$DEPTH"
+
+echo
+echo "Open these and actually look at them — lint checks rules, not layout:"
+for f in _build/*.png; do echo "  $REPO_ROOT/trmnl/$PLUGIN/$f"; done
+
+if [[ "${2:-}" == "--serve" ]]; then
+  echo
+  echo "==> serving at http://localhost:4567 (Ctrl-C to stop)"
+  "$REPO_ROOT/trmnl/bin/trmnlp" serve
+fi

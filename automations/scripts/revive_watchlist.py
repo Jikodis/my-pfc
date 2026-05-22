@@ -54,6 +54,8 @@ class Task:
     created: str
     area: Optional[str] = None
     completed: Optional[str] = None
+    deferred: bool = False   # parked by the user; never counts as slipping
+
 
 
 @dataclass
@@ -141,7 +143,7 @@ def detect_signal_c_task_age(tasks: Iterable[Task], today: date) -> list[Watchli
     """Signal C: open task age ≥30 days (any task, standalone or project)."""
     out: list[WatchlistItem] = []
     for t in tasks:
-        if t.status != "open":
+        if t.status != "open" or t.deferred:
             continue
         created = _parse_date(t.created)
         if created is None:
@@ -161,7 +163,7 @@ def detect_signal_d_high_impact(tasks: Iterable[Task], today: date) -> list[Watc
     """Signal D: high-impact open task ≥7 days old."""
     out: list[WatchlistItem] = []
     for t in tasks:
-        if t.status != "open" or t.impact != "high":
+        if t.status != "open" or t.impact != "high" or t.deferred:
             continue
         created = _parse_date(t.created)
         if created is None:
@@ -339,7 +341,7 @@ def _load_ndjson(path: Path) -> list[dict]:
 
 
 def load_projects(repo_root: Path) -> list[Project]:
-    rows = _load_ndjson(repo_root / "4-projects/_data/projects.ndjson")
+    rows = _load_ndjson(repo_root / "5-projects/_data/projects.ndjson")
     out: list[Project] = []
     for r in rows:
         out.append(Project(
@@ -353,7 +355,7 @@ def load_projects(repo_root: Path) -> list[Project]:
 
 
 def load_tasks(repo_root: Path) -> list[Task]:
-    rows = _load_ndjson(repo_root / "5-actions/_data/tasks.ndjson")
+    rows = _load_ndjson(repo_root / "6-actions/_data/tasks.ndjson")
     out: list[Task] = []
     for r in rows:
         out.append(Task(
@@ -362,12 +364,13 @@ def load_tasks(repo_root: Path) -> list[Task]:
             project=r.get("project", "none"),
             created=r["created"], area=r.get("area"),
             completed=r.get("completed"),
+            deferred=bool(r.get("deferred")),
         ))
     return out
 
 
 def load_focuses(repo_root: Path) -> list[DailyFocus]:
-    rows = _load_ndjson(repo_root / "5-actions/_data/daily-focus.ndjson")
+    rows = _load_ndjson(repo_root / "6-actions/_data/daily-focus.ndjson")
     out: list[DailyFocus] = []
     for r in rows:
         out.append(DailyFocus(
@@ -385,7 +388,7 @@ def load_events(repo_root: Path) -> list[TaskEvent]:
     Accepts: task_id | id (task id), timestamp | ts | date (when), event (required).
     Rows missing the task id, timestamp, or event are skipped (logged event file has drift).
     """
-    rows = _load_ndjson(repo_root / "5-actions/_data/task_events.ndjson")
+    rows = _load_ndjson(repo_root / "6-actions/_data/task_events.ndjson")
     out: list[TaskEvent] = []
     for r in rows:
         task_id = r.get("task_id") or r.get("id")

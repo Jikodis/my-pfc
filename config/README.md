@@ -8,13 +8,15 @@ Schemas and configuration files that define the *shape* of every typed record in
 
 | File | Defines the shape of |
 |---|---|
-| `task_schema.yaml` | Tasks in `5-actions/_data/tasks.ndjson` |
+| `task_schema.yaml` | Tasks in `6-actions/_data/tasks.ndjson` |
 | `habit_schema.yaml` | Habit definitions (referenced by daily/monthly habit logs) |
-| `project_schema.yaml` | Projects in `4-projects/_data/projects.ndjson` |
+| `project_schema.yaml` | Projects in `5-projects/_data/projects.ndjson` |
 | `supplement_schema.yaml` | Supplements in `data/supplements.ndjson` |
 | `insight_schema.yaml` | Insights in `data/insights.ndjson` |
 | `hypothesis_schema.yaml` | Hypotheses in `data/hypotheses.ndjson` |
 | `finding_schema.yaml` | Findings in `data/findings.ndjson` |
+| `revive_event_schema.yaml` | Revive-watchlist events in `data/revive-events.ndjson` |
+| `focus_schema.yaml` | Current Focus records in `4-focus/_data/focus.ndjson` |
 | `onboarding_schema.yaml` | Onboarding state in `config/onboarding.ndjson` |
 
 ### Runtime state
@@ -25,6 +27,7 @@ Schemas and configuration files that define the *shape* of every typed record in
 | `personas.md` | Registry of available personas (voice/character overlays) |
 | `onboarding.ndjson` | Event log of what onboarding lessons you've tried/dismissed |
 | `automation_config.yaml` | Settings for automation scripts (cadences, thresholds) |
+| `focus.yaml` | Tier labels and caps for the Current Focus layer (Foundations · Active Pursuits max 6 · Currently Consuming) |
 | `trello_calendar_filters.yaml` | Calendar names to exclude when rendering the Trello dashboard |
 
 ## Habit schema — the one to actually edit by hand

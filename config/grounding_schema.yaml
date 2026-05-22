@@ -1,0 +1,40 @@
+# Schema for data/grounding.ndjson — Front-of-Mind anchors.
+#
+# A small, CYCLING set of "keep this front-of-mind right now" reminders — the
+# handful of things you most need to stay grounded in this season. Rendered to
+# the `🧠 Front of Mind` Trello list (active records only).
+#
+# The bar is critical, present-tense importance. Life-wide, but load-bearing
+# only — a restaurant you liked is a note, not an anchor. If it isn't critical
+# to keep in view right now, it's an insight, a finding, or a plain note.
+#
+# Distinct from the neighbouring stores:
+#   insights.ndjson — a noticing you still have to triage
+#   findings.ndjson — a conclusion you've already proven
+#   grounding.ndjson — a curated, present-tense reminder set
+#
+# ONE CARD PER TOPIC, not per bullet. `title` is the Trello card name and `body`
+# holds the points (multi-line, bulleted). A heavy theme is a single card with
+# its points in the description, so one topic can't flood the list.
+#
+# All NDJSON writes go through jq.
+required_fields:
+  - id           # ground-YYYYMMDD-NNN
+  - title        # the Trello card name
+  - status       # active | retired
+  - created      # YYYY-MM-DD
+optional_fields:
+  - body         # the card description — the points under this topic
+  - area         # must match a folder under 2-areas/, if set
+  - retired_date # YYYY-MM-DD — required when status == retired
+  - text         # single-line fallback used for both name and body when there's no title/body split
+  - notes
+enums:
+  status: [active, retired]
+
+# Soft cap of 10 active topic cards, enforced as GROUNDING_CAP in
+# automations/scripts/trello_render.py. The renderer renders ALL active anchors
+# and logs a 🟡 warning when over cap — it never truncates. Curate by retiring
+# (set status: retired + retired_date), so nothing disappears silently.
+soft_cap:
+  active_records: 10

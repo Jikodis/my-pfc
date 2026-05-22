@@ -1,0 +1,11 @@
+{% assign hsize = text_size %}
+{% if text_size == "giga" %}{% assign hsize = "xxlarge" %}{% endif %}
+<div class="layout layout--col layout--center gap--xsmall">
+  <span class="label label--small label--gray">{{ label }}</span>
+  <span class="value value--{{ hsize }}" data-clamp="3">{{ text }}</span>
+</div>
+
+<div class="title_bar">
+  <span class="title">Compass - {{ kind }}</span>
+  <span class="instance">{{ position }}</span>
+</div>

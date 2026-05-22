@@ -3,7 +3,7 @@
 The Tier 1 quickstart (clone → `claude` → `/pfc-onboarding`) gets the core system running with zero dependencies beyond Claude Code itself. This doc covers the next step up: a Python virtual environment and cron jobs that run background automations on your laptop.
 
 You only need this if you want:
-- **Auto-fetched health data** — sleep duration, resting heart rate, Active Zone Minutes pulled from Google Health and written to `data/day-tracking.ndjson` and `6-habits/_data/habits-daily.ndjson` automatically.
+- **Auto-fetched health data** — sleep (duration, stages, timing, continuity, awakenings), resting heart rate, Active Zone Minutes, tracked workouts, and daily recovery metrics pulled from Google Health into `data/day-tracking.ndjson`, plus the comprehensive raw streams into `data/health-raw/`.
 - **Scheduled background jobs** — automations that run at set times without manual invocation.
 
 If you just want to log data manually during check-ins, stay on Tier 1.
@@ -59,20 +59,20 @@ Add these entries to your crontab with `crontab -e`:
 ```cron
 # PFC — auto-log habits (8 AM and 10:30 PM local time — edit to suit your sleep/wake schedule)
 TZ=America/Denver
-0 8 * * * cd /path/to/your/pfc && .venv/bin/python3 automations/scripts/auto_log_habits.py >> /tmp/pfc-auto-log-habits.log 2>&1
-30 22 * * * cd /path/to/your/pfc && .venv/bin/python3 automations/scripts/auto_log_habits.py >> /tmp/pfc-auto-log-habits.log 2>&1
 
-# PFC — auto-fetch health data (10:30 PM local time)
-30 22 * * * cd /path/to/your/pfc && .venv/bin/python3 automations/scripts/auto_fetch_health.py >> /tmp/pfc-auto-fetch-health.log 2>&1
+# PFC — health fetch, morning retry loop (every 30 min, 6:00–10:30 AM local)
+*/30 6-10 * * * cd /path/to/your/pfc && .venv/bin/python3 automations/scripts/auto_fetch_health.py "$(date +\%Y-\%m-\%d)" >> /tmp/pfc-auto-fetch-health.log 2>&1
+
+# PFC — health fetch, noon two-pass: today, then yesterday
+0 12 * * * cd /path/to/your/pfc && .venv/bin/python3 automations/scripts/auto_fetch_health.py "$(date +\%Y-\%m-\%d)"; cd /path/to/your/pfc && .venv/bin/python3 automations/scripts/auto_fetch_health.py >> /tmp/pfc-auto-fetch-health.log 2>&1
 ```
 
 Replace `/path/to/your/pfc` with the absolute path to your repo root (e.g. `~/pfc`). Use `pwd` inside the repo to get it. Replace `TZ=America/Denver` with your IANA timezone (e.g. `Europe/London`, `Asia/Tokyo`).
 
-**Why these times.** The 8 AM / 10:30 PM defaults match one person's sleep cycle — edit them to fit yours.
+**Why these times.** Edit them to fit your day; the values below are illustrative.
 
-- The morning slot catches overnight data (sleep, resting HR) that finished accumulating after midnight. Pick a time after you typically wake up.
-- The evening slot captures the day's Active Zone Minutes after workouts and evening activity are done. Pick a time after you stop moving for the night.
-- Running `auto_log_habits.py` twice keeps the daily habits grid current throughout the day.
+- **Morning retry loop.** Last night's sleep lands whenever your watch syncs to your phone, not on a clock — it can vary by hours from one morning to the next. A single fixed hour therefore either fires too early (no data) or too late (you spend the morning looking at yesterday's numbers). Retrying every 30 minutes catches the sync within half an hour of whenever it happens. The extra firings are nearly free: `auto_fetch_health.py` writes nothing, commits nothing, and pushes nothing when the data is unchanged. Providers also sometimes revise a night's numbers an hour later, so retrying picks up the correction. Set the window to bracket your wake time.
+- **Noon two-pass.** Pass 1 fetches **today** so the same-day evening check-in reads fresh sleep. Pass 2 (no date argument, so it defaults to yesterday) finalizes yesterday's **complete** full-day activity totals now that the day is over — overwriting the partial value, losing nothing.
 
 **On macOS:** cron is available but runs less reliably than on Linux. If jobs aren't firing, check `Console.app` for cron errors or use `launchd` instead (not covered here).
 
@@ -87,7 +87,7 @@ Run each script once manually to confirm the setup is correct before relying on 
 source .venv/bin/activate
 
 python3 automations/scripts/auto_fetch_health.py
-python3 automations/scripts/auto_log_habits.py
+python3 automations/scripts/auto_fetch_health.py
 ```
 
 After each run, check the output and inspect the resulting change:
@@ -95,7 +95,7 @@ After each run, check the output and inspect the resulting change:
 ```bash
 # See what the script wrote
 git diff data/day-tracking.ndjson
-git diff 6-habits/_data/habits-daily.ndjson
+git diff 7-habits/_data/habits-daily.ndjson
 
 # Or look at the tail of the NDJSON
 tail -5 data/day-tracking.ndjson

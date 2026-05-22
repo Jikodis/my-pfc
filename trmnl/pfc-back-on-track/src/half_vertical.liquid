@@ -1,0 +1,37 @@
+{% if all_clear %}
+  <div class="layout layout--col layout--center">
+    <span class="value value--large">ALL ON TRACK</span>
+  </div>
+{% else %}
+  <div class="layout layout--col gap--small">
+    <div class="col gap--small">
+      <span class="title title--small">Focus</span>
+      {% for item in focus limit: 5 %}
+        <span class="label label--small" data-clamp="1">{{ item.status }} - {{ item.title }}</span>
+      {% else %}
+        <span class="label label--small label--gray">all on track</span>
+      {% endfor %}
+
+      <span class="title title--small">Projects</span>
+      {% for item in projects limit: 2 %}
+        <span class="label label--small" data-clamp="1">{{ item.days }}d - {{ item.title }}</span>
+      {% else %}
+        <span class="label label--small label--gray">none stalled</span>
+      {% endfor %}
+
+      <span class="title title--small">Habits</span>
+      {% for item in habits limit: 4 %}
+        <span class="label label--small" data-clamp="1">{{ item.week }} - {{ item.title }}</span>
+      {% else %}
+        <span class="label label--small label--gray">no gaps</span>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+<div class="title_bar">
+  <span class="title">Back on Track</span>
+  {% unless all_clear %}
+    <span class="instance">{{ total }}</span>
+  {% endunless %}
+</div>

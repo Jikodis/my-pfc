@@ -1,0 +1,19 @@
+<div class="layout layout--col gap--small">
+  <div class="columns" data-overflow-max-cols="2">
+    <div class="column">
+      {% for item in pursuits %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Current Focus</span>
+  <span class="instance">{{ quarter }}</span>
+</div>

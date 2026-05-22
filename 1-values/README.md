@@ -1,6 +1,6 @@
 # Values
 
-The first letter of VAVPAH. Your ranked top values — the things that pressure-test every new project, every weekly check-in, every "should I take this on?" decision.
+The first letter of VAVFPAH. Your ranked top values — the things that pressure-test every new project, every review pass, every "should I take this on?" decision.
 
 ## What lives here
 
@@ -8,7 +8,7 @@ The first letter of VAVPAH. Your ranked top values — the things that pressure-
 
 ## How values get used
 
-Values are the **strongest authority in the system.** When pushing back on a new project ("does this serve what you said matters?"), the agent cites values first. When you log an insight that contradicts a value, the system flags it during weekly check-in.
+Values are the **strongest authority in the system.** When pushing back on a new project ("does this serve what you said matters?"), the agent cites values first. When you log an insight that contradicts a value, the system flags it during the rolling reviews.
 
 That means the order matters. Two values might both be true for you ("Health" and "Career") but one of them outranks the other when they conflict — and they will conflict, regularly. The exercise of *ranking* is what makes the values useful; an unranked list is much weaker as a decision aid.
 

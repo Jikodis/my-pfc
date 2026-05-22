@@ -33,7 +33,11 @@ def load_env():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
+                v = v.strip()
+                # Values may be quoted so bash `source` survives shell
+                # metacharacters (an unquoted & would otherwise break the bin/
+                # scripts that source this file).
+                env[k.strip()] = v[1:-1] if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"" else v
     return env
 
 ENV = load_env()

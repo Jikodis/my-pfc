@@ -1,0 +1,42 @@
+<div class="layout layout--col gap">
+  <div class="grid">
+    <div class="col col--span-7 gap--small">
+      <span class="title title--small lg:title--base">Needs attention</span>
+      {% for area in attention %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label lg:label--large" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
+            {% if area.note != "" %}
+              <span class="label label--small lg:label--base label--gray" data-clamp="2">{{ area.note }}</span>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label lg:label--large">Every area is green.</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="col col--span-5 gap--small">
+      <span class="title title--small lg:title--base">Holding</span>
+      {% for area in holding %}
+        <span class="label lg:label--large" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
+      {% else %}
+        <span class="label label--gray">No green areas</span>
+      {% endfor %}
+      {% if stale %}
+        <span class="label label--small label--gray">Wheel is stale - re-rate it</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Areas</span>
+  <span class="instance">{{ reds }} red - {{ yellows }} yellow - {{ greens }} green - rated {{ rated }}</span>
+</div>

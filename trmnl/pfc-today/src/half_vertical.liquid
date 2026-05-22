@@ -1,0 +1,41 @@
+<div class="layout layout--col gap">
+  <div class="col gap--small">
+  <span class="title title--small">Today's 2+1</span>
+  <div class="columns" data-overflow-max-cols="1">
+    <div class="column">
+      {% for task in critical %}
+        <div class="item">
+          <div class="meta">
+            <span class="index">{{ forloop.index }}</span>
+          </div>
+          <div class="content">
+            <span class="label" data-clamp="2">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--gray">No 2+1 set for today</span>
+          </div>
+        </div>
+      {% endfor %}
+      {% if bonus %}
+        <div class="item">
+          <div class="meta">
+            <span class="index">+</span>
+          </div>
+          <div class="content">
+            <span class="label" data-clamp="2">{% if bonus.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ bonus.title }}</span>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ weekday }}</span>
+  <span class="instance">PFC Today</span>
+</div>

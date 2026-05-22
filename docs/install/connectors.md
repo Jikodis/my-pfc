@@ -79,7 +79,7 @@ Skills that call into Calendar or Gmail will silently skip those blocks. Nothing
 
 | Skill | What you lose |
 |---|---|
-| `pfc-morning-checkin` | Today's schedule block; conflict detection for focus-task scheduling |
+| `pfc-evening-checkin` | Tomorrow's schedule context; anchor-slot annotation for the 2+1 |
 | `pfc-schedule-focus` | Entire skill is calendar-only — schedules 2+1 onto primary calendar |
 | `pfc-evening-checkin` | Tomorrow's schedule preview block |
 
@@ -88,6 +88,6 @@ Skills that call into Calendar or Gmail will silently skip those blocks. Nothing
 | Skill | What you lose |
 |---|---|
 | `pfc-email-triage` | Entire skill is email-only — triage inbox by priority label |
-| `pfc-morning-checkin` | Top-priority email summary block |
+| `pfc-email-triage` | Email→task pipeline (Step 0 reconciliation) |
 
 **Skills unaffected.** Everything in `pfc-*` that does not touch Calendar or Gmail — task management, habit tracking, daily focus, project summaries, day ratings, weekly/monthly/yearly check-ins, insights, hypotheses, supplement tracking, Trello sync — continues to work exactly as documented.

@@ -39,7 +39,10 @@ def load_env():
             if not line or line.startswith("#") or "=" not in line:
                 continue
             k, v = line.split("=", 1)
-            env[k.strip()] = v.strip()
+            v = v.strip()
+            # Values may be quoted so bash `source` survives shell metacharacters
+            # (an unquoted & would otherwise break the bin/ scripts that source it).
+            env[k.strip()] = v[1:-1] if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"" else v
     return env
 
 
@@ -50,14 +53,25 @@ def _resolve_env():
     return env
 
 
-def _request(url, method="GET"):
-    """Make HTTP request with retry on 429 (one-shot) and URLError (3x backoff)."""
+def _request(url, method="GET", data=None):
+    """Make HTTP request with retry on 429 (one-shot) and URLError (3x backoff).
+
+    If ``data`` (a dict) is given it is form-encoded into the request BODY rather
+    than the URL. POST/PUT calls that carry a large field (e.g. a multi-line
+    Front-of-Mind card description) must use this — otherwise the value lands in
+    the query string and Trello rejects the request with HTTP 414 Request-URI
+    Too Large."""
+    body = None
+    headers = {}
+    if data is not None:
+        body = urllib.parse.urlencode(data).encode("utf-8")
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
     rate_limited_retried = False
     backoffs = [1, 2, 4]
     network_retry_idx = 0
     while True:
         try:
-            req = urllib.request.Request(url, method=method)
+            req = urllib.request.Request(url, data=body, method=method, headers=headers)
             with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
                 return json.loads(resp.read().decode("utf-8") or "{}")
         except urllib.error.HTTPError as e:
@@ -114,7 +128,7 @@ def list_cards_on_board(api_key, token, board_id, filter_="open", include_checkl
     side-loads them via the checklists=all parameter)."""
     params = {
         "filter": filter_,
-        "fields": "name,idList,desc,due,dueComplete,closed,idLabels",
+        "fields": "name,idList,desc,due,dueComplete,closed,idLabels,dateCompleted",
         "key": api_key, "token": token,
     }
     if include_checklists:
@@ -126,28 +140,28 @@ def list_cards_on_board(api_key, token, board_id, filter_="open", include_checkl
 
 def create_card(api_key, token, list_id, name, desc=None, id_labels=None):
     """Create a new card on a list. id_labels is a list of label ids (optional)."""
-    params = {"idList": list_id, "name": name, "key": api_key, "token": token}
+    qs = urllib.parse.urlencode({"key": api_key, "token": token})
+    body = {"idList": list_id, "name": name}
     if desc is not None:
-        params["desc"] = desc
+        body["desc"] = desc
     if id_labels:
-        params["idLabels"] = ",".join(id_labels)
-    qs = urllib.parse.urlencode(params)
-    return _request(f"{API_BASE}/cards?{qs}", "POST")
+        body["idLabels"] = ",".join(id_labels)
+    return _request(f"{API_BASE}/cards?{qs}", "POST", data=body)
 
 
 def update_card(api_key, token, card_id, **fields):
     """Update one or more card fields. Supported: name, desc, idList, idLabels (list),
     dueComplete, closed."""
-    params = {"key": api_key, "token": token}
+    qs = urllib.parse.urlencode({"key": api_key, "token": token})
+    body = {}
     for k, v in fields.items():
         if k == "idLabels" and isinstance(v, list):
-            params["idLabels"] = ",".join(v)
+            body["idLabels"] = ",".join(v)
         elif k in ("dueComplete", "closed"):
-            params[k] = "true" if v else "false"
+            body[k] = "true" if v else "false"
         elif v is not None:
-            params[k] = v
-    qs = urllib.parse.urlencode(params)
-    return _request(f"{API_BASE}/cards/{card_id}?{qs}", "PUT")
+            body[k] = v
+    return _request(f"{API_BASE}/cards/{card_id}?{qs}", "PUT", data=body)
 
 
 def archive_card(api_key, token, card_id):

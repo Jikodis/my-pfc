@@ -1,0 +1,26 @@
+<div class="layout layout--col gap">
+  <div class="col gap--small">
+    <span class="title title--small">Daily {{ daily_done }}/{{ daily_total }}</span>
+    <div class="columns" data-overflow-max-cols="1">
+      <div class="column">
+        {% for habit in daily %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="label" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% assign monthly_met = 0 %}
+    {% for habit in monthly %}{% if habit.met %}{% assign monthly_met = monthly_met | plus: 1 %}{% endif %}{% endfor %}
+    <span class="label label--small label--gray">Monthly: {{ monthly_met }}/{{ monthly.size }} met</span>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Habits</span>
+  <span class="instance">{{ month_label }}</span>
+</div>

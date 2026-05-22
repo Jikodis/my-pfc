@@ -1,0 +1,28 @@
+<div class="layout layout--col gap--small">
+  <div class="columns" data-overflow-max-cols="1">
+    <div class="column">
+      {% for task in critical %}
+        <div class="item">
+          <div class="meta">
+            <span class="index">{{ forloop.index }}</span>
+          </div>
+          <div class="content">
+            <span class="label label--small" data-clamp="1">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small label--gray">No 2+1 set</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">2+1</span>
+  <span class="instance">{{ weekday }}</span>
+</div>

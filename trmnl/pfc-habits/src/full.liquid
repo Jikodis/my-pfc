@@ -1,0 +1,47 @@
+<div class="layout layout--col gap">
+  <div class="grid">
+    <div class="col col--span-7 gap--small">
+      <span class="title title--small lg:title--base">Daily {{ daily_done }}/{{ daily_total }}</span>
+      <div class="columns" data-overflow-max-cols="1">
+        <div class="column">
+          {% for habit in daily %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label lg:label--large" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
+                <span class="label label--small lg:label--base label--gray">{{ habit.week }} this week</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label label--gray">No daily habits defined</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col col--span-5 gap--small">
+      <span class="title title--small lg:title--base">{{ month_label }}</span>
+      {% for habit in monthly %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label lg:label--large" data-clamp="1">{% if habit.met %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
+            <span class="label label--small lg:label--base label--gray">{{ habit.count }}/{{ habit.target }} this month · {{ habit.pace }}</span>
+          </div>
+        </div>
+      {% else %}
+        <span class="label label--gray">No monthly habits</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Habits</span>
+  <span class="instance">{{ daily_done }}/{{ daily_total }} today</span>
+</div>

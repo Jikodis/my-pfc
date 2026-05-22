@@ -1,0 +1,17 @@
+{% if all_clear %}
+  <div class="layout layout--col layout--center">
+    <span class="value value--large">ALL ON TRACK</span>
+  </div>
+{% else %}
+  <div class="layout layout--col layout--center gap--small">
+    <span class="value value--xlarge value--tnums">{{ total }}</span>
+    <span class="label label--small label--gray">intentions need a restart</span>
+    {% if focus.size > 0 %}
+      <span class="label label--small" data-clamp="1">worst: {{ focus[0].title }}</span>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="title_bar">
+  <span class="title">Back on Track</span>
+</div>

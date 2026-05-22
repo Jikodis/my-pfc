@@ -1,6 +1,6 @@
 ---
 name: pfc-insights
-description: Review captured insights and decide what to do with each (keep active, archive, or graduate to a task/project/habit). Use when the user says "show insights", "review insights", "what have I been noticing", "insight review", "my insights", or during weekly/monthly review.
+description: Review captured insights and decide what to do with each (keep active, archive, or graduate to a task/project/habit). Use when the user says "show insights", "review insights", "what have I been noticing", "insight review", "my insights", or when the insights-review rolling review comes due.
 ---
 
 # Review Insights
@@ -10,14 +10,14 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
 ## Modes
 
 - **Browse** (default) — show all active insights, optionally filtered.
-- **Weekly** — only insights captured in the last 7 days. Used inside `/pfc-weekly-checkin`.
+- **Recent** — only insights captured in the last 7 days. Handy for a quick pass mid-week.
 - **Monthly** — only insights captured in the last 30 days, plus any older still-active ones.
 - **By area / category** — filter when the user says "show me insights about sleep" or "relationship insights".
 
 ## Steps
 
 1. **Derive date window.** Use `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` for today.
-   - Weekly: `created >= today-7`
+   - Recent: `created >= today-7`
    - Monthly: `created >= today-30`
    - Browse: no date filter
 
@@ -25,7 +25,7 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
    ```bash
    jq -c 'select(.status == "active")' data/insights.ndjson
    ```
-   For weekly/monthly add a date filter:
+   For Recent / Monthly add a date filter:
    ```bash
    jq -c --arg from "YYYY-MM-DD" 'select(.status == "active" and .created >= $from)' data/insights.ndjson
    ```
@@ -41,7 +41,7 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
    - **Keep** — leave as `active`, no change.
    - **Archive** — set `status: "archived"`. Use when no longer relevant or duplicated by a newer insight.
    - **Graduate → task** — create a task via `/pfc-add-task`, then mark the insight `status: "graduated"`, `graduated_to: "<task-id>"`, `graduated_date: today`.
-   - **Graduate → project** — create a project entry in `4-projects/_data/projects.ndjson`, then graduate the insight to that proj id.
+   - **Graduate → project** — create a project entry in `5-projects/_data/projects.ndjson`, then graduate the insight to that proj id.
    - **Graduate → habit** — add to `config/habit_schema.yaml` (daily or monthly), then graduate to the habit_id.
 
 5. **Update via jq** (never sed). Status change pattern:
@@ -61,7 +61,7 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
 
 6. **Commit each batch:**
    ```bash
-   git add data/insights.ndjson 5-actions/_data/tasks.ndjson 4-projects/_data/projects.ndjson config/habit_schema.yaml
+   git add data/insights.ndjson 6-actions/_data/tasks.ndjson 5-projects/_data/projects.ndjson config/habit_schema.yaml
    git commit -m "insight: triage YYYY-MM-DD"
    git push
    ```
@@ -72,15 +72,11 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
 - Use 🟢 for active, ⚪ for archived, 🌱 for graduated when displaying mixed-status views.
 - If zero active insights: print `No active insights.` and stop. Don't pad.
 
-## Inside weekly check-in
+## Inside the rolling reviews
 
-When called from `/pfc-weekly-checkin`, run the **Weekly** mode automatically:
+This skill owns the `insights-review` item in the rolling-review ledger (`data/review-ledger.ndjson`, monthly cadence). When it comes up — surfaced by `pfc-evening-checkin` Step 3c or by `/pfc-review` — run **Monthly** mode:
 
-1. Show insights captured this week.
+1. Show active insights from the last 30 days, plus any older ones still active.
 2. Ask: "any to archive or graduate?"
 3. Process the user's choices.
-4. Return control to the weekly check-in flow.
-
-## Inside monthly cadences
-
-The system has no `/pfc-monthly-review` skill yet (see `docs/cadences.md`). Until one exists, this skill in **Monthly** mode is the standalone entry point during the first-week-of-month cadence. Trigger phrase: "monthly insight review".
+4. Return control to the calling flow, which stamps `last_done` on the ledger item.

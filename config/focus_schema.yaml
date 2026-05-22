@@ -1,0 +1,39 @@
+# Schema for 4-focus/_data/focus.ndjson — the Current Focus layer.
+# One record per active or retired focus. All NDJSON writes go through jq.
+# See docs/data-model.md and 4-focus/README.md.
+required_fields:
+  - id            # focus-YYYYMMDD-NNN
+  - tier          # foundation | pursuit | consuming
+  - area          # must match a folder under 2-areas/
+  - title
+  - status        # green | yellow | red — DERIVED, not hand-typed. Written by
+                  # automations/scripts/focus_status.py from the primary
+                  # vehicle's trailing-28-day completion rate:
+                  #   green >= 0.70 · yellow 0.40-0.69 · red < 0.40
+                  # red means "not happening", NOT "paused" — use `parked`
+                  # for a deliberate stop.
+  - quarter       # YYYY-QN, e.g. 2025-Q1 (the season it was picked for)
+  - created       # YYYY-MM-DD
+  - habits        # ordered array of habit ids from config/habit_schema.yaml.
+                  # FIRST entry is the primary vehicle and drives the traffic
+                  # light; later entries are supporting. Required for
+                  # foundation + pursuit; may be [] for consuming (a podcast
+                  # is not a rep). A focus with no vehicle is a wish.
+  - impact        # high | medium | low
+  - urgency       # high | medium | low
+  - parked        # true = deliberately paused. Distinct from status:red,
+                  # which means "not happening". Parked focuses are excluded
+                  # from the pursuit cap and from the forcing function.
+optional_fields:
+  - medium        # book | podcast | audiobook (consuming tier only), else null
+  - link          # {type: vision|habit|project, ref: <slug/id>} or null (nearest real parent)
+  - landing       # when/where/trigger string (anchor-first), or null
+  - retired_date  # YYYY-MM-DD when retired, else null
+  - notes
+enums:
+  tier: [foundation, pursuit, consuming]
+  status: [green, yellow, red]
+  impact: [high, medium, low]
+  urgency: [high, medium, low]
+  medium: [book, podcast, audiobook]
+  link_type: [vision, habit, project]

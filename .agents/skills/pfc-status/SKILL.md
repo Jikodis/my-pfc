@@ -20,25 +20,25 @@ jq -c '.' 2-areas/_data/life-wheel.ndjson | tail -1
 
 Display as a table (area | rating | notes). If the file is empty, say:
 
-"Life wheel has no ratings yet. Run a monthly check-in to rate your life areas (red/yellow/green)."
+"Life wheel has no ratings yet. The `life-wheel` rolling review surfaces it on its own cadence — or rate the areas now via `/pfc-review`."
 
 Count the reds, yellows, and greens: "Life Wheel: X green, Y yellow, Z red — last updated YYYY-MM-DD"
 
 ### 2. Active Projects
 
 ```bash
-grep '"active":true' 4-projects/_data/projects.ndjson
+grep '"active":true' 5-projects/_data/projects.ndjson
 ```
 
 For each active project:
 - Name, area, excitement level
 - Completion: `[======----] 60%` (completed_parts / total_parts)
 - Velocity: `X.X parts/wk → est <YYYY-MM-DD>` vs deadline; flag 🟢 (on or before deadline) · 🟡 (≤7 days late) · 🔴 (>7 days late). Calc: `parts_per_day = completed_parts / max(1, days_elapsed_since_started)`; `est_completion = today + ceil(remaining_parts / parts_per_day)` if `parts_per_day > 0`, else `—`.
-- Open task count: `grep -c '"project":"PROJECT_ID".*"status":"open"' 5-actions/_data/tasks.ndjson`
+- Open task count: `grep -c '"project":"PROJECT_ID".*"status":"open"' 6-actions/_data/tasks.ndjson`
 
 Also show planned projects under "Pipeline":
 ```bash
-grep '"status":"planned"' 4-projects/_data/projects.ndjson
+grep '"status":"planned"' 5-projects/_data/projects.ndjson
 ```
 
 ### 3. Active Hypotheses
@@ -64,7 +64,7 @@ Same as /pfc-daily-summary section 4.
 ### 6. All Open Tasks
 
 ```bash
-jq -c 'select(.status == "open")' 5-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson
 ```
 
 **Two subsections. Never repeat a task across them.**
@@ -107,7 +107,7 @@ jq -c '.' 2-areas/_data/household-status.ndjson | tail -1
 
 Display as a table (area | rating | notes). If the file is empty, say:
 
-"Household status not yet rated. Run a monthly check-in to rate each area (red/yellow/green)."
+"Household status not yet rated. The `household-status` rolling review surfaces it on its own cadence — or rate each area now via `/pfc-review`."
 
 Count reds, yellows, greens: "Household: X green, Y yellow, Z red — last updated YYYY-MM-DD"
 
@@ -122,7 +122,7 @@ Show a table with columns: date | overall rating (as stars) | energy | focus | m
 ### 9. Daily Focus — Today
 
 ```bash
-grep "$(date +%Y-%m-%d)" 5-actions/_data/daily-focus.ndjson | tail -1
+grep "$(date +%Y-%m-%d)" 6-actions/_data/daily-focus.ndjson | tail -1
 ```
 
 Show today's focus items if set, otherwise note it's not set.
@@ -131,19 +131,19 @@ Show today's focus items if set, otherwise note it's not set.
 
 Quick counts:
 ```bash
-TASKS=$(jq -c 'select(.status == "open")' 5-actions/_data/tasks.ndjson | wc -l)
-DONE_TASKS=$(jq -c 'select(.status == "done")' 5-actions/_data/tasks.ndjson | wc -l)
-PROJECTS_ACTIVE=$(jq -c 'select(.active == true)' 4-projects/_data/projects.ndjson | wc -l)
+TASKS=$(jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l)
+DONE_TASKS=$(jq -c 'select(.status == "done")' 6-actions/_data/tasks.ndjson | wc -l)
+PROJECTS_ACTIVE=$(jq -c 'select(.active == true)' 5-projects/_data/projects.ndjson | wc -l)
 HYPS_ACTIVE=$(jq -c 'select(.status == "active")' data/hypotheses.ndjson | wc -l)
 ```
 
 Display:
 - Open tasks / Done tasks
-- Active projects (max 3)
+- Active projects (no small cap; backstop 12)
 - Active hypotheses
 - Done tasks needing archive (if any still in main file)
 - Last check-in date
-- Last weekly review date
+- Rolling reviews: how many ledger items are currently due, and the oldest `last_done` (`data/review-ledger.ndjson`)
 
 ## Formatting Rules
 

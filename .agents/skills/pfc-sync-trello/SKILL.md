@@ -10,8 +10,7 @@ Detects cards marked complete (`dueComplete: true`) in the dashboard's interacti
 ## When this skill triggers
 
 - Explicit: "sync trello", "process completed", "/pfc-sync-trello"
-- Invoked at the end of evening-checkin (Phase C wires this in)
-- Invoked at start of morning-checkin to clean up yesterday's leftover state
+- Invoked at the start of the evening check-in (Step 0b) to pull widget completions into the repo, and again at the end (Step 4b) to move back uncompleted 2+1 cards and re-render
 
 ## Pre-flight
 
@@ -29,7 +28,23 @@ Verify `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`. If unset, this skill is a n
    🟢 Synced. 2 tasks completed · 1 habit logged
    ```
 
-3. **Refresh Trello dashboard** (fail-safe). If counters show any writes (`tasks completed`, `habits logged`, or anything > 0), run a render so card state (archive tasks, cycle habit cards) reflects the repo immediately:
+3. **Archive source emails for newly-completed tasks (fail-safe).** If `tasks_completed > 0`, find which tasks just got marked done and archive any linked source emails. Today's `task_events.ndjson` rows with `source: "trello"` are the canonical signal:
+
+   ```bash
+   TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+   YDAY=$(TZ="${LOCAL_TZ:-America/Denver}" date -d 'yesterday' '+%Y-%m-%d')
+   jq -r --arg d "$TODAY" --arg y "$YDAY" \
+     'select(.event == "completed" and (.timestamp == $d or .timestamp == $y) and .source == "trello") | .task_id' \
+     6-actions/_data/task_events.ndjson | sort -u | while read -r tid; do
+     [ -z "$tid" ] && continue
+     jq -r --arg id "$tid" 'select(.id == $id) | .source_email_thread_id // empty' \
+       6-actions/_data/tasks.ndjson
+   done
+   ```
+
+   For each non-empty thread ID, remove the `INBOX` label from that thread through your email connector (e.g. `mcp__claude_ai_Gmail__unlabel_thread` with `threadId` and `labelIds: ["INBOX"]`). On success: a one-line `📧 archived <thread-id>`. On error: `🟡 email archive skipped: <error>`. Same fail-safe pattern as the surrounding steps — never block the sync on it. Skip entirely if no email connector is configured.
+
+4. **Refresh Trello dashboard** (fail-safe). If counters show any writes (`tasks completed`, `habits logged`, or anything > 0), run a render so card state (archive tasks, cycle habit cards) reflects the repo immediately:
 
    ```bash
    python3 automations/scripts/trello_render.py 2>&1
@@ -43,6 +58,7 @@ Verify `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`. If unset, this skill is a n
 - Tasks already marked done in repo just trigger archive (cleans up Trello).
 - Habits with same date+habit_id already logged are no-ops.
 - Inbox list never touched.
+- **Completions are dated from when the card was checked, never from when the sync runs.** `trello_writeback.py` reads Trello's `dateCompleted` and converts it to local time. Dating from sync time corrupts the record whenever the two straddle local midnight — the render checks a habit card the moment the habit is logged for that day, and only the midnight rollover render unchecks it, so any writeback firing in between reads yesterday's still-checked card as a fresh completion. Anything downstream that filters these records by date must allow for a yesterday-dated write, as Step 3 does.
 
 ## Out of scope
 

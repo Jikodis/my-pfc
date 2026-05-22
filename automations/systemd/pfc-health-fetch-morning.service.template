@@ -1,0 +1,22 @@
+[Unit]
+Description=PFC — Morning health fetch (today only)
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# Closes the midnight→noon staleness gap. The noon pfc-health-fetch is far too
+# late to be fresh when you wake up, so until then any dashboard would show the
+# PRIOR day's sleep. This pass fetches TODAY only — last night's sleep — and its
+# timer retries every 30 minutes until the watch actually syncs.
+#
+# No explicit dashboard render here: auto_fetch_health.py commits only when the
+# health block genuinely changed, and the git post-commit hook renders on a
+# day-tracking commit. So the dashboard refreshes exactly once, on the pass that
+# lands the data, and a no-op retry costs a single API call.
+ExecStart=/bin/bash -c '/usr/bin/python3 __REPO_ROOT__/automations/scripts/auto_fetch_health.py $(TZ=__LOCAL_TZ__ date +%%Y-%%m-%%d)'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-health-fetch-morning

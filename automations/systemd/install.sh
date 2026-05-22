@@ -15,10 +15,15 @@ mkdir -p "$UNIT_DST"
 
 # Install unit files (substituting placeholders from .template sources)
 UNITS=(
-    pfc-habit-autolog.service
-    pfc-habit-autolog.timer
+    pfc-health-fetch.service
+    pfc-health-fetch.timer
+    pfc-health-fetch-morning.service
+    pfc-health-fetch-morning.timer
     pfc-trello-daily-render.service
     pfc-trello-daily-render.timer
+    pfc-repo-sync.service
+    pfc-repo-sync.timer
+    pfc-trmnl-serve.service
 )
 
 REPO_URL="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null | sed -E 's#git@github.com:#https://github.com/#; s#\.git$##' || true)"
@@ -32,7 +37,10 @@ fi
 # Local timezone: read from .env (LOCAL_TZ) if present, else fall back to America/Denver.
 LOCAL_TZ_VAL="America/Denver"
 if [ -f "$REPO_ROOT/.env" ]; then
-    LOCAL_TZ_FROM_ENV="$(grep -E '^LOCAL_TZ=' "$REPO_ROOT/.env" | head -1 | sed -E 's/^LOCAL_TZ=//; s/^["'\'']//; s/["'\'']$//')"
+    # `|| true`: a .env with no LOCAL_TZ= line makes grep exit 1, which under
+    # `set -euo pipefail` (via pipefail) aborts the whole install silently before
+    # any unit is written. Swallow it so the America/Denver default below applies.
+    LOCAL_TZ_FROM_ENV="$(grep -E '^LOCAL_TZ=' "$REPO_ROOT/.env" | head -1 | sed -E 's/^LOCAL_TZ=//; s/^["'\'']//; s/["'\'']$//' || true)"
     if [ -n "$LOCAL_TZ_FROM_ENV" ]; then
         LOCAL_TZ_VAL="$LOCAL_TZ_FROM_ENV"
     fi
@@ -77,19 +85,41 @@ echo "==> Linger enabled for $USER"
 systemctl --user daemon-reload
 echo "==> Daemon reloaded"
 
-# Enable and start timers
-systemctl --user enable --now pfc-habit-autolog.timer
-echo "==> pfc-habit-autolog.timer enabled and started"
+# Enable and start timers (every *.timer in UNITS)
+for unit in "${UNITS[@]}"; do
+    case "$unit" in
+        *.timer)
+            systemctl --user enable --now "$unit"
+            echo "==> $unit enabled and started"
+            ;;
+    esac
+done
 
-systemctl --user enable --now pfc-trello-daily-render.timer
-echo "==> pfc-trello-daily-render.timer enabled and started"
+# Long-running services have no timer to pull them in, so enable them directly.
+# They carry [Install] WantedBy=default.target; a restart picks up code changes.
+LONG_RUNNING=(
+    pfc-trmnl-serve.service
+)
+for unit in "${LONG_RUNNING[@]}"; do
+    # Only if the unit is actually in UNITS — keeps this list from resurrecting
+    # a service whose template was deleted.
+    printf '%s\n' "${UNITS[@]}" | grep -qxF "$unit" || continue
+    # TRMNL is optional: skip unless the endpoint token is configured.
+    if [ -z "$(grep -E '^TRMNL_SERVE_TOKEN=.+' "$REPO_ROOT/.env" 2>/dev/null || true)" ]; then
+        echo "==> Skipping $unit — TRMNL_SERVE_TOKEN not set in .env (see docs/install/trmnl-endpoint.md)"
+        continue
+    fi
+    systemctl --user enable "$unit"
+    systemctl --user restart "$unit"
+    echo "==> $unit enabled and (re)started"
+done
 
 echo ""
 echo "Done. Verify with:"
-echo "  systemctl --user status pfc-habit-autolog.timer"
+echo "  systemctl --user status pfc-health-fetch.timer"
 echo "  systemctl --user status pfc-trello-daily-render.timer"
 echo "  systemctl --user list-timers"
 echo ""
 echo "Watch logs with:"
-echo "  journalctl --user -u pfc-habit-autolog.service -f"
+echo "  journalctl --user -u pfc-health-fetch.service -f"
 echo "  journalctl --user -u pfc-trello-daily-render.service -f"

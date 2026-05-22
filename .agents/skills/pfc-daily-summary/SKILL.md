@@ -20,12 +20,12 @@ Fetch today's events from Google Calendar using the MCP connector:
 ### 2. Daily Focus (2+1)
 
 ```bash
-grep "$(date +%Y-%m-%d)" 5-actions/_data/daily-focus.ndjson | tail -1
+grep "$(date +%Y-%m-%d)" 6-actions/_data/daily-focus.ndjson | tail -1
 ```
 
 - Show the 2 critical items and 1 bonus item
 - For each, show completion status
-- If no focus set today, say "No daily focus set. Run /pfc-morning-checkin to pick your 2+1."
+- If no focus set today, say "No daily focus set — tomorrow's 2+1 gets picked at the evening check-in. Run /pfc-pick-tasks if you want something to work on now."
 
 ### 3. Daily Habits — This Week
 
@@ -36,7 +36,7 @@ Read habit definitions from `config/habit_schema.yaml` to get the list of active
 WEEK_START=$(date -v-monday +%Y-%m-%d 2>/dev/null || date -d 'last monday' +%Y-%m-%d)
 TODAY=$(date +%Y-%m-%d)
 # Use jq or grep to filter entries between WEEK_START and TODAY
-grep -E "$(date +%Y-%m)" 6-habits/_data/habits-daily.ndjson
+grep -E "$(date +%Y-%m)" 7-habits/_data/habits-daily.ndjson
 ```
 
 For each daily habit, show:
@@ -49,7 +49,7 @@ If no habits are defined, say "No daily habits configured. See config/habit_sche
 ### 4. Monthly Habits — This Month
 
 ```bash
-grep "$(date +%Y-%m)" 6-habits/_data/habits-monthly.ndjson
+grep "$(date +%Y-%m)" 7-habits/_data/habits-monthly.ndjson
 ```
 
 For each monthly habit, show:
@@ -61,7 +61,7 @@ If no monthly habits are defined, skip this section.
 ### 5. Active Projects
 
 ```bash
-grep '"active":true' 4-projects/_data/projects.ndjson
+grep '"active":true' 5-projects/_data/projects.ndjson
 ```
 
 For each active project, show:
@@ -72,7 +72,7 @@ For each active project, show:
 
 Also check for planned projects:
 ```bash
-grep '"status":"planned"' 4-projects/_data/projects.ndjson
+grep '"status":"planned"' 5-projects/_data/projects.ndjson
 ```
 
 Show planned projects in a smaller "Up Next" sub-section.
@@ -90,7 +90,7 @@ Show a compact 7-day table: date | rating (stars) | E | F | M | supplement notes
 ### 7. Open Task Count
 
 ```bash
-TASKS=$(jq -c 'select(.status == "open")' 5-actions/_data/tasks.ndjson | wc -l)
+TASKS=$(jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l)
 ```
 
 Show: "X open tasks" as a single line. Don't list them — that's what /pfc-status and /pfc-pick-tasks are for.

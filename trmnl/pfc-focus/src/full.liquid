@@ -1,0 +1,47 @@
+<div class="layout layout--col gap">
+  <div class="grid">
+    <div class="col col--span-7 gap--small">
+      <span class="title title--small lg:title--base">Active Pursuits</span>
+      <div class="columns" data-overflow-max-cols="1">
+        <div class="column">
+          {% for item in pursuits %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label lg:label--large" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
+                {% if item.landing != "" %}
+                  <span class="label label--small lg:label--base label--gray" data-clamp="2">lands: {{ item.landing }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {% else %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label label--gray">No active pursuits</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col col--span-5 gap--small">
+      <span class="title title--small lg:title--base">Foundations</span>
+      {% for item in foundations %}
+        <span class="label" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
+      {% endfor %}
+      {% if consuming.size > 0 %}
+        <span class="title title--small lg:title--base">Consuming</span>
+        {% for item in consuming %}
+          <span class="label" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Current Focus</span>
+  <span class="instance">{{ quarter }}</span>
+</div>
