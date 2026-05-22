@@ -15,6 +15,7 @@ Schemas and configuration files that define the *shape* of every typed record in
 | `insight_schema.yaml` | Insights in `data/insights.ndjson` |
 | `hypothesis_schema.yaml` | Hypotheses in `data/hypotheses.ndjson` |
 | `finding_schema.yaml` | Findings in `data/findings.ndjson` |
+| `revive_event_schema.yaml` | Revive-watchlist events in `data/revive-events.ndjson` |
 | `onboarding_schema.yaml` | Onboarding state in `config/onboarding.ndjson` |
 
 ### Runtime state

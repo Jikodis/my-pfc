@@ -277,7 +277,8 @@ Three skills + one helper script:
 The dashboard board hosts these lists (user-managed naming, do NOT rename):
 
 - `📥 Inbox` (managed by `pfc-trello-inbox`, never touched by render)
-- `✅ 2+1` and `✅ Actions` — interactive (mark complete from widget)
+- `✅ 2+1` and `✅ Actions` — interactive (mark complete from widget). `✅ Actions` shows ONLY standalone tasks (no project linkage); project-linked tasks render to per-project lists below.
+- `🎯 <Project Name>` — one list per **active** project. Each holds that project's open task backlog (excluding tasks pulled into today's 2+1). Created automatically when a project is `active: true` in `projects.ndjson`; archived automatically when the project flips inactive. Tasks linked to inactive/paused/done/missing projects do NOT render to Trello (they stay in NDJSON until the project reactivates). Interactive — mark complete from widget like Actions cards.
 - `☀️ Daily Habits` and `🌙 Monthly Habits` — interactive
 - `🗓️ Week at a Glance` (calendar, recurring filtered, sorted chronologically)
 - `📧 Email Priorities` (all AA–CC tiers, 5-bucket plain-color labels)
