@@ -117,20 +117,24 @@ Same shape as daily; `date` may be the first of the month. Currently unused (no 
 ### `data/day-tracking.ndjson` — day tracker
 
 ```json
-{"date":"2026-04-15","rating":4,"caffeine_mg":200,"sick":false,"energy":4,"focus":4,"mood":"good","evening_notes":"…","sleep_hours":7.2,"active_zone_minutes":34,"resting_hr":58,"health":"green","notes":"ad-hoc observations","logged_at":"2026-04-15T22:00:00Z"}
+{"date":"2026-04-15","rating":4,"energy":4,"focus":4,"mood":4,"caffeine_mg":200,"sick":false,"morning_movement":true,"hyperfocused":false,"notes":null,"evening_notes":"…","health":{"sleep_minutes":423,"sleep_hours":7.0,"awake_minutes":14,"sleep_deep_minutes":87,"sleep_rem_minutes":99,"sleep_light_minutes":236,"sleep_bedtime":"2026-04-14T22:30:00-06:00","sleep_wake_time":"2026-04-15T06:23:00-06:00","resting_hr_bpm":58,"active_zone_minutes":34}}
 ```
 
-Written by `pfc-log-day` (minimal entry) or updated in place by `pfc-evening-checkin` (full entry with health data auto-fetched from Google Health). Used by `pfc-analyze-trends`.
+Written by `pfc-log-day` (minimal entry) or updated in place by `pfc-evening-checkin` (full entry; the `health` object is populated on a schedule by `automations/scripts/auto_fetch_health.py`). Used by `pfc-analyze-trends`.
 
 - `date` — `YYYY-MM-DD`
-- `rating`, `energy`, `focus` — 1–5
-- `mood` — short label (`"good"`, `"low"`, etc.)
-- `caffeine_mg`, `sick` — example custom variables (supplement tracking was previously here but is now in `supplements.ndjson`)
+- `rating`, `energy`, `focus`, `mood` — 1–5
+- `caffeine_mg`, `sick` — example custom variables (supplement tracking is in `supplements.ndjson`)
 - `morning_movement` — *example custom field* (`true` | `false` | `null`). Track a morning-routine habit (e.g. movement, meditation) within 30 min of waking. Add your own custom fields like this; the schema is open.
-- `sleep_hours`, `active_zone_minutes`, `resting_hr` — auto-fetched health
-- `health` — optional red/yellow/green tag
-- `evening_notes`, `notes` — free text
-- `logged_at` — ISO timestamp of the write (optional)
+- `hyperfocused` — `true` | `false` | `null`. Optional self-report from evening checkin if you track hyperfocus / overshoot patterns.
+- `notes`, `evening_notes` — free text
+- `health` — nested object, all fields auto-fetched from Google Health (`auto_fetch_health.py` / `google_health_backfill.py`); `null` until fetched:
+  - `sleep_minutes`, `sleep_hours` — total minutes/hours asleep
+  - `awake_minutes` — wake-after-sleep-onset minutes (continuity)
+  - `sleep_deep_minutes`, `sleep_rem_minutes`, `sleep_light_minutes` — stage architecture
+  - `sleep_bedtime`, `sleep_wake_time` — ISO 8601 with timezone offset (e.g. `2026-04-14T22:30:00-06:00`). Bedtime = earliest interval `civilStartTime` of the main session; wake_time = latest interval `civilEndTime`. Both `null` if no sleep was recorded.
+  - `resting_hr_bpm` — daily resting heart rate, integer BPM
+  - `active_zone_minutes` — passive AZM + logged-exercise AZM combined
 
 ### `2-areas/_data/life-wheel.ndjson` and `2-areas/_data/household-status.ndjson`
 
@@ -246,6 +250,16 @@ Fields:
 - `stopped_reason` — optional brief reason, `null` while active
 - `notes` — optional free text
 
+### `data/revive-events.ndjson` — append-only revive-watchlist event log
+
+Records every revive intervention applied via `/pfc-revive` so the slippage detector can dedupe recently-handled items and the monthly review can roll forward outcomes.
+
+```json
+{"id":"revive-20260517-001","date":"2026-05-17","subject_type":"task","subject_id":"task-20260415-002","reason":"open >30d, no activity 12d","intervention":"break-down","outcome":null,"outcome_date":null,"notes":null}
+```
+
+Canonical schema: [`config/revive_event_schema.yaml`](../config/revive_event_schema.yaml). Validated by `scripts/validate.sh` § 17. Read by `automations/scripts/revive_watchlist.py` (slippage detector) and `/pfc-revive` itself. Outcome rows are updated in place (`revived` / `still-stuck` / `exited`) during the monthly `--review-outcomes` pass — see `docs/cadences.md` § Revive outcome review.
+
 
 ## Config files
 
@@ -255,6 +269,7 @@ Fields:
 - [`config/finding_schema.yaml`](../config/finding_schema.yaml) — finding record schema (enforced by `scripts/validate.sh`)
 - [`config/insight_schema.yaml`](../config/insight_schema.yaml) — insight record schema (enforced by `scripts/validate.sh`)
 - [`config/supplement_schema.yaml`](../config/supplement_schema.yaml) — supplement record schema (enforced by `scripts/validate.sh`)
+- [`config/revive_event_schema.yaml`](../config/revive_event_schema.yaml) — revive-watchlist event schema (enforced by `scripts/validate.sh` § 17)
 - [`config/onboarding_schema.yaml`](../config/onboarding_schema.yaml) — schema for the append-only onboarding event log at `config/onboarding.ndjson` (one record per `{feature, status, date}` event, where `status` is `introduced`/`tried`/`dismissed`; most-recent event wins). Enforced by `scripts/validate.sh` § 12. Drives the `/pfc-onboarding` skill's feature-coverage tracking.
 - `config/automation_config.yaml` — thresholds and (future) schedule settings; `task_archive_threshold` mirrors the 200-line rule referenced in CLAUDE.md
 - `config/persona.yaml` — single field `active: <persona-id>` (or `none`). Selects the assistant's voice overlay. Switched via `/pfc-persona`. Validator confirms `active` resolves to a section in `personas.md`.

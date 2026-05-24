@@ -25,6 +25,24 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Local timezone: configurable via LOCAL_TZ env var (default America/Denver).
 MOUNTAIN  = ZoneInfo(os.environ.get("LOCAL_TZ", "America/Denver"))
 
+
+def _to_local_iso(raw):
+    """Convert Google Health interval timestamp to ISO 8601 in LOCAL_TZ with offset.
+
+    Accepts either a Zulu UTC string ('2026-05-21T04:45:30Z') or an already-civil
+    local string ('2026-05-20T22:45:30'). Returns the local-timezone form like
+    '2026-05-20T22:45:30-06:00'. Returns None for falsy input or parse failure."""
+    if not raw:
+        return None
+    try:
+        s = raw[:-1] + "+00:00" if raw.endswith("Z") else raw
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=MOUNTAIN).isoformat()
+    return dt.astimezone(MOUNTAIN).isoformat()
+
 def load_env():
     env = {}
     env_path = REPO_ROOT / ".env"
@@ -125,12 +143,23 @@ def fetch_sleep(access_token, date_str):
     total_asleep = 0
     total_awake  = 0
     stages = {"deep": 0, "light": 0, "rem": 0, "wake": 0}
+    starts = []
+    ends   = []
 
     for point in target:
-        summary = point.get("sleep", {}).get("summary", {})
+        sleep_obj = point.get("sleep", {})
+        summary   = sleep_obj.get("summary", {})
 
         total_asleep += int(summary.get("minutesAsleep", 0) or 0)
         total_awake  += int(summary.get("minutesAwake",  0) or 0)
+
+        interval = sleep_obj.get("interval", {}) or {}
+        start = interval.get("civilStartTime") or interval.get("startTime")
+        end   = interval.get("civilEndTime")   or interval.get("endTime")
+        if start:
+            starts.append(start)
+        if end:
+            ends.append(end)
 
         for s in summary.get("stagesSummary", []):
             stype = s.get("type", "").upper()
@@ -149,6 +178,8 @@ def fetch_sleep(access_token, date_str):
         "total_hours":    round(total_asleep / 60, 1),
         "awake_minutes":  total_awake,
         "stages_minutes": stages,
+        "bedtime":        _to_local_iso(min(starts)) if starts else None,
+        "wake_time":      _to_local_iso(max(ends))   if ends   else None,
     }
 
 

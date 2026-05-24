@@ -39,11 +39,11 @@ If a strong new pattern emerges that isn't tracked yet, offer to add it as a new
 
 Sleep is not just architecture (stage minutes). Treat these as co-equal load-bearing variables:
 
-1. **Total sleep duration** (`health.sleep.total_hours`)
-2. **Stage architecture** — deep, REM, light, wake minutes (`health.sleep.stages_minutes`)
-3. **Sleep timing** — bedtime + wake time (`health.sleep.bedtime`, `health.sleep.wake_time`). When the user fell asleep and when they woke up are independently predictive of next-day rating. A 7-hour night from 11 PM → 6 AM is not the same as 7 hours from 2 AM → 9 AM, even with identical stage breakdown.
+1. **Total sleep duration** (`health.sleep_hours`)
+2. **Stage architecture** — deep, REM, light, wake minutes (`health.sleep_deep_minutes`, `health.sleep_rem_minutes`, `health.sleep_light_minutes`, `health.awake_minutes`)
+3. **Sleep timing** — bedtime + wake time (`health.sleep_bedtime`, `health.sleep_wake_time`, ISO 8601 with timezone offset). When the user fell asleep and when they woke up are independently predictive of next-day rating. A 7-hour night from 11 PM → 6 AM is not the same as 7 hours from 2 AM → 9 AM, even with identical stage breakdown.
 4. **Continuity** — wake minutes (fragmentation)
 
 When narrating a sleep finding, name which dimension drove it — duration, architecture, timing, or continuity. "You slept better last night" is too vague; "You went to bed 90 minutes earlier" or "you got 30 more minutes of REM" is actionable.
 
-If the timing fields (`bedtime`, `wake_time`) aren't populated on a record, the auto-fetch hasn't been extended yet — call that out as a data gap rather than ignoring it.
+Older records (before timing-field backfill) may not have `sleep_bedtime`/`sleep_wake_time` populated. Run `python3 automations/scripts/google_health_backfill.py --all` to fill them. Treat absent timing on old days as a data gap, not a signal.
