@@ -71,7 +71,7 @@ After the script completes, verify the units are registered:
 systemctl --user list-unit-files 'pfc-*.service' 'pfc-*.timer'
 ```
 
-You should see `pfc-habit-autolog.service`, `pfc-habit-autolog.timer`, `pfc-health-fetch.service`, and `pfc-health-fetch.timer` listed as `enabled`.
+You should see `pfc-health-fetch.service`, `pfc-health-fetch.timer` (plus the morning variant), `pfc-trello-daily-render.timer`, and — if TRMNL is configured — `pfc-trmnl-serve.service` and `pfc-repo-sync.timer` listed as `enabled`.
 
 ---
 
@@ -99,10 +99,10 @@ Check that the timers are scheduled and firing:
 
 ```bash
 # List upcoming timer fire times
-systemctl --user list-timers pfc-habit-autolog.timer pfc-health-fetch.timer
+systemctl --user list-timers pfc-health-fetch.timer pfc-health-fetch-morning.timer
 
 # Watch live service output
-journalctl --user -u pfc-habit-autolog.service -f
+journalctl --user -u pfc-health-fetch.service -f
 journalctl --user -u pfc-health-fetch.service -f
 ```
 
@@ -116,7 +116,7 @@ Before relying on the timers, confirm a single run works end-to-end:
 
 ```bash
 source .venv/bin/activate
-python3 automations/scripts/auto_log_habits.py
+python3 automations/scripts/auto_fetch_health.py
 python3 automations/scripts/auto_fetch_health.py
 ```
 
@@ -124,7 +124,7 @@ Then inspect the result:
 
 ```bash
 git diff data/day-tracking.ndjson
-git diff 6-habits/_data/habits-daily.ndjson
+git diff 7-habits/_data/habits-daily.ndjson
 git log --oneline -3
 ```
 

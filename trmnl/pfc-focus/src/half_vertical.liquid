@@ -1,0 +1,26 @@
+<div class="layout layout--col gap">
+  <div class="col gap--small">
+    <span class="title title--small">Active Pursuits</span>
+    <div class="columns" data-overflow-max-cols="1">
+      <div class="column">
+        {% for item in pursuits %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="label" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
+              {% if item.landing != "" %}
+                <span class="label label--small label--gray" data-clamp="1">lands: {{ item.landing }}</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <span class="label label--small label--gray">{{ foundations.size }} foundations holding</span>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Current Focus</span>
+  <span class="instance">{{ quarter }}</span>
+</div>

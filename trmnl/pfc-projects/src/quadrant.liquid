@@ -1,0 +1,25 @@
+<div class="layout layout--col gap--small">
+  <div class="columns" data-overflow-max-cols="1">
+    <div class="column">
+      {% for project in projects %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small" data-clamp="1">{{ project.name }} — {{ project.percent }}%</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small label--gray">No active projects</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Projects</span>
+</div>

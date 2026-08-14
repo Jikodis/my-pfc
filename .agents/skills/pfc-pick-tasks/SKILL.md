@@ -10,8 +10,10 @@ Help the user select tasks to work on right now. Optimized for ADHD: surface the
 ## Step 1: Gather open tasks
 
 ```bash
-jq -c 'select(.status == "open")' 5-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open" and (.deferred // false) == false)' 6-actions/_data/tasks.ndjson
 ```
+
+**`deferred: true` means the user parked it — never suggest it.** A deferred task is still open work; the user has just said "not now, and stop offering it." It stays out of every pick pool, off the Trello `✅ Actions` list, and out of `pfc-revive`'s slippage signals until they ask for it back. Do NOT surface it as a candidate, do NOT nudge about it, and do NOT count it as slipping. To un-park one, set `deferred` to `false`. `/pfc-list-tasks` is where parked tasks stay visible.
 
 ### Step 1a: Exclude blocked tasks (depends_on not yet done)
 
@@ -20,9 +22,9 @@ A task with a non-empty `depends_on` array is only ready when **every** referenc
 ```bash
 jq -cs '
   (map(select(.status == "open") | .id)) as $open_ids |
-  .[] | select(.status == "open") |
+  .[] | select(.status == "open" and (.deferred // false) == false) |
   select((.depends_on // []) | all(. as $d | $open_ids | index($d) | not))
-' 5-actions/_data/tasks.ndjson
+' 6-actions/_data/tasks.ndjson
 ```
 
 This returns only open tasks whose dependencies are all completed (or never existed in the first place — deleted/archived dependencies are treated as resolved, same as done).
@@ -40,7 +42,7 @@ TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
 # Then filter:
 jq -c --slurpfile scheduled /tmp/scheduled-ids.json \
   'select(.status == "open" and (.id as $id | $scheduled | any(. == $id) | not))' \
-  5-actions/_data/tasks.ndjson
+  6-actions/_data/tasks.ndjson
 ```
 
 Only exclude events whose `start.dateTime` (or `start.date` for all-day) is `>= TODAY`. An event dated `< TODAY` that references a still-open task is a carry-forward and SHOULD remain a candidate.
@@ -76,12 +78,14 @@ This keeps every standalone task and exactly one project task per project (the n
 
 Sort descending by total score.
 
-**Never suggest calendar events as tasks.** Calendar events are already built into the day — they don't belong in the 2+1 focus or task recommendations. Only pull from `5-actions/_data/tasks.ndjson`.
+**Never suggest calendar events as tasks.** Calendar events are already built into the day — they don't belong in the 2+1 focus or task recommendations. Only pull from `6-actions/_data/tasks.ndjson`.
+
+**Top-priority tasks surface every day — never filter them out by day of week.** Rank the pool by `priority` when it's set (AA > AB/BA > AC/BB/CA > BC/CB > CC; fall back to impact + urgency when it isn't). **Always surface the top AA (high-impact + high-urgency) items regardless of what day it is** — including a rest day, a holiday, an observance, or any day you've marked off. Do NOT suppress, hide, or skip an AA task because the day "isn't for that kind of work." Top-priority items surface every day; the *user* decides whether to act on them. Day-appropriateness may only shape which *lower-priority* task rounds out the bonus slot (e.g. prefer a restful or family task over an errand on a rest day) — it must never keep an AA task off the list or leave the user without their most-important items in view. The failure this rule kills: a check-in that quietly drops needed top-priority tasks in favor of "appropriate for today" picks.
 
 ## Step 3: Check today's focus
 
 ```bash
-grep "$(date +%Y-%m-%d)" 5-actions/_data/daily-focus.ndjson | tail -1
+grep "$(date +%Y-%m-%d)" 6-actions/_data/daily-focus.ndjson | tail -1
 ```
 
 If a daily focus is already set, show it and note which items are already completed. Suggest replacements only for completed items.
@@ -114,7 +118,7 @@ If the user specifies a location (e.g., "what should I work on at home?" or "pho
 ## Step 5: Ask to commit
 
 After presenting recommendations, ask:
-- "Want me to set this as today's focus?" (runs /pfc-morning-checkin logic)
+- "Want me to set this as today's focus?" (the evening check-in stages the *next* day's 2+1; `/pfc-schedule-focus` places today's on the calendar on demand)
 - "Want to break any of these down into smaller pieces?"
 
 ## ADHD Momentum Notes
@@ -124,3 +128,15 @@ Include one of these contextual nudges at the bottom (pick the most relevant):
 - If all remaining tasks are L/XL: "All open tasks are large. Consider breaking one down into 15-minute chunks."
 - If there are stale tasks: "N tasks have been open 2+ weeks. During your next review, consider: eliminate, break down, or re-prioritize."
 - If task list is empty or very short: "Task list is light. Good time to capture anything floating in your head."
+
+## Engagement overlays (apply when relevant)
+
+These four overlays exist because *what* to work on and *whether the pick will actually launch* are different questions. Keep them to one line each — a picker that lectures stops getting used. If any of them don't describe your brain, delete them; if your profile (`0-me/profile.md` § Brain, § How to work with this brain) names other launch failures, add your own.
+
+- **Music-on default for low-interest picks.** Whenever the top pick is something you have no natural pull toward — chores, admin, paperwork, anything outside whatever you're currently absorbed in — append one line under the 2+1: **"Music on before you start — the cheapest reliable lever for low-reward chunks."** Before, not after stalling. Do not lecture; one line. Worth tracking as a hypothesis in `data/hypotheses.ndjson` so you find out whether it holds for you.
+
+- **Flag the open-ended-creation tax.** Flag a task 🟡 when it requires generating from nothing AND holding a sequence in your head at the same time — composing music from scratch, cooking from an unfamiliar recipe, drafting from a blank document with no template. Those two demands land on the weakest faculties in this profile simultaneously. Format: `🟡 Open-ended + sequence — externalize one fixed method before starting, or expect a stall.` Don't auto-deprioritize it; just surface the cost so the choice is made with eyes open.
+
+- **Flag tasks that won't finish in one sitting.** When a task is L/XL and can't be broken into a single-session chunk, flag it 🟡: `Won't finish in one session — being interrupted near the end is expensive, because a task forced out of focus tends to go invisible rather than resume. Prefer to break it down before starting.`
+
+- **Surface the trigger plan on stalled re-entries.** If the top pick's `notes` already contains a `trigger:` plan (anchor-to-running-state, person-at-start, scheduled live event, action-alarm), print it inline so it actually gets used: `Trigger plan on file: <text from notes>.` If a stalled task has no trigger plan and has carried forward repeatedly, prompt once: `This has carried 3+ times — want a trigger plan? (anchor-to-running-state is the default; person-at-start only if someone's genuinely available.)` See `/pfc-revive` for the full palette.

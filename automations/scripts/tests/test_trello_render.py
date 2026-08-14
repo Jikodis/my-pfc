@@ -257,6 +257,53 @@ class TestRenderers(unittest.TestCase):
         # Title format: "<emoji> <TIER> (<SIZE>) - <description>"
         self.assertEqual(cards[0].name, "🔴 AA (S) - X")
 
+    def test_render_actions_excludes_project_tasks(self):
+        from trello_render import render_actions
+        state = {
+            "projects": [{"id": "p1", "name": "P1", "active": True}],
+            "tasks": [
+                {"id": "t1", "status": "open", "description": "standalone", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "none"},
+                {"id": "t2", "status": "open", "description": "linked", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+            ],
+        }
+        cards = render_actions(state, plain_color_labels={"red": "lab_red"})
+        self.assertEqual([c.pfc_id for c in cards], ["t1"])
+        self.assertEqual(cards[0].list_name, "✅ Actions")
+
+    def test_render_project_actions_groups_by_active_project(self):
+        from trello_render import render_project_actions
+        state = {
+            "projects": [
+                {"id": "p1", "name": "Sample Course", "active": True},
+                {"id": "p2", "name": "Paused Thing", "active": False},
+            ],
+            "tasks": [
+                {"id": "t1", "status": "open", "description": "Day 1", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+                {"id": "t2", "status": "open", "description": "Day 2", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+                {"id": "t3", "status": "open", "description": "Standalone", "impact": "low", "urgency": "low", "size": "S", "area": "career", "project": "none"},
+                {"id": "t4", "status": "open", "description": "Paused project task", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p2"},
+                {"id": "t5", "status": "done", "description": "done active", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
+            ],
+        }
+        cards = render_project_actions(state, plain_color_labels={"red": "lab_red"})
+        # Only t1 + t2 should render (active project, open status).
+        self.assertEqual(sorted(c.pfc_id for c in cards), ["t1", "t2"])
+        self.assertEqual(cards[0].list_name, "🎯 Sample Course")
+        # Excludes 2+1 ids
+        cards2 = render_project_actions(state, exclude_2plus1_ids={"t1"})
+        self.assertEqual(sorted(c.pfc_id for c in cards2), ["t2"])
+
+    def test_project_list_name_truncates(self):
+        from trello_render import _project_list_name, _is_project_list_name, PROJECT_LIST_NAME_MAX
+        short = _project_list_name("My Project")
+        self.assertEqual(short, "🎯 My Project")
+        self.assertTrue(_is_project_list_name(short))
+        self.assertFalse(_is_project_list_name("✅ Actions"))
+        long_name = "A" * 100
+        truncated = _project_list_name(long_name)
+        self.assertLessEqual(len(truncated), PROJECT_LIST_NAME_MAX)
+        self.assertTrue(truncated.startswith("🎯 "))
+
     def test_render_2plus1_uses_today_focus(self):
         from trello_render import render_2plus1, _today_mt
         today = _today_mt()
@@ -411,54 +458,201 @@ class TestCalendarRender(unittest.TestCase):
         self.assertNotIn("00:00:00", cards[0].name)
 
 
-class TestEmailRender(unittest.TestCase):
-    def _msg(self, mid="m1", subject="Test", from_="alice@example.com", snippet="body...", tier="AA"):
-        return {
-            "id": mid, "subject": subject, "from": from_, "snippet": snippet, "tier": tier,
+class TestGroundingRender(unittest.TestCase):
+    def test_renders_active_anchors_only(self):
+        from trello_render import render_grounding
+        state = {"grounding": [
+            {"id": "ground-20250101-001", "title": "Deadline Friday", "body": "• one\n• two", "status": "active"},
+            {"id": "ground-20250101-002", "title": "Old thing", "body": "x", "status": "retired"},
+        ]}
+        cards = render_grounding(state)
+        self.assertEqual([c.pfc_id for c in cards], ["ground-20250101-001"])
+        self.assertEqual(cards[0].name, "Deadline Friday")
+        self.assertEqual(cards[0].body, "• one\n• two")
+        self.assertEqual(cards[0].list_name, "🧠 Front of Mind")
+
+    def test_legacy_text_field_fills_name_and_body(self):
+        from trello_render import render_grounding
+        state = {"grounding": [{"id": "g1", "text": "Be patient in the mornings", "status": "active"}]}
+        cards = render_grounding(state)
+        self.assertEqual(cards[0].name, "Be patient in the mornings")
+        self.assertEqual(cards[0].body, "Be patient in the mornings")
+
+    def test_over_cap_warns_but_renders_everything(self):
+        from trello_render import render_grounding, GROUNDING_CAP
+        n = GROUNDING_CAP + 3
+        state = {"grounding": [
+            {"id": f"g{i}", "title": f"anchor {i}", "status": "active"} for i in range(n)
+        ]}
+        with patch("builtins.print") as mock_print:
+            cards = render_grounding(state)
+        self.assertEqual(len(cards), n)          # never truncates
+        self.assertTrue(any("🟡" in str(c) for c in mock_print.call_args_list))
+
+
+class TestFocusRender(unittest.TestCase):
+    def _f(self, fid, tier, title, status="green", **kw):
+        rec = {"id": fid, "tier": tier, "title": title, "status": status,
+               "area": "health", "impact": "medium", "urgency": "medium",
+               "parked": False, "habits": []}
+        rec.update(kw)
+        return rec
+
+    def test_groups_by_tier_in_order(self):
+        from trello_render import render_focus
+        state = {"focus": [
+            self._f("f1", "consuming", "A book"),
+            self._f("f2", "pursuit", "Ship the thing"),
+            self._f("f3", "foundation", "Sleep"),
+        ]}
+        cards = render_focus(state)
+        self.assertEqual([c.pfc_id for c in cards], ["f3", "f2", "f1"])
+        self.assertTrue(cards[0].name.startswith("BB 🟢 🧱 "))
+        self.assertTrue(cards[1].name.startswith("BB 🟢 🎯 "))
+        self.assertTrue(cards[2].name.startswith("BB 🟢 🎧 "))
+
+    def test_retired_focus_is_dropped(self):
+        from trello_render import render_focus
+        state = {"focus": [self._f("f1", "pursuit", "Done with it", retired_date="2025-03-01")]}
+        self.assertEqual(render_focus(state), [])
+
+    def test_status_circle_and_body(self):
+        from trello_render import render_focus
+        state = {"focus": [self._f("f1", "pursuit", "Ship it", status="red",
+                                   landing="After the morning walk",
+                                   link={"type": "vision", "ref": "become-x"})]}
+        card = render_focus(state)[0]
+        self.assertTrue(card.name.startswith("BB 🔴 🎯 Ship it — health"))
+        self.assertIn("Landing: After the morning walk", card.body)
+        self.assertIn("vision: become-x", card.body)
+
+    def test_sorts_by_code_within_tier(self):
+        from trello_render import render_focus
+        state = {"focus": [
+            self._f("f1", "pursuit", "Low", impact="low", urgency="low"),
+            self._f("f2", "pursuit", "Top", impact="high", urgency="high"),
+            self._f("f3", "pursuit", "Mid", impact="high", urgency="low"),
+        ]}
+        cards = render_focus(state)
+        self.assertEqual([c.pfc_id for c in cards], ["f2", "f3", "f1"])
+        self.assertTrue(cards[0].name.startswith("AA "))
+        self.assertTrue(cards[1].name.startswith("AC "))
+        self.assertTrue(cards[2].name.startswith("CC "))
+
+    def test_parked_focus_shows_marker_and_frees_the_cap(self):
+        from trello_render import render_focus, FOCUS_PURSUIT_CAP
+        n = FOCUS_PURSUIT_CAP + 1
+        state = {"focus": [self._f(f"f{i}", "pursuit", f"p{i}") for i in range(n)]}
+        state["focus"][0]["parked"] = True
+        with patch("builtins.print") as mock_print:
+            cards = render_focus(state)
+        self.assertEqual(len(cards), n)          # parked still renders
+        parked_card = next(c for c in cards if c.pfc_id == "f0")
+        self.assertIn("🅿️", parked_card.name)
+        # cap warning must NOT fire — the parked one freed a slot
+        self.assertFalse(any("hard cap" in str(c) for c in mock_print.call_args_list))
+
+    def test_vehicle_rates_render_in_the_body(self):
+        from trello_render import render_focus
+        state = {
+            "focus": [self._f("f1", "pursuit", "Guitar", habits=["practice-guitar"])],
+            "focus_status": [{
+                "focus_id": "f1",
+                "primary": {"habit_id": "practice-guitar", "completed": 2,
+                            "target": 4, "rate": 0.5},
+                "supporting": [], "weeks_red": 2,
+            }],
         }
+        card = render_focus(state)[0]
+        self.assertIn("Rate: 2 of 4 (50%) via practice-guitar", card.body)
+        self.assertIn("red 2 weeks running", card.body)
 
-    def test_render_email_top_tier_always_shows(self):
-        from trello_render import render_email
-        msgs = [self._msg(tier="AA")]
-        cards = render_email(msgs)
-        self.assertEqual(len(cards), 1)
-        self.assertIn("[AA]", cards[0].name)
+    def test_over_pursuit_cap_warns_but_renders_everything(self):
+        from trello_render import render_focus, FOCUS_PURSUIT_CAP
+        n = FOCUS_PURSUIT_CAP + 2
+        state = {"focus": [self._f(f"f{i}", "pursuit", f"p{i}") for i in range(n)]}
+        with patch("builtins.print") as mock_print:
+            cards = render_focus(state)
+        self.assertEqual(len(cards), n)
+        self.assertTrue(any("🟡" in str(c) for c in mock_print.call_args_list))
 
-    def test_render_email_all_tiers_show(self):
-        """All AA-CC tiers render — no fallback gating."""
-        from trello_render import render_email
-        msgs = [
-            self._msg(mid="m1", tier="AA"),
-            self._msg(mid="m2", tier="AB"),
-            self._msg(mid="m3", tier="BB"),
-            self._msg(mid="m4", tier="CA"),
-            self._msg(mid="m5", tier="CC"),
-        ]
-        cards = render_email(msgs)
-        ids = sorted([c.pfc_id for c in cards])
-        self.assertEqual(ids, ["gmail-m1", "gmail-m2", "gmail-m3", "gmail-m4", "gmail-m5"])
+    def test_focus_list_is_not_treated_as_a_project_list(self):
+        from trello_render import _is_project_list_name, FOCUS_LIST_NAME
+        self.assertFalse(_is_project_list_name(FOCUS_LIST_NAME))
+        self.assertTrue(_is_project_list_name("🎯 Some Project"))
 
-    def test_render_email_unprocessed_never_shows(self):
-        from trello_render import render_email
-        msgs = [self._msg(mid="m1", tier=None)]
-        cards = render_email(msgs)
-        self.assertEqual(cards, [])
 
-    def test_render_email_attaches_plain_color_label_when_provided(self):
-        from trello_render import render_email
-        msgs = [self._msg(mid="m1", tier="AA"), self._msg(mid="m2", tier="BB")]
-        # AA → red, BB → yellow under the 5-bucket scheme.
-        plain_labels = {"red": "lab_red", "yellow": "lab_yellow"}
-        cards = render_email(msgs, plain_color_labels=plain_labels)
-        by_id = {c.pfc_id: c for c in cards}
-        self.assertEqual(by_id["gmail-m1"].label_names, ["_plain:red"])
-        self.assertEqual(by_id["gmail-m2"].label_names, ["_plain:yellow"])
+class TestSupermanPulse(unittest.TestCase):
+    """The Trello card shaping only — thresholds and verdict are pulse.py's job
+    and are tested there."""
 
-    def test_render_email_no_label_when_color_map_empty(self):
-        from trello_render import render_email
-        msgs = [self._msg(mid="m1", tier="AA")]
-        cards = render_email(msgs)  # no plain_color_labels
-        self.assertEqual(cards[0].label_names, [])
+    def _day(self, date, hours=8.0, awake=8, deep=90,
+             bedtime="T22:30:00-07:00", wake="T06:30:00-07:00", moved=True):
+        return {"date": date, "morning_movement": moved, "health": {
+            "sleep_hours": hours, "awake_minutes": awake, "sleep_deep_minutes": deep,
+            "active_zone_minutes": 40,
+            "sleep_bedtime": date + bedtime, "sleep_wake_time": date + wake,
+        }}
+
+    def test_no_data_renders_nothing(self):
+        from trello_render import render_superman_pulse
+        self.assertEqual(render_superman_pulse({"day_tracking": []}), [])
+
+    def test_verdict_card_comes_first_and_carries_the_move(self):
+        from trello_render import render_superman_pulse
+        cards = render_superman_pulse({"day_tracking": [self._day("2025-01-01")]})
+        self.assertEqual(cards[0].pfc_id, "pulse-verdict")
+        self.assertIn("VERDICT", cards[0].name)
+        self.assertIn("Tonight's move:", cards[0].body)
+        self.assertIn("Critical levers green:", cards[0].body)
+
+    def test_one_card_per_lever_on_the_pulse_list(self):
+        from trello_render import render_superman_pulse, SUPERMAN_PULSE_LIST
+        from pulse import pulse_levers
+        day = self._day("2025-01-01")
+        cards = render_superman_pulse({"day_tracking": [day]})
+        self.assertEqual(len(cards), len(pulse_levers(day)) + 1)   # + verdict
+        self.assertTrue(all(c.list_name == SUPERMAN_PULSE_LIST for c in cards))
+        self.assertEqual(len({c.pfc_id for c in cards}), len(cards))
+
+    def test_cards_sort_red_first_then_tier(self):
+        from trello_render import render_superman_pulse
+        bad = self._day("2025-01-01", hours=5.0, awake=90, deep=20, moved=False)
+        lever_cards = render_superman_pulse({"day_tracking": [bad]})[1:]
+        # Worst first: every red card precedes every yellow card, which precedes
+        # every green card. Tier only breaks ties inside a colour.
+        rank = {"🔴": 0, "🟡": 1, "🟢": 2, "⚪": 3}
+        colours = [rank[c.name.split(" ")[0]] for c in lever_cards]
+        self.assertEqual(colours, sorted(colours))
+
+    def test_lever_card_shows_value_and_target(self):
+        from trello_render import render_superman_pulse
+        cards = render_superman_pulse({"day_tracking": [self._day("2025-01-01", hours=6.8)]})
+        hours_card = next(c for c in cards if c.pfc_id == "pulse-hours")
+        self.assertIn("6.8h", hours_card.name)
+        self.assertIn("target", hours_card.name)
+        self.assertIn("to yellow", hours_card.name)  # distance-to-next-tier is surfaced
+
+
+class TestVisionRender(unittest.TestCase):
+    def test_only_frontmatter_files_load_as_visions(self):
+        import tempfile, trello_render
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "3-visions").mkdir()
+            (root / "3-visions" / "become-an-engineer.md").write_text(
+                "---\nname: become-an-engineer\narea: career\n---\n\n# Become an engineer\n\nBody.\n")
+            # A folder doc, not a vision — starts with a heading, no frontmatter.
+            (root / "3-visions" / "vision-brainstorm.md").write_text("# Vision brainstorm\n\nNotes.\n")
+            (root / "3-visions" / "AGENTS.md").write_text("# Agents\n\nRules.\n")
+            with patch.object(trello_render, "REPO_ROOT", root):
+                visions = trello_render._load_visions()
+        self.assertEqual([v["slug"] for v in visions], ["become-an-engineer"])
+        self.assertEqual(visions[0]["title"], "Become an engineer")
+
+    def test_title_falls_back_to_frontmatter_name(self):
+        from trello_render import _vision_title
+        self.assertEqual(_vision_title("---\nname: get-fit\n---\n\nNo heading here.\n"), "get-fit")
 
 
 class TestAreaLifeWheelLabels(unittest.TestCase):
@@ -551,26 +745,53 @@ class TestAreaLifeWheelLabels(unittest.TestCase):
 
 
 class TestCalendarRecurringFilter(unittest.TestCase):
-    def test_render_calendar_skips_recurring_instances(self):
+    def test_recurring_events_show_unless_a_filter_hides_them(self):
+        """Recurring is not by itself a reason to hide — most real commitments
+        are recurring series. `exclude_titles_when_recurring` hides a known
+        pattern's series while a one-off with the same title still shows."""
         from trello_render import render_calendar
         events = [
             {
-                "id": "e1", "summary": "Daily Planning",
+                "id": "e1", "summary": "Weekly team sync",
                 "start": {"dateTime": "2026-05-10T09:00:00-06:00"},
                 "end": {"dateTime": "2026-05-10T10:00:00-06:00"},
                 "organizer": {"displayName": "Work"},
-                "recurringEventId": "abc-recurring",  # ← marks as recurring instance
+                "recurringEventId": "abc-recurring",
             },
             {
-                "id": "e2", "summary": "One-time meeting",
-                "start": {"dateTime": "2026-05-10T11:00:00-06:00"},
-                "end": {"dateTime": "2026-05-10T11:30:00-06:00"},
+                "id": "e2", "summary": "In Office Day",
+                "start": {"dateTime": "2026-05-11T09:00:00-06:00"},
+                "end": {"dateTime": "2026-05-11T17:00:00-06:00"},
                 "organizer": {"displayName": "Work"},
+                "recurringEventId": "def-recurring",   # known pattern → hidden
+            },
+            {
+                "id": "e3", "summary": "In Office Day",
+                "start": {"dateTime": "2026-05-12T09:00:00-06:00"},
+                "end": {"dateTime": "2026-05-12T17:00:00-06:00"},
+                "organizer": {"displayName": "Work"},   # one-off exception → shows
             },
         ]
-        cards = render_calendar(events, {"exclude_titles": [], "exclude_calendars": []})
+        filters = {"exclude_titles": [], "exclude_calendars": [],
+                   "exclude_titles_when_recurring": ["in office day"]}
+        cards = render_calendar(events, filters)
         ids = [c.pfc_id for c in cards]
-        self.assertEqual(ids, ["gcal-e2"])
+        self.assertEqual(ids, ["gcal-e1", "gcal-e3"])
+
+    def test_exclude_prefixes_hide_by_title_start(self):
+        from trello_render import render_calendar
+        events = [
+            {"id": "e1", "summary": "Task - drop off package",
+             "start": {"dateTime": "2026-05-10T09:00:00-06:00"},
+             "end": {"dateTime": "2026-05-10T09:30:00-06:00"},
+             "organizer": {"displayName": "Personal"}},
+            {"id": "e2", "summary": "Lunch with a friend",
+             "start": {"dateTime": "2026-05-10T12:00:00-06:00"},
+             "end": {"dateTime": "2026-05-10T13:00:00-06:00"},
+             "organizer": {"displayName": "Personal"}},
+        ]
+        cards = render_calendar(events, {"exclude_prefixes": ["task - "]})
+        self.assertEqual([c.pfc_id for c in cards], ["gcal-e2"])
 
     def test_render_calendar_sorts_chronologically(self):
         """Events from multiple calendars get interleaved in time order."""

@@ -1,0 +1,16 @@
+# Tier definitions + caps for the Current Focus layer (4-focus/_data/focus.ndjson).
+# Caps are SOFT at render time — the board shows everything and warns 🟡 when a cap
+# is exceeded. Curate by retiring a focus, never by silently truncating the list.
+tiers:
+  foundation:
+    label: "🧱 Foundations"
+    cap: null          # soft ~4; not a scarcity cap (these are always-on keystones)
+  pursuit:
+    label: "🎯 Active Pursuits"
+    cap: 6             # HARD scarcity cap — the whole point of the layer
+  consuming:
+    label: "🎧 Currently Consuming"
+    media_caps:
+      book: 1
+      podcast: 3
+      audiobook: 1

@@ -3,6 +3,13 @@
     "allow": [],
     "deny": []
   },
+  "extraKnownMarketplaces": {
+    "trmnl-agent-skills": {
+      "source": { "source": "github", "repo": "usetrmnl/trmnl-agent-skills" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": { "trmnl@trmnl-agent-skills": true },
   "hooks": {
     "SessionStart": [
       {

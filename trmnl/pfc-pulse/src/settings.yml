@@ -1,0 +1,15 @@
+---
+strategy: polling
+no_screen_padding: 'no'
+dark_mode: 'no'
+static_data:
+polling_verb: get
+framework_version:
+serverless_language:
+polling_body:
+# `id:` is assigned by your FIRST `trmnlp push` — paste the returned id here so
+# later pushes update this plugin instead of creating a new one. Leave the
+# polling URL and headers in the TRMNL UI: the header carries a bearer token and
+# `trmnlp push` would round-trip it into this file.
+name: PFC Daily Pulse
+refresh_interval: 15

@@ -7,7 +7,7 @@ Visual documentation of how the productivity system works. Diagrams use Mermaid 
 ```mermaid
 flowchart TD
     V[Values] --> AS[Area Statements]
-    V --> PB[Passion Brainstorm]
+    V --> PB[Vision Brainstorm]
     V --> Q[Questions]
     AS --> P[Projects]
     PB --> P
@@ -17,45 +17,31 @@ flowchart TD
     T --> DF[Daily Focus 2+1]
 ```
 
-## Daily Flow
+## Daily Flow — the evening spine
 
 ```mermaid
 flowchart TD
-    A[Morning Check-in] --> B[Review email priorities]
-    B --> C[Set daily focus: 2 critical + 1 bonus]
-    C --> D[Work on focus tasks]
-    D --> E[Log habits as completed]
-    E --> F[End of day: rate day 1-5 + notes]
-    F --> G[Commit and push]
+    A[Evening Check-in] --> B[Rate + log today: energy, focus, mood, habits]
+    B --> C[Rolling reviews: surface up to 2 due items]
+    C --> D[Trickle Current Focus into view]
+    D --> E[Pick tomorrow's 2+1 + annotate anchor slot]
+    E --> F[Commit and push]
 ```
 
-## Weekly Review Flow
+## Rolling Reviews Flow
+
+The old weekly and monthly ritual reviews are folded into a rolling ledger (`data/review-ledger.ndjson`). The evening check-in drips ≤2 due items per night; `/pfc-review` clears the whole backlog at once.
 
 ```mermaid
 flowchart TD
-    A[Gather data: tasks, habits, check-ins, focus] --> B[Summarize the week]
-    B --> C[Stale task triage]
-    C --> D{Task open 2+ weeks?}
-    D -->|Eliminate| E[Remove task]
-    D -->|Break down| F[Split into smaller parts]
-    D -->|Keep| G[Re-prioritize]
-    B --> H[Archive completed tasks]
-    H --> I[Ask: what went well / what didn't]
-    I --> J[Commit and push]
-```
-
-## Monthly Check-in Flow
-
-```mermaid
-flowchart TD
-    A[Life wheel assessment] --> B[Household status assessment]
-    B --> C[Project progress review]
-    C --> D{Anything not green?}
-    D -->|Yes| E[Create habit, action, or project]
-    D -->|No| F[Continue as-is]
-    C --> G{Project stalled?}
-    G -->|Yes| H[Pause/swap/break down further]
-    G -->|No| I[Update percentage]
+    A[Ledger: review items, each with cadence + last_done] --> B{Any item due AND has something to act on?}
+    B -->|No| C[No reviews tonight — re-check next evening]
+    B -->|Yes| D[Take the most-overdue, gated items]
+    D --> E[Evening: cap 2 · /pfc-review: no cap]
+    E --> F[Point at the owning skill: /pfc-revive, /pfc-focus, life-wheel, /pfc-insights, ...]
+    F --> G{User engages?}
+    G -->|Yes| H[Stamp last_done = today]
+    G -->|No| I[Leave it — re-surfaces on cadence]
 ```
 
 ## Hypothesis Testing Flow

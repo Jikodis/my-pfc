@@ -1,0 +1,31 @@
+[Unit]
+Description=PFC — Trigger morning health fetch every 30 min from 6:00 AM local
+Documentation=__REPO_URL__
+
+[Timer]
+# Every 30 minutes, 6:00 AM → 10:30 AM local.
+#
+# Why a retry loop instead of one fixed hour: last night's sleep lands whenever
+# the watch syncs to the phone, not on a clock. Measured over a week of mornings
+# it varied by hours from one day to the next. A single fixed hour therefore
+# either fires too early (no-op, and you spend the morning looking at yesterday's
+# numbers) or too late. Retrying catches the sync within 30 minutes of whenever
+# it happens.
+#
+# The extra firings cost almost nothing: auto_fetch_health.py exits without
+# writing when the health block is unchanged, so a no-op pass produces no commit,
+# no push, and no dashboard render. Providers also sometimes revise a night's
+# numbers an hour later — retrying picks that correction up too.
+#
+# Adjust the window to your own wake time. Timezone is the 3rd field of OnCalendar.
+OnCalendar=*-*-* 06..10:00/30:00 __LOCAL_TZ__
+
+# Re-run if the machine was off when a trigger fired
+Persistent=true
+
+# Small random delay so the API isn't hit on the dot. Kept short so a retry pass
+# stays inside its 30-minute slot.
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

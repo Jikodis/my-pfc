@@ -1,124 +1,337 @@
 ---
 name: pfc-pull-template-updates
-description: Pull updates from the upstream PFC template (Jikodis/my-pfc) into your fork. Walks commits one at a time so you can accept or reject each change. Use when the user says "pull template updates", "update from upstream", "what's new in the template", "/pfc-pull-template-updates", or "sync my fork with upstream".
+description: Pull updates from the upstream PFC template (Jikodis/my-pfc) into your fork — safely, selectively, and without losing your data. Walks each upstream release, lets you take part of one and decline the rest, migrates your existing records to any new schema, and verifies the result. Use when the user says "pull template updates", "update from upstream", "what's new in the template", "/pfc-pull-template-updates", "upgrade to the latest version", or "sync my fork with upstream".
 ---
 
 # Pull template updates from upstream
 
 ## What this is
 
-The PFC template lives at `github.com/Jikodis/my-pfc`. When you forked it, your fork became its own thing — your edits, your priorities, your life context. The upstream template keeps evolving: new skills, refined workflows, scrubs of leftover personal anchors, install-doc improvements, etc.
+The PFC template lives at `github.com/Jikodis/my-pfc`. When you forked it, your fork became its own thing — your edits, your priorities, your life in the data files. The upstream template keeps evolving: new skills, refined workflows, new schema fields, install-doc improvements.
 
-This skill is the **opt-in** way to bring those upstream changes into your fork, walked commit-by-commit so you choose what lands.
+This skill brings those changes in **on your terms**. Three guarantees, in priority order:
+
+1. **Your data is never overwritten.** Not your tasks, habits, day tracking, projects, focuses, notes, values, areas, or personal files. Ever.
+2. **You take only what you want** — down to individual files inside a release, not all-or-nothing.
+3. **What you take actually works afterward** — schema changes come with a migration for the records you already have.
 
 ## Read this before pulling — three caveats
 
-1. **The maintainer (Alex Bush) tailors the template to his own workflows.** Some changes will fit you; some won't. Drop the ones that don't on a per-commit basis. The template's whole shape — VAVPAH, 2+1 daily focus, 30+ skills, the persona system — was built around how *one specific brain* operates well. Defaults assume ADHD/autism/executive-function variants, but no two profiles in that audience are identical. The system was always meant to be edited; pulling updates is no exception.
+1. **The maintainer tailors the template to his own workflows.** Some changes will fit you; some won't. Drop the ones that don't. The template's whole shape — VAVFPAH, the 2+1 daily focus, the skills, the persona system — was built around how *one specific brain* operates well. Defaults assume ADHD/autism/executive-function variants, but no two profiles in that audience are identical. The system was always meant to be edited; pulling updates is no exception.
 
-2. **Upstream changes may clash with your modifications.** If you've heavily customized a skill, an area, the daily-focus model, or anything else, an incoming change to the same file produces a merge conflict. You decide which side wins. **Your modifications take priority** unless you actively want the new behavior.
+2. **Upstream changes may clash with your modifications.** If you've customized a skill, a schema, or a config file, an incoming change to the same file conflicts. **Your version wins by default** — take upstream only where you actively want the new behavior.
 
-3. **You don't need to pull updates.** Forks that never re-sync with upstream are entirely valid. Pull when you're curious or when a specific upstream change interests you — not because you "should" stay current.
+3. **You don't need to pull updates.** Forks that never re-sync are entirely valid. Pull when a specific change interests you — not because you "should" stay current.
 
-If a default doesn't fit your life, **modify it locally instead of fighting upstream.** That's the spirit of the original `meta/system-is-editable` lesson. Pulling updates is not a path to alignment with the maintainer's life — it's a path to inheriting refinements you actually want.
+If a default doesn't fit your life, **modify it locally instead of fighting upstream.**
+
+---
+
+## The protected list — files this skill will not let upstream overwrite
+
+Everything below is **yours**. Upstream ships these as *empty or example-filled starters*; your copies are full of your life. An upstream version of one of these files is never more correct than yours.
+
+| Path | What's in it |
+|---|---|
+| `6-actions/_data/*.ndjson` | tasks, task events, daily focus, archive |
+| `7-habits/_data/*.ndjson` | habit logs |
+| `5-projects/_data/*.ndjson` | project registry |
+| `4-focus/_data/*.ndjson` | Current Focus records |
+| `3-visions/_data/*.ndjson` + `3-visions/*.md` | visions, vision brainstorm |
+| `2-areas/**` | area statements, life wheel |
+| `1-values/values.md` | your ranked values |
+| `0-me/**` | profile, working-with-me, schedule patterns, questions |
+| `data/*.ndjson`, `data/health-raw/**` | day tracking, insights, findings, hypotheses, supplements, grounding, review ledger |
+| `notes/**` | generated + written notes |
+| `config/habit_schema.yaml` | **your habit definitions** — the most-customized file in the repo |
+| `config/trello_calendar_filters.yaml`, `config/automation_config.yaml`, `config/persona.yaml` | your tuned config |
+| `.env` | never tracked; never touched |
+
+**The rule: for a protected path, take the *idea* and hand-apply it. Never take the file.**
+
+An upstream commit that "adds" `6-actions/_data/tasks.ndjson` is adding an **empty starter**. If you accept it over a populated file, your tasks are gone. That is the single most likely way to lose data in this workflow, and Step 3's guard exists to catch exactly it.
+
+---
 
 ## Prerequisites
 
-1. **`upstream` git remote pointing to `Jikodis/my-pfc`.** If you don't have it:
+1. **An `upstream` remote:**
    ```bash
-   git remote add upstream https://github.com/Jikodis/my-pfc.git
+   git remote add upstream https://github.com/Jikodis/my-pfc.git   # once
+   git remote -v | grep upstream
    ```
 
-2. **Your fork's `main` is clean** (no uncommitted changes) before starting. Commit or stash first.
+2. **A clean working tree.** Commit or stash first — `git status --porcelain` must be empty.
 
-## Workflow
+---
 
-### Step 1 — Fetch upstream + identify candidate commits
+## Step 0 — Snapshot, so every step is reversible
+
+Non-negotiable. Do this before touching anything:
+
+```bash
+STAMP=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y%m%d-%H%M')
+git tag "pre-template-sync-$STAMP"          # rollback point
+git switch -c "template-sync-$STAMP"        # work on a branch, never on main
+```
+
+Everything from here happens on that branch. `main` is untouched until you merge deliberately in Step 7.
+
+**Full rollback at any moment:**
+```bash
+git cherry-pick --abort 2>/dev/null; git switch main
+git branch -D "template-sync-$STAMP"
+```
+Your data is also still in the tag, so even a catastrophic mistake is `git restore --source="pre-template-sync-$STAMP" -- <path>` away.
+
+Also capture a baseline of system health, so you can tell *your* pre-existing issues from ones the update introduced:
+
+```bash
+scripts/validate.sh > "/tmp/validate-before-$STAMP.txt" 2>&1; echo "exit=$?"
+```
+
+---
+
+## Step 1 — List the candidate releases
 
 ```bash
 git fetch upstream
-git log main..upstream/main --pretty=format:'%H|%s' --reverse
+git log main..upstream/main --no-merges --reverse --pretty=format:'%h|%ad|%s' --date=short
 ```
 
-The list (oldest first) is the candidate set. If empty: your fork is already current with upstream. Stop.
+**`--no-merges` is required.** Upstream `main` carries GitHub merge commits; `git cherry-pick` on a merge commit fails outright (`is a merge but no -m option was given`). The real content lives in the non-merge "Template update …" commits.
 
-### Step 2 — Group by category
+Empty output → your fork is already current. Stop.
 
-Read each commit subject. Group into:
+Upstream ships **one squashed commit per release**, so expect a handful of very large commits rather than many small ones. That is why Step 4 works at file granularity: a release is a menu, not a single yes/no.
 
-| Category | What it means |
+---
+
+## Step 2 — Summarize each release before touching it
+
+For each candidate, show the user what it contains — grouped by *what it means for them*, not by file path:
+
+```bash
+git show --stat "$SHA" | head -40
+git show "$SHA" -- README.md | head -30    # the stamp line + any release notes
+```
+
+Group into:
+
+| Category | Default stance |
 |---|---|
-| **New skills / features** | New `pfc-*` skill, new install doc, new automation. Take if it fits your life; skip if not. |
-| **Refined defaults** | Changes to existing skill behavior, schema fields, onboarding text. Read carefully — these are most likely to clash with your customizations. |
-| **Docs / examples** | README, install guides, conventions. Usually low-risk. |
-| **Trello / integration changes** | If you don't use that integration, skip. |
+| **New skill / new automation** | Take if it fits your life. Additive, low risk. |
+| **Refined behavior in a skill you use** | Read the diff. Most likely to clash with your customizations. |
+| **Schema change** (`config/*_schema.yaml`, `scripts/validate.sh`) | Take *with* the matching migration in Step 5, or skip both. Never take the validator without the schema. |
+| **Docs / examples** | Low risk. |
+| **Integration you don't use** (Trello, TRMNL, health) | Skip freely. Nothing else depends on it. |
 
-Surface the grouping to the user before walking commits.
+Present this summary and let the user choose per release: **take all · take some · skip · defer**.
 
-### Step 3 — Walk each commit (oldest first)
+---
 
-For each commit:
+## Step 3 — The data guard (run before every cherry-pick)
+
+Before applying anything, list which protected paths the commit touches:
 
 ```bash
-git show --stat "$SHA"     # files changed at a glance
-git show "$SHA"            # full diff
+git show --name-only --format= "$SHA" | grep -E \
+  '^(0-me/|1-values/values\.md|2-areas/|3-visions/|4-focus/_data/|5-projects/_data/|6-actions/_data/|7-habits/_data/|data/|notes/|config/(habit_schema|trello_calendar_filters|automation_config|persona)\.)' \
+  || echo "clean — no protected paths in this commit"
 ```
 
-Ask the user: **Apply this commit?**
+**Any output is a stop sign.** For each hit:
 
-- **yes** → cherry-pick: `git cherry-pick "$SHA"`. If conflicts: stop, let the user resolve, then continue or abort.
-- **no** → skip, log decision
-- **defer** → skip for now, but remember it (the user might want it later)
+1. Check whether your local copy has real content:
+   ```bash
+   wc -l <path>          # yours
+   git show "$SHA":<path> | wc -l    # upstream's
+   ```
+2. If yours is non-empty → **never take the file.** Use partial adoption (Step 4) to exclude it, then hand-apply the *idea* (Step 5).
+3. If yours is genuinely empty/absent and upstream's is a useful starter → taking it is fine.
 
-Going oldest-first matters: later commits sometimes depend on earlier ones. Skipping an earlier one and taking a later one can produce conflicts the user can't easily reason about. If they skip an early one, warn that downstream commits may not apply cleanly.
+**Special case — upstream moved a folder.** Releases sometimes renumber the VAVFPAH folders (`6-habits/` → `7-habits/`, `data/focus.ndjson` → `4-focus/_data/focus.ndjson`). The commit then reads as *"add an empty file at the new path"* while your populated file sits at the old path. Do **not** accept the empty file and do **not** let your old one linger. Move yours:
 
-### Step 4 — Conflict handling
-
-Most conflicts will be one of:
-
-- **You modified a skill the maintainer also touched.** Decide whose version wins. Often: keep yours, take only the parts of upstream you specifically want.
-- **A file was renamed upstream but you'd already deleted it.** Drop the cherry-pick — `git cherry-pick --abort`, mark the commit "no."
-- **A file the cherry-pick adds is one you already created with different content.** Decide.
-
-After resolving manually:
 ```bash
-git add <files>
-git cherry-pick --continue
+mkdir -p 7-habits/_data
+git mv 6-habits/_data/habits-daily.ndjson 7-habits/_data/habits-daily.ndjson
 ```
 
-Or to bail:
+Then take the commit *excluding* that path. Your records keep their history and land where the new code looks for them.
+
+---
+
+## Step 4 — Apply, selectively
+
+### Whole release
+
 ```bash
-git cherry-pick --abort
+git cherry-pick "$SHA"
 ```
 
-### Step 5 — Summarize and commit
+### Part of a release (the common case)
 
-After all candidate commits are processed:
+Stage it without committing, then drop what you don't want:
 
 ```bash
-git log main..HEAD --oneline    # what got applied
+git cherry-pick -n "$SHA"            # apply to index + worktree, no commit
+
+git status --short                   # review everything staged
+
+# Drop any protected or unwanted path, restoring YOUR version:
+git restore --staged --worktree -- config/habit_schema.yaml
+git restore --staged --worktree -- 6-actions/_data/
+
+git commit -m "template: adopt <what> from upstream $SHA (excluded: <what and why>)"
 ```
 
-If the user is satisfied, push to their fork (which is `origin`):
+### A single file, ignoring the rest of the release
 
 ```bash
+git checkout "$SHA" -- .agents/skills/pfc-plan-open-day/ docs/habit-mechanics.md
+git commit -m "template: adopt the open-day planner from upstream $SHA"
+```
+
+This is the cleanest way to take one new skill out of a large release.
+
+**When you adopt a new skill, recreate its symlink** — `.claude/skills/` entries are relative symlinks into `.agents/skills/`, and a rename upstream leaves a dangling one:
+
+```bash
+ln -sfn "../../.agents/skills/<name>" ".claude/skills/<name>"
+find .claude/skills -xtype l -print        # any output = a broken symlink to fix
+```
+
+### Conflicts
+
+| Situation | Resolution |
+|---|---|
+| You modified a skill upstream also changed | Keep yours; splice in only the specific behavior you want |
+| Upstream renamed a file you deleted | `git cherry-pick --abort`, mark the release "skip" |
+| Upstream adds a file you already created differently | Yours wins unless you prefer theirs |
+
+```bash
+git add <resolved-files> && git cherry-pick --continue    # proceed
+git cherry-pick --abort                                    # bail out
+```
+
+Work **oldest release first** — later ones build on earlier ones. If the user skips an early release, warn that later ones may not apply cleanly.
+
+---
+
+## Step 5 — Migrate your existing records to any new schema
+
+This is the step that makes an adopted schema change actually work. **A validator failure right after adopting a schema change is expected** — it is the system telling you which records need migrating, not a sign the update is broken.
+
+The pattern, always:
+
+1. Read the new schema (`config/*_schema.yaml`) and note which fields became **required**.
+2. Backfill those fields on your existing records with safe defaults, **preserving every field you already have**.
+3. Re-run the validator.
+
+The `jq` shape — `. + {…}` adds the new keys and leaves everything else untouched, and `// ` only fills a field that is missing:
+
+```bash
+tmp=data/.jq_update.tmp
+jq -c '. + {newfield: (.newfield // "default")}' <file>.ndjson > "$tmp" && mv "$tmp" <file>.ndjson
+```
+
+**Never** regenerate a data file from a template, and never hand-edit NDJSON with `sed` — migrate in place with `jq`, one field at a time, then check the diff.
+
+### Worked example — the Current Focus vehicle/priority release
+
+That release made `habits`, `impact`, `urgency`, and `parked` required on every focus record. Existing records fail two new validator checks. Backfill:
+
+```bash
+tmp=data/.jq_update.tmp
+jq -c '. + {
+  habits:  (.habits  // []),
+  impact:  (.impact  // "medium"),
+  urgency: (.urgency // "medium"),
+  parked:  (.parked  // false)
+}' 4-focus/_data/focus.ndjson > "$tmp" && mv "$tmp" 4-focus/_data/focus.ndjson
+```
+
+That clears the enum check immediately. The **vehicle check still fails by design**: `habits: []` means "this focus has no habit carrying it," which no default can decide for you. For each focus, either name the habit that is its vehicle (its id from `config/habit_schema.yaml`), or park/retire the focus. That choice is the point of the feature — see `docs/habit-mechanics.md`.
+
+### Other migrations worth knowing
+
+| Change | What you do |
+|---|---|
+| A ledger/registry gains a new row upstream (e.g. a new rolling-review item) | It's a **data** file — upstream's copy is not yours. Append the one new row yourself with `jq -cn '{…}' >> <file>` |
+| A skill is renamed | Recreate the `.claude/skills/` symlink; grep your own docs for the old name |
+| A field is removed upstream | Records keeping it are harmless — readers ignore it. Strip it only if you want to: `jq -c 'del(.oldfield)'` |
+| A function signature changes in `automations/scripts/` | Only matters if you wrote custom callers. `grep -rn '<old_kwarg>=' automations/` |
+| A cap is raised (projects, habits) | Nothing to do — looser limits never break existing data |
+
+---
+
+## Step 6 — Verify before you trust it
+
+```bash
+scripts/validate.sh                                   # compare against /tmp/validate-before-$STAMP.txt
+python3 -m pytest automations/scripts/tests -q        # if you kept the test suite
+git diff --stat "pre-template-sync-$STAMP"..HEAD      # everything this sync changed
+```
+
+Then confirm your data survived — counts should be **unchanged or higher**, never lower:
+
+```bash
+for f in 6-actions/_data/tasks.ndjson 7-habits/_data/habits-daily.ndjson \
+         data/day-tracking.ndjson 4-focus/_data/focus.ndjson; do
+  [ -f "$f" ] && printf '%-45s %s\n' "$f" "$(wc -l < "$f")"
+done
+```
+
+Compare to the same counts at the tag:
+
+```bash
+git show "pre-template-sync-$STAMP":6-actions/_data/tasks.ndjson | wc -l
+```
+
+**Any drop in a data-file line count means something overwrote your records — stop and roll back.**
+
+Finally, run one real workflow end to end (`/pfc-status`, or an evening check-in) before calling it done. A green validator with a broken daily loop is not a successful migration.
+
+---
+
+## Step 7 — Land it, and record what you declined
+
+```bash
+git switch main
+git merge --no-ff "template-sync-$STAMP"
 git push origin main
 ```
 
-If they want to back out the whole session:
+Keep the `pre-template-sync-*` tag for a while — it costs nothing and is the fastest rollback you'll ever have.
 
-```bash
-git reset --hard origin/main
+**Log the decisions.** Anything declined will be offered again on the next pull, and future conflicts in that file won't make sense without the reason. Append to `docs/template-sync-log.md` (create it on first run):
+
+```markdown
+## 2025-01-15 — upstream abc1234
+
+| Decision | Item | Why |
+|---|---|---|
+| Adopted | open-day planner skill | Weekends were unstructured |
+| Adopted | focus vehicle habits (+ migrated 6 records) | Wanted the derived traffic light |
+| Declined | Trello per-project lists | Don't use Trello |
+| Declined | new habit_schema header | Would have clobbered my habits |
 ```
+
+One line each. The "why" is the part that pays off six months later.
+
+---
 
 ## What this skill never does
 
-- Auto-cherry-pick without your approval per commit.
+- Cherry-pick without your approval per release.
+- Overwrite anything on the protected list.
 - Force-push or rewrite history on your fork.
-- Touch your private data (`5-actions/_data/`, `6-habits/_data/`, `data/`, `notes/`, etc.) — those files are yours; upstream rarely touches them. If a commit somehow modifies one of these, **flag and skip by default** — it's almost certainly not what you want.
+- Work directly on `main` (Step 0 branches first).
+- Adopt a schema change without offering the matching data migration.
 
 ## When NOT to pull
 
-- You've heavily customized core skills and the upstream changes would force you to re-do that customization.
-- You're in the middle of a daily/weekly check-in or any other system run.
-- You haven't committed your recent edits.
-- You don't recognize the upstream maintainer's name and aren't sure you trust the source.
+- Mid-check-in, mid-review, or mid-anything — finish the run first.
+- Uncommitted edits in the tree.
+- You've heavily customized the core skills and would have to redo that work.
+- You don't recognize the upstream source and aren't sure you trust it.

@@ -4,8 +4,7 @@
 
 - Use lowercase with hyphens: `my-project-name.md`
 - Dates in filenames: ISO 8601 (`YYYY-MM-DD`) for single days, `YYYY-WNN` for weeks, `YYYY-qN` for quarters
-- Daily notes: `notes/daily/YYYY-MM-DD.md` (written by `pfc-morning-checkin`)
-- Weekly summaries: `notes/weekly/YYYY-WNN.md` (written by `pfc-weekly-checkin`)
+- Daily notes: `notes/daily/YYYY-MM-DD.md` (written by `pfc-evening-checkin`)
 
 ## Task IDs
 
@@ -13,7 +12,7 @@ Format: `task-YYYYMMDD-NNN`
 
 - `YYYYMMDD` = creation date
 - `NNN` = sequential number for that day (001, 002, etc.)
-- Determined by counting existing tasks for that day in `5-actions/_data/tasks.ndjson`
+- Determined by counting existing tasks for that day in `6-actions/_data/tasks.ndjson`
 
 ## NDJSON files
 
@@ -38,8 +37,6 @@ See CLAUDE.md "Commit message conventions" for the canonical list. Summary:
 - `track: log day [date]`
 - `checkin: record [date]`
 - `project: [add|update|archive] [name]`
-- `report: generate weekly check-in`
-- `report: generate monthly check-in`
 - `report: generate yearly check-in`
 - `system: [description of structural change]`
 

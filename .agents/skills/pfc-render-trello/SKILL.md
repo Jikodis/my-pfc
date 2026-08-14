@@ -5,7 +5,7 @@ description: Render the PFC system to the Trello dashboard board. Use when the u
 
 # Render Trello Dashboard
 
-Mirror PFC repo state onto the Trello dashboard board. The render is idempotent: running it twice produces no changes the second time. Run on demand when you want the dashboard fresh, or it's invoked automatically by morning- and evening-checkin (Phase C).
+Mirror PFC repo state onto the Trello dashboard board. The render is idempotent: running it twice produces no changes the second time. Run on demand when you want the dashboard fresh, or it's invoked automatically by the evening check-in (Step 4b) and `/pfc-review`.
 
 ## When this skill triggers
 
@@ -23,14 +23,15 @@ Use `mcp__claude_ai_Google_Calendar__list_events` (or your environment's equival
 
 Get today's date: `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` and end date 7 days later.
 
-Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event. **Preserve `recurringEventId` exactly as returned by MCP** — the renderer uses it to drop recurring noise (weekly church/study groups, regular school pickups, recurring therapy, etc.) from the Week-at-a-Glance list. Omitting the field silently re-introduces recurring events to the board.
+Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event.
+
+**Fetch every event, recurring instances included, and preserve `recurringEventId` exactly as returned by the connector.** Recurring is not by itself a reason to hide something — most real commitments are recurring series (standing lunches, classes, therapy, an office day), and dropping them all leaves the week surface blank. But the field is still load-bearing: `config/trello_calendar_filters.yaml` has an `exclude_titles_when_recurring` list that hides the *series* of a known weekly pattern while letting a **one-off with the same title** through, because the exception to the pattern is the most useful thing the screen can show. Drop the field and every one-off silently disappears.
 
 ```json
 [
   {
     "id": "<event id>",
     "summary": "<title>",
-    "recurringEventId": "<id-of-parent-series-if-this-instance-is-recurring; omit field if event is non-recurring>",
     "start": {"dateTime": "2026-05-10T10:00:00-06:00"},
     "end": {"dateTime": "2026-05-10T11:00:00-06:00"},
     "organizer": {"displayName": "<calendar name>"},
@@ -41,49 +42,22 @@ Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this sh
 
 If Calendar MCP is not available, skip this step. The render will skip the Calendar list with a 🟡 note.
 
-### Step 2 — Fetch Email data via MCP (if Gmail MCP is available)
+### Step 2 — Run the render
 
-Use `mcp__claude_ai_Gmail__search_threads` (or equivalent) to query each priority tier in `in:inbox`. Query all nine tiers so every tagged email reaches the dashboard:
-
-- `in:inbox label:AA` → tier AA
-- `in:inbox label:AB` → tier AB
-- `in:inbox label:BA` → tier BA
-- `in:inbox label:AC` → tier AC
-- `in:inbox label:BB` → tier BB
-- `in:inbox label:CA` → tier CA
-- `in:inbox label:BC` → tier BC
-- `in:inbox label:CB` → tier CB
-- `in:inbox label:CC` → tier CC
-
-For each match, get the thread's most recent message subject, sender, and a one-line snippet. Build a single JSON array combining all tiers, with this shape:
-
-```json
-[
-  {"id": "<message id>", "subject": "...", "from": "...", "snippet": "...", "tier": "AA"},
-  ...
-]
-```
-
-The renderer prefixes each card title with `[tier]` so the list sorts AA → CC alphabetically.
-
-Save to `/tmp/pfc-email-data.json`. If Gmail MCP is unavailable, skip — render will skip the Email list with 🟡.
-
-### Step 3 — Run the render
+Email is NOT rendered to a dashboard list. Labeled inbox emails become tasks via `pfc-email-triage` Step 0 (run daily by the evening check-in), and those show up as ordinary Action cards. To refresh them, run `/pfc-email-triage`, not this skill.
 
 ```bash
 python3 automations/scripts/trello_render.py \
-  --calendar-events /tmp/pfc-calendar-events.json \
-  --email-data /tmp/pfc-email-data.json
+  --calendar-events /tmp/pfc-calendar-events.json
 ```
 
-Omit the flags whose data wasn't fetched in Steps 1 / 2.
+Omit the calendar flag if Step 1 didn't fetch (the render then skips the Calendar list with a 🟡 note).
 
-### Step 4 — Watch the streaming output
+### Step 3 — Watch the streaming output
 
-Same as before:
 - 📋 Loading repo state
 - 🔧 Reconciling lists and labels
-- 🎨 Rendering desired card sets (will note any skipped external lists)
+- 🎨 Rendering desired card sets (notes any skipped external list, and any soft-cap warning — Front of Mind over 10 anchors, Current Focus over 6 active pursuits)
 - 🔍 Fetching current Trello state
 - 📐 Diff: N creates, M updates, K archives
 - ✏️ Applying ops
@@ -93,11 +67,11 @@ On exit 0 (success): report the summary line to the user.
 
 On exit 1 (error): surface the stderr message and stop. Likely causes: missing env var, Trello auth issue, network problem.
 
-### Step 5 — Cleanup
+### Step 4 — Cleanup
 
-Remove the temp files:
+Remove the temp file:
 ```bash
-rm -f /tmp/pfc-calendar-events.json /tmp/pfc-email-data.json
+rm -f /tmp/pfc-calendar-events.json
 ```
 
 ## Drift recovery
@@ -128,8 +102,20 @@ Use when only one list is drifted. Less invasive than `--rebuild`. Refuses to op
 
 Same confirmation prompt as `--rebuild`.
 
+## Local-only mode — pulse trend
+
+`--pulse-history [n]` needs no Trello credentials and touches no board. It prints the last `n` days (default 7) of Superman Pulse lever statuses as 🟢/🟡/🔴 sparklines plus chronic-miss flags, for the evening check-in to read.
+
+```bash
+python3 automations/scripts/trello_render.py --pulse-history 7
+```
+
+Both this trend and the `🦸 Superman Pulse` list read their thresholds, verdict, and per-lever fixes from `automations/scripts/pulse.py` — the single source of truth. Tune levers there, never in the render.
+
 ## Behavioral rules
 
 - **Never touches the 📥 Inbox list.** That's owned by `pfc-trello-inbox`.
 - **Idempotent.** Running twice produces zero changes the second time.
 - **Repo is canonical.** Any user-added card on a non-Inbox list (no pfc-id) gets archived on next render. By design.
+- **Soft caps warn, never truncate.** 🧠 Front of Mind over `GROUNDING_CAP` (10) anchors and 🎯 Current Focus over 6 active pursuits both log a 🟡 line and render everything anyway. Surface the warning to the user and suggest retiring one — never silently drop a card.
+- **`🎯 Current Focus` is not a project list.** Per-active-project lists share the `🎯 ` prefix; the render exempts this one name so it isn't archived as a stale project list.

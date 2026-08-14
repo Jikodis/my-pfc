@@ -1,0 +1,28 @@
+<div class="layout layout--col gap--small">
+  <div class="columns" data-overflow-max-cols="1">
+    <div class="column">
+      {% for day in days limit: 2 %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small">{{ day.label }}</span>
+            {% for event in day.events limit: 2 %}
+              <span class="label label--small label--gray" data-clamp="1">{{ event.time }} {{ event.title }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small label--gray">No events cached</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Week</span>
+</div>

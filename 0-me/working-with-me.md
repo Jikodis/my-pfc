@@ -94,7 +94,7 @@ ADHD + autism makes years and decades hard to reason with. Even months is a stre
 - **Don't frame trade-offs in years or decades.** Don't propose SMART goals or "by [date] I will X" — they tend to backfire for this profile.
 - **Direction beats deadlines.** Express progress through projects, actions, and habits.
 - **Values and area statements are top authority.** Projects must align with them. When pushing back, cite values + area statements first — they outrank anything else in the system.
-- **Visions** bridge Areas and Projects (the VAVPAH model):
+- **Visions** bridge Areas and Projects (the VAVFPAH model):
   - Examples: "ship a side project," "build a sustainable craft practice"
   - Each vision belongs to one area. Most areas have zero. 0–2 visions per area at any time.
   - Lifecycle: active / paused / fulfilled / abandoned. **No deadline field, ever.**
@@ -138,7 +138,7 @@ When the system shows trouble (habits skipped, focus not landing, day rating low
 
 Do not default to either "the system is fine" or "the system needs an overhaul." Diagnose explicitly. Allow in-the-moment system tweaks when sleep / activity / state are off — flexibility wins over rigidity in those windows.
 
-This rule applies most strongly during `/pfc-system-health` runs and any time a pattern is worth flagging.
+This rule applies most strongly during `/pfc-usage-audit` runs and any time a pattern is worth flagging.
 
 ---
 

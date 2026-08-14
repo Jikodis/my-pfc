@@ -1,0 +1,15 @@
+[Unit]
+Description=PFC — Fast-forward the server's clone every 5 minutes
+Documentation=__REPO_URL__
+
+[Timer]
+# 5 minutes sits well under the device's 15-minute refresh, so the sync is
+# invisible: whatever TRMNL fetches is at most one sync behind the remote.
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=pfc-repo-sync.service
+
+[Install]
+WantedBy=timers.target

@@ -1,24 +1,62 @@
-# Trello "🗓️ Week at a Glance" filtering.
+# "🗓️ Week at a Glance" filtering — shared by the Trello list AND the TRMNL
+# pfc-week screen, so the two surfaces always agree.
 #
-# Recurring events are ALREADY filtered automatically — anything with a
-# Google Calendar `recurringEventId` is dropped without needing a title rule.
-# That's the main thing you want filtered, and it Just Works.
+# THE QUESTION THE WEEK SCREEN ANSWERS
 #
-# Use this file only for the two edge cases recurring-filtering doesn't cover:
+# "What is happening this week that I would not already have guessed?"
 #
-#   exclude_titles   — case-insensitive substring matches against the event title.
-#                      Useful for one-off events you want ignored ("OOO", "PTO")
-#                      that aren't part of a recurring series.
+# Everything else is noise. A fixed weekly pattern — an office day, a standing
+# family arrangement — is already known cold; it costs a row and tells you
+# nothing. But the *exception* to that pattern is the single most useful thing
+# the screen can show: a one-off event that carries a pattern's title is
+# exactly what you'd otherwise miss.
 #
-#   exclude_calendars — match against the calendar's display name. Useful when
-#                       you've subscribed to a public/shared calendar (holidays,
-#                       community events) that's context-only.
+# Recurrence is therefore not a blanket rule in either direction. It used to
+# be: every event carrying a `recurringEventId` was dropped, which emptied the
+# screen, because most real commitments are recurring series.
 #
-# Leave either list empty if you don't need it. To find current noise:
-# render the dashboard, look at the Calendar list, and add patterns here.
+# FOUR LISTS, applied in this order. Any match hides the event.
+#
+#   exclude_prefixes  — case-insensitive match at the START of the title. This
+#                       is the deterministic escape hatch: prefix a calendar
+#                       event and it disappears from the week surface without
+#                       needing a rule written about it. Rename an event to
+#                       "Routine - X" or "Task - X" and it is handled forever.
+#
+#   exclude_titles    — case-insensitive substring, hidden ALWAYS regardless of
+#                       recurrence. For things that are noise in every form
+#                       (PFC-generated scaffolding blocks, personal routines).
+#
+#   exclude_titles_when_recurring
+#                     — case-insensitive substring, hidden ONLY when the event
+#                       is an instance of a recurring series. A one-off with
+#                       the same title still shows. This is what makes the
+#                       exception visible while the pattern stays quiet, and it
+#                       is why the Calendar fetch must preserve
+#                       `recurringEventId`.
+#
+#   exclude_calendars — match against the calendar's display name. For
+#                       subscribed/shared calendars that are context-only.
+#
+# To tune: look at the week surface, find something that shouldn't be there,
+# then either prefix the event in Google Calendar or add a substring here.
 
-exclude_titles: []
+exclude_prefixes:
+  - "Task - "
+  - "Routine - "
+
+exclude_titles:
+  # PFC scaffolding: self-generated blocks that trigger a habit. Add your own
+  # recurring self-reminders here.
+  - "2+1"                     # anchor instances
+  - "PFC - Evening Checkin"
+  - "Daily Planning"
+
+exclude_titles_when_recurring: []
+  # Fixed weekly patterns whose series is known cold, where a one-off carrying
+  # the same title is the exception worth seeing. Examples:
+  # - "In Office Day"
+  # - "Kids with co-parent"
 
 exclude_calendars:
   - "US Holidays"
-  - "Holidays in United States"

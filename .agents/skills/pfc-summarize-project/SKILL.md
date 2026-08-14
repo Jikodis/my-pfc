@@ -10,15 +10,15 @@ When summarizing a project:
 1. Identify the project from the user's input
 2. Check the project registry:
    ```bash
-   grep '"[project-name]"' 4-projects/_data/projects.ndjson
+   grep '"[project-name]"' 5-projects/_data/projects.ndjson
    ```
-3. Read the project files in `4-projects/[project-name]/`:
+3. Read the project files in `5-projects/[project-name]/`:
    - `overview.md` for definition and scope
    - `notes.md` for running context
 4. Find related tasks:
    ```bash
-   grep '"project":"[project-name]"' 5-actions/_data/tasks.ndjson | grep '"status":"open"'
-   grep '"project":"[project-name]"' 5-actions/_data/tasks.ndjson | grep '"status":"done"'
+   grep '"project":"[project-name]"' 6-actions/_data/tasks.ndjson | grep '"status":"open"'
+   grep '"project":"[project-name]"' 6-actions/_data/tasks.ndjson | grep '"status":"done"'
    ```
 5. Present a concise summary:
    - Project purpose and which life area it relates to
@@ -38,7 +38,7 @@ When summarizing a project:
 - Use velocity to surface drift early. If 🔴, the user uses this to decide between resetting the deadline, reducing scope, or speeding up — do NOT pre-schedule extra calendar events to "catch up"; that's churn.
 6. **If the project feels stalled or overwhelming, offer to break it down:**
    - Each part should be completable in 1–3 sessions
-   - Create parts as tasks in `5-actions/_data/tasks.ndjson` linked via the `project` field
+   - Create parts as tasks in `6-actions/_data/tasks.ndjson` linked via the `project` field
    - Completing tasks drives the completion percentage (completed_parts / total_parts)
    - ADHD context: overwhelm usually means the task definition is too big, not that motivation is lacking — break it down into 15-minute chunks
 7. Ask if the user wants to update any project files or adjust the project metadata

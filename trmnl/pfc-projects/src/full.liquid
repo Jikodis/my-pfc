@@ -1,0 +1,32 @@
+<div class="layout layout--col gap">
+  <div class="col gap--small">
+    <div class="columns" data-overflow-max-cols="1">
+      <div class="column">
+        {% for project in projects %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="title title--small lg:title--base" data-clamp="1">{{ project.name }} — {{ project.percent }}%</span>
+              <span class="label label--small lg:label--base label--gray" data-clamp="1">{% if project.parts != "" %}parts {{ project.parts }}{% endif %}{% if project.deadline_disp != "" %} · {{ project.deadline_disp }}{% endif %}</span>
+              {% for task in project.tasks %}
+                <span class="label label--small lg:label--base" data-clamp="2">-> {{ task.title }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="label label--gray">No active projects</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Projects</span>
+  <span class="instance">{{ count }} active</span>
+</div>

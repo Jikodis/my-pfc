@@ -1,0 +1,19 @@
+[Unit]
+Description=PFC — Fast-forward the server's clone so served data matches the remote
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# The TRMNL endpoint serves whatever is in this working tree, so the tree has to
+# track the remote or the wall shows stale data after a check-in made elsewhere.
+# The other automations pull before they run; this closes the gap between them.
+#
+# --ff-only on purpose: if this clone has unpushed local commits the sync fails
+# loudly in the journal instead of creating a merge commit nobody asked for.
+ExecStart=/usr/bin/git pull --ff-only --quiet
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-repo-sync

@@ -1,0 +1,10 @@
+{%- comment -%}
+PFC Habits — daily habits (today's state + 7-day counts) and monthly habits
+(progress vs frequency target). Split out of pfc-today.
+
+E-ink has no emoji font, so completion is text: [x] / [ ]. Never swap these for
+check-mark emoji — they render as empty boxes on the device.
+{%- endcomment -%}
+
+{%- capture done_mark -%}[x]{%- endcapture -%}
+{%- capture open_mark -%}[ ]{%- endcapture -%}

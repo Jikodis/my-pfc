@@ -2,6 +2,20 @@
 
 **Read this before creating or moving any calendar event.**
 
+## Title prefix — every PFC-generated event starts with `PFC - `
+
+**Any event the PFC system creates gets the literal prefix `PFC - ` at the very start of the title.** No exceptions, no emoji before it — the prefix has to be the first characters so the calendar sorts and filters cleanly. This tells you at a glance which events came from the productivity system versus real life.
+
+```
+PFC - 🎯 2+1 anchor (post-work)
+PFC - Evening Checkin
+PFC - ⭐ [AA-S] Complete important task [task-YYYYMMDD-NNN]
+```
+
+Applies to everything the system writes: the 2+1 anchors, check-in reminders, `pfc-schedule-focus` per-task events, course/study series batches, and any recurring block a skill creates. It does **not** apply to events the user made themselves — never rename a personal event into the PFC namespace.
+
+This is a naming convention only. Lookups still find events by **time window**, never by title — so the prefix is safe to change and safe to rely on for human scanning, not for matching.
+
 ## Calendars in scope
 
 Always operate against exactly these two when reading availability or writing events:
@@ -9,7 +23,9 @@ Always operate against exactly these two when reading availability or writing ev
 | Calendar | ID | Use for |
 |---|---|---|
 | Primary (`your.email@example.com`) | `primary` | Read availability, write personal events / focus picks / course study |
-| Work | `<your-work-calendar-id>@group.calendar.google.com` | Read availability only — never write |
+| Work | `<your-work-calendar-id>@group.calendar.google.com` | Read availability. Do NOT create new personal errands here or edit work meetings — but if some of your personal routines live here (anchored to the work-day rhythm), editing those is fine |
+
+**If personal routines live on the work calendar, search BOTH when looking up an event by name.** A name search that queries only `primary` will report a real event as "missing." Any `list_events` lookup for a specific named event should run against `primary` AND the work calendar.
 
 **Excluded — do NOT read for conflicts and do NOT write to:**
 
@@ -40,6 +56,56 @@ These windows apply equally to:
 
 If a window collides with an existing event on a given day, pick a different window from the table above for that day. If all windows on a day are blocked, push to the next available day rather than overlapping.
 
+## The anchor rule (before any slot rule)
+
+**Recurring blocks anchor to a running state, not a clock time.** Before placing a recurring event, ask: what state does it bend out of? Naming the anchor (e.g. "end of the daily standup," "after the morning workout," "right after dinner") is the actual scheduling decision. The clock time is just the most-common-case label that follows from the anchor — it can move when the anchor moves. If you can't name the running state, you don't have an anchor; you have a sticky note on the calendar, and object-based reminders go invisible within days.
+
+When creating a recurring event, the description must name the anchor explicitly so future-you (and the user) can override the clock on a given day without losing the rule.
+
+### Check recurrence before treating a conflict as constant
+
+Conflicts that show up on next Monday are not necessarily Monday-every-week. Before scheduling around an existing event:
+
+1. If the event has `recurringEventId` in the `list_events` response, **do not assume weekly**. Pull at least 4 weeks of instances of that event (e.g. via `fullText` on its summary across a 4–8 week window).
+2. Walk the start dates. Possible patterns: weekly, biweekly, monthly, quarterly, sporadic.
+3. Treat the conflict only as severely as the pattern warrants. A biweekly conflict is a 50% conflict, not a Mondays-are-blocked conflict.
+4. When the anchor wants a slot that a **sporadic** conflict sometimes occupies: your recurring event stays at the anchored time, and **the agent cancels the few conflicting instances of its own series** (an instance-level delete that leaves the user's one-off untouched — never the reverse). Do not pre-emptively shift the entire series to clear the worst case — that breaks the anchor most of the time to satisfy a minority of conflicts. (For a conflict that recurs on a *fixed cadence*, do NOT delete instances one at a time — alternate the series; see below.)
+
+**One calendar pull is a snapshot, not a pattern.** Pull the recurrence before locking the rule. And never tell the user to drag a recurring conflict by hand — see § "Alternating recurring events" below.
+
+### Recurring conflict vs. one-off conflict — the deciding question
+
+Once you know the conflict's cadence, the response splits cleanly:
+
+- **Recurring conflict** (weekly / biweekly / monthly — it collides every cycle): never place your recurring event on top. Phase or alternate around it with `INTERVAL=N` (next section). Dragging it by hand every cycle is not a system.
+- **Sporadic / one-off conflict** (an occasional game, appointment, or party — no fixed cadence): place your recurring event at its anchored time anyway. When a one-off lands on top, **the agent cancels that single instance of its own recurring series** — an instance-level delete, leaving the user's one-off fully intact. The user never cleans these up by hand. A few instance cancellations now and then is fine; engineering around sporadic noise is not.
+
+The deciding question is **not** "is there a conflict on the next instance?" — it's **"does the conflict itself recur on a fixed cadence?"** Only fixed-cadence conflicts justify alternating events; sporadic ones are handled by the slot-loss rule, with the agent cancelling the colliding instances of its own series automatically.
+
+**When the agent cancels instances:** (a) at creation/maintenance — during the audit pass below, scan the horizon (~8 weeks) and cancel any anchor instance overlapping a one-off; (b) ongoing — the evening check-in cancels tomorrow's instance if a one-off has since appeared on the slot. Always delete the INSTANCE (`<seriesId>_<YYYYMMDD>T…`), never the whole series, and never the user's event.
+
+## Alternating recurring events for biweekly / monthly conflicts
+
+**Hard rule: never place a recurring event over a known recurring conflict.** The user can't do two things at once. "Drag it manually every N weeks" is not a fix — it's manual upkeep, the same failure mode as object-based reminders on the wall.
+
+When the conflicting event repeats on a known cadence (biweekly, monthly, quarterly), build **alternating recurring events with `INTERVAL=N`** so every instance lands free:
+
+| Conflict pattern | Solution |
+|---|---|
+| Biweekly Mon — sometimes free, sometimes blocked | Two `RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO` events with different `DTSTART` dates (one week apart) at different times. Each fires every 2 weeks; together they cover every Monday. |
+| Monthly | Two events with `INTERVAL=4` offset by the conflict's phase, or one `INTERVAL=4;BYDAY=1MO` + a weekly base that excludes that Monday via `EXDATE`. |
+| Quarterly | Same shape with `INTERVAL=12` or `INTERVAL=13` depending on whether the conflict drifts. |
+
+Worked example — a daily study block anchored to "end of the last morning meeting," where Mondays alternate between a 10–11 AM planning meeting (biweekly) and a free 10 AM:
+
+- Tue/Wed/Thu/Fri: `RRULE:FREQ=WEEKLY;BYDAY=TU,WE,TH,FR` at 10:00–10:30 — clean every week.
+- Planning-meeting Mondays: `RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO` at 11:00–11:30, `DTSTART` on a meeting week — fires after the meeting ends.
+- Off-meeting Mondays: `RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO` at 10:00–10:30, `DTSTART` one week later — fires at the same 10:00 anchor as Tue–Fri.
+
+The combined effect: the block fires every weekday after the last morning meeting ends, with zero overlap and zero manual upkeep.
+
+**Audit before declaring done.** After building alternating events, pull 4 weeks of both calendars and confirm every instance of the new event has zero overlap with the conflicting recurring event. The "biweekly events alternate" math is right on paper; verify it landed correctly on the calendar.
+
 ## The rule: never schedule over an existing event
 
 Before creating/moving an event on date `D` at time `[T_start, T_end]`, you MUST:
@@ -49,6 +115,7 @@ Before creating/moving an event on date `D` at time `[T_start, T_end]`, you MUST
 3. Treat all-day events as "blocked context only" — they don't block timed slots, but note them (e.g., "In Office").
 4. Treat events marked `transparency: "transparent"` as non-blocking (free/available).
 5. If there's any conflict, pick a different slot. Do not schedule on top.
+6. **For any conflicting recurring event:** before adapting your slot to it, run the "check recurrence" procedure above. A biweekly conflict deserves a different response than a weekly one.
 
 ## Reading event titles
 
@@ -105,9 +172,13 @@ If a slot has no clean window the same day, push the task to the next available 
 
 After batch-creating events, re-pull every target date (no `fullText` filter, both calendars) and confirm no overlaps. If any exist, fix them before reporting "done." Spot-checking 3 random days is not enough for batches > 10 — check all of them.
 
-## Focus-task scheduling (pfc-schedule-focus)
+## Focus-task scheduling
 
-Daily 2+1 focus picks are auto-scheduled onto the primary calendar by the `pfc-schedule-focus` skill. The slot-finder (`automations/scripts/find_focus_slots.py`) enforces:
+The 2+1 lands on the calendar via a **recurring anchor slot** (one event per day — pick times that fit your week, e.g. weekday late-afternoon, weekend morning). The evening check-in annotates **tomorrow's** anchor instance with tomorrow's pre-committed tasks; no per-task events are created.
+
+**Every 2+1 change re-annotates that day's anchor (mandatory).** Any time the 2+1 for a date is set, re-picked, or has a single slot swapped — night-before flow OR an ad-hoc same-day change — update that date's specific anchor instance (`<seriesId>_<YYYYMMDD>T…`) so its description matches `daily-focus.ndjson`. The calendar must never show stale picks after a 2+1 write.
+
+The standalone `pfc-schedule-focus` skill remains available for manual placement when a specific task needs a dedicated time block outside the anchor (e.g. invoked by `pfc-revive` for a reschedule). Its slot-finder (`automations/scripts/find_focus_slots.py`) enforces:
 
 **Allowed windows (your local timezone — defaults shown):**
 - Weekdays (Mon–Fri): 8–9 AM, 12–1 PM, 5–9 PM
@@ -123,66 +194,6 @@ A 15-minute floor applies to every placement (`MIN_SLOT_MINUTES` in `find_focus_
 
 **Color:** all PFC-scheduled events use banana (`colorId: "5"`). One color is the visual signature that an event came from the PFC system — never vary by tier. The title prefix (`⭐ ` for critical, `Bonus: ` for bonus) carries the tier distinction.
 
-**Event IDs** are persisted in `5-actions/_data/daily-focus.ndjson` under `calendar_events`, so carry-forwards can move the same event rather than duplicate it.
+**Event IDs** are persisted in `6-actions/_data/daily-focus.ndjson` under `calendar_events`, so carry-forwards can move the same event rather than duplicate it.
 
 When in doubt, re-run `pfc-schedule-focus` — it's idempotent: updates existing events, creates missing ones, deletes orphans of swapped-out tasks.
-
-## Completion sync — ✅ convention
-
-`✅ ` (U+2705 + a single space) at the start of a calendar event's title means "this task is done." The marker flows both ways:
-
-- **Calendar → system (read):** Evening check-in reconciles today's primary calendar; morning daily-focus reconciles yesterday's. Events whose title starts with `✅ ` and contains a `[task-...]` ID cause the matching task in `5-actions/_data/tasks.ndjson` to be marked done silently.
-- **System → calendar (write):** When `pfc-complete-task` marks a task done, it prepends `✅ ` to every event on today's primary calendar whose title contains `[<that-task-id>]`.
-
-Only `✅` is recognized. The earlier `✓` convention is retired — no backward-compat reading.
-
-### Reconciliation algorithm
-
-Both reading skills (`pfc-evening-checkin` for today, `pfc-morning-checkin` for yesterday) run this procedure:
-
-1. Set `TARGET_DATE` (today or yesterday, derived via `TZ="${LOCAL_TZ:-America/Denver}" date ...`).
-2. Call `mcp__claude_ai_Google_Calendar__list_events` with:
-   - `timeMin`: `${TARGET_DATE}T00:00:00`
-   - `timeMax`: `${NEXT_DATE}T00:00:00`, where `NEXT_DATE` is derived as `NEXT_DATE=$(TZ="${LOCAL_TZ:-America/Denver}" date -d "$TARGET_DATE +1 day" '+%Y-%m-%d')`
-   - `timeZone`: your local timezone (defaults to `America/Denver`; read from `$LOCAL_TZ`)
-   - `orderBy`: `startTime`
-   - Calendar: omit `calendarId` (defaults to primary; the work calendar is NOT scanned).
-
-   (Naive-ISO + `timeZone` matches the idiom used by `pfc-schedule-focus` — the MCP connector handles DST offsets internally.)
-3. For each returned event, apply the regex `\[task-\d{8}-\d{3}\]` to `summary`. Use the **first** match (events with multiple IDs count as one task). Events with no match are dropped.
-4. For each match, compute `done = summary.startswith("✅ ")`. Pairs with `done=false` are ignored.
-5. For each `(task_id, true)` pair, check `5-actions/_data/tasks.ndjson`. If the task is absent or `status != "open"`, skip. Otherwise:
-   a. Update `tasks.ndjson` in place:
-      ```bash
-      jq -c --arg id "$TASK_ID" --arg d "$TARGET_DATE" \
-        'if .id == $id then . + {status:"done", completed:$d} else . end' \
-        5-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/tasks.ndjson
-      ```
-   b. Append a completion record to `5-actions/_data/task_events.ndjson`:
-      ```bash
-      jq -cn --arg id "$TASK_ID" --arg d "$TARGET_DATE" \
-        '{task_id:$id, event:"completed", timestamp:$d, source:"calendar-sync"}' \
-        >> 5-actions/_data/task_events.ndjson
-      ```
-   c. If `5-actions/_data/daily-focus.ndjson` has a record for `$TARGET_DATE` that references this task: update `completed[]` (de-duplicated) if it's in `critical`; set `bonus_completed:true` if it's the `bonus`:
-      ```bash
-      jq -c --arg d "$TARGET_DATE" --arg id "$TASK_ID" '
-        if .date == $d then
-          if (.critical // [] | index($id)) then .completed = ((.completed // []) + [$id] | unique)
-          elif .bonus == $id then .bonus_completed = true
-          else . end
-        else . end' 5-actions/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 5-actions/_data/daily-focus.ndjson
-      ```
-6. Print a one-line summary of what was reconciled (e.g., `✅ synced 2 tasks from calendar: task-...`, or `calendar sync: nothing to reconcile`).
-7. If any MCP call fails, print `⚠️ calendar sync skipped: <error>` and continue — do not block the host skill.
-
-### Write-path rules (pfc-complete-task)
-
-When marking `task_id` done:
-
-1. Call `list_events` for today's primary calendar (same params as step 2 above, with `TARGET_DATE = today`).
-2. Find every event whose `summary` contains `[<task_id>]` literally. For each:
-   - If `summary` already starts with `✅ `: skip.
-   - Else call `mcp__claude_ai_Google_Calendar__update_event` with `summary = "✅ " + current_summary`. Leave `startTime`, `endTime`, `description`, and `colorId` unchanged.
-3. Events on past or future days are not touched — scope is today only.
-4. MCP failure: print `⚠️ calendar update skipped: <error>` and continue. The task remains `done` in `tasks.ndjson`.

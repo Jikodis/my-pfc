@@ -17,7 +17,7 @@ revive_event:
   item_id:
     type: string
     required: true
-    description: "Resolves to a row in 5-actions/_data/tasks.ndjson or 4-projects/_data/projects.ndjson"
+    description: "Resolves to a row in 6-actions/_data/tasks.ndjson or 5-projects/_data/projects.ndjson"
   signals:
     type: array
     items: string

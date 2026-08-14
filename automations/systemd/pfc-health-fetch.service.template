@@ -1,0 +1,20 @@
+[Unit]
+Description=PFC — Fetch daily health data from Google Health (two-pass)
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# Two-pass fetch. Both passes are idempotent and update the day's row in place:
+#   pass 1 — TODAY: last night's sleep (synced by midday) plus the morning's
+#            activity, so the same-day evening check-in reads fresh sleep.
+#   pass 2 — YESTERDAY: finalizes yesterday's COMPLETE full-day totals now that
+#            the day is over, capturing the afternoon and evening activity that
+#            yesterday's noon pass could not have seen. Overwrites the partial
+#            value; nothing is lost.
+ExecStart=/bin/bash -c '/usr/bin/python3 __REPO_ROOT__/automations/scripts/auto_fetch_health.py $(TZ=__LOCAL_TZ__ date +%%Y-%%m-%%d); /usr/bin/python3 __REPO_ROOT__/automations/scripts/auto_fetch_health.py $(TZ=__LOCAL_TZ__ date -d yesterday +%%Y-%%m-%%d)'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-health-fetch

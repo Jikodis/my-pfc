@@ -1,0 +1,53 @@
+<div class="layout layout--col gap">
+  <div class="grid">
+    <div class="col col--span-7 gap--small">
+      <span class="title title--small lg:title--base">Today's 2+1</span>
+      <div class="columns" data-overflow-max-cols="1">
+        <div class="column">
+          {% for task in critical %}
+            <div class="item">
+              <div class="meta">
+                <span class="index">{{ forloop.index }}</span>
+              </div>
+              <div class="content">
+                <span class="title title--small lg:title--base" data-clamp="3">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label label--gray">No 2+1 set for today</span>
+              </div>
+            </div>
+          {% endfor %}
+          {% if bonus %}
+            <div class="item">
+              <div class="meta">
+                <span class="index">+</span>
+              </div>
+              <div class="content">
+                <span class="title title--small lg:title--base" data-clamp="3">{% if bonus.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ bonus.title }}</span>
+                <span class="label label--small label--gray">Bonus</span>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col col--span-5 gap--small">
+      <span class="title title--small lg:title--base">Habits today {{ habits_done }}/{{ habits_total }}</span>
+      {% for habit in habits %}
+        <span class="label lg:label--large" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
+      {% else %}
+        <span class="label label--gray">No daily habits defined</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ weekday }}</span>
+  <span class="instance">{% if last_rating %}Last day rated {{ last_rating }}/5{% else %}No rating logged{% endif %}</span>
+</div>

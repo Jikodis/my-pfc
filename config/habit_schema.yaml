@@ -1,7 +1,8 @@
 # Habit definitions and frequency limits
 #
-# Daily habits: max 5 at a time, frequency 1-7 per week
-# Monthly habits: max 5 at a time, frequency 1-4 per month
+# Daily habits: max 14 at a time, frequency 1-7 per week
+# Monthly habits: max 6 at a time, frequency 1-4 per month
+# (The daily cap is enforced in scripts/validate.sh — keep the two in sync.)
 #
 # Each habit must declare:
 #   area: which life area it serves (must match a folder in 2-areas/)
@@ -10,18 +11,28 @@
 # Each habit may optionally declare:
 #   vision: slug of a vision in 3-visions/ that this habit supports as a
 #     leading indicator. When set, vision-progress reporting links them.
+#   ramp: {starter, target, two_minute} — for habits not yet automatic.
+#     `frequency` is the LIVE ramped value (never read ramp.target for rate
+#     math). Two green weeks propose a +1 step toward target; one red week
+#     steps -1 automatically, never below starter. `two_minute` is the
+#     scaled-down version the never-miss-twice rule offers after two
+#     consecutive misses. See docs/habit-mechanics.md.
 #
 # Starter habits below — edit, add, or remove to match your life.
-# To add auto-logged habits (e.g. Google Health, Apple Health, or any wearable), add an auto_log: block
+# Habits with an objective wearable signal are pre-filled from day-tracking health data at the evening check-in
 # once you have that integration configured. See docs/install/connectors.md.
 
 daily_habits:
   - id: morning-walk
     description: "20+ minute walk within 90 minutes of waking"
-    frequency: 5  # times per week (max 7)
+    frequency: 5  # times per week (max 7) — the LIVE ramped value
     area: health
     values: [Health]
     started: "YYYY-MM-DD"  # replace with your start date
+    ramp:
+      starter: 2
+      target: 5
+      two_minute: "Put shoes on and step outside"
 
   - id: read-15-min
     description: "15+ minutes of reading (any format: book, article, long-form)"
@@ -46,7 +57,7 @@ daily_habits:
 
 monthly_habits:
   - id: system-review
-    description: "Run /pfc-monthly-checkin — review life wheel, projects, and habits"
+    description: "Run /pfc-review — catch up on all due rolling reviews (life wheel, projects, habits)"
     frequency: 1  # times per month (max 4)
     area: personal
     values: [Growth, Learning]
@@ -60,6 +71,6 @@ monthly_habits:
     started: "YYYY-MM-DD"
 
 # Deprecated habits section — move retired habits here to preserve log continuity.
-# Historical records in 6-habits/_data/habits-daily.ndjson stay valid; just don't
+# Historical records in 7-habits/_data/habits-daily.ndjson stay valid; just don't
 # add new log entries under deprecated IDs.
 deprecated_habits: []

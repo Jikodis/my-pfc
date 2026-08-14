@@ -1,0 +1,24 @@
+{%- comment -%}
+PFC Pulse Trend — the Daily Pulse over 30 days: per-lever days-on-target
+(worst first), how many days were primed for a great day, and the standing fix
+for the chronic miss. pfc-pulse answers tonight; this answers lately.
+
+Every count on this screen is GOOD days out of the window — high is always
+good, on every number, in every view. Never print an off-count next to an
+on-count (AGENTS.md § "Metrics point one direction").
+
+Each lever carries its 30-day verdict spelled out — GREEN / YELLOW / RED, not
+punctuation marks. Those need a legend, and a legend that isn't on the screen
+is a legend nobody has. Same vocabulary on every screen — STATUS_WORD in
+trmnl_push.py.
+
+The Goal column shows the bare threshold. Never render last night's
+distance-to-next-tier here — on a 30-day window it reads as a property of the
+window and isn't one (the builder uses `target_plain`).
+
+Data comes pre-digested from pulse.py (pulse_history, pulse_levers,
+chronic_misses) via build_pfc_pulse_trend; templates only print. Counts instead of
+status glyphs by design — a handful of ranked rows are legible across a room, a
+grid of hundreds of status marks is not. No emoji; targets arrive
+transliterated (>=, <=) because the comparison glyphs fail on e-ink too.
+{%- endcomment -%}

@@ -1,6 +1,6 @@
 # Data
 
-Non-VAVPAH state and knowledge — files that don't belong to a specific life-domain folder but are referenced across the whole system.
+Non-VAVFPAH state and knowledge — files that don't belong to a specific life-domain folder but are referenced across the whole system.
 
 ## What lives here
 
@@ -18,7 +18,8 @@ The three files form a maturity ladder: most observations stay as insights, some
 
 | File | Purpose |
 |---|---|
-| `day-tracking.ndjson` | Daily rating + auto-fetched health data (sleep, AZM, resting HR) |
+| `day-tracking.ndjson` | Daily energy/mood/focus + derived rating, plus auto-fetched health data (sleep, activity, workouts, recovery metrics) and the derived `qqrt` sleep composite |
+| `health-raw/` | Comprehensive raw health archive, one gzipped JSON per day — the insurance layer behind `day-tracking.ndjson`. See [`health-raw/README.md`](health-raw/README.md) |
 | `supplements.ndjson` | Baseline supplement / medication registry — what you're currently taking and historical changes |
 | `.trello-last-render` | Timestamp of the last Trello dashboard render (used by render-skip logic) |
 | `.jq_update.tmp` | Temp file for atomic NDJSON updates — should never persist between runs |
@@ -42,7 +43,7 @@ This is one of the more deliberate design choices in the system: capture is chea
 - **Hypotheses** are insights that you've decided are worth *testing*. They name a pattern and an indicator you can measure.
 - **Findings** are hypotheses that have been validated (statistically, or via hard-won lived experience) and now shape future decisions.
 
-The weekly check-in surfaces stale insights for triage. The monthly check-in evaluates hypotheses against accumulated data. Findings rarely move once added.
+The `insights-review` rolling review surfaces stale insights for triage. The `hypotheses-review` rolling review evaluates hypotheses against accumulated data. Findings rarely move once added.
 
 ## Agent operations
 

@@ -1,0 +1,23 @@
+<div class="layout layout--col gap--small">
+  <div class="grid">
+    {% for project in projects limit: 3 %}
+      <div class="col col--span-4">
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="label label--small" data-clamp="1">{{ project.name }}</span>
+            <span class="value">{{ project.percent }}%</span>
+            {% for task in project.tasks limit: 1 %}
+              <span class="label label--small label--gray" data-clamp="1">-> {{ task.title }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Projects</span>
+  <span class="instance">{{ count }} active</span>
+</div>

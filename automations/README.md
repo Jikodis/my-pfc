@@ -19,26 +19,27 @@ See `docs/automation-policy.md` for the commit policy and safety rules.
 
 ## Active automations
 
-### `pfc-habit-autolog` — Daily habit logging from Google Health
+### `pfc-health-fetch` + `pfc-health-fetch-morning` — Health data into day-tracking
 
-**Script:** `scripts/auto_log_habits.py`
-**Units:** `systemd/pfc-habit-autolog.service.template` + `systemd/pfc-habit-autolog.timer.template`
+**Script:** `scripts/auto_fetch_health.py`
+**Units:** `systemd/pfc-health-fetch.{service,timer}.template` + `systemd/pfc-health-fetch-morning.{service,timer}.template`
 
-Runs twice daily in your local timezone (`$LOCAL_TZ`, default `America/Denver`):
-- **Morning run** — checks last night's sleep session; logs your bedtime habit if you hit your target
-- **Late-evening run** — checks full day's activity; logs `active-zone-minutes` if AZM ≥ 20
+Writes two layers per run: derived day metrics into `data/day-tracking.ndjson` → `health`, and the comprehensive raw streams into `data/health-raw/YYYY-MM-DD.json.gz`. Then recomputes the QQRT sleep composite (`qqrt` on each record) and commits + pushes.
 
-Edit the systemd `OnCalendar=` lines and the schedule's `__LOCAL_TZ__` substitution to match your day; the 8 AM / 10:30 PM defaults are illustrative.
+Three cadences, because the data lands at three different times:
 
-Safe to run multiple times — skips habits already logged for the date.
-Auto-commits and pushes to GitHub when habits are logged.
+- **Morning retry** — every 30 minutes from 6:00 AM local, fetching **today** (last night's sleep). Sleep lands whenever the watch syncs, not on a clock, so one fixed hour is either too early or too late.
+- **Noon two-pass** — pass 1 today (fresh sleep for the same-day evening check-in), pass 2 yesterday (finalizes complete full-day activity totals).
+- **On demand** — the evening check-in fetches before reading health data.
+
+Idempotent, and that's what makes the retry loop cheap: with unchanged data it writes nothing, commits nothing, and pushes nothing. Full setup in [`docs/install/google-health.md`](../docs/install/google-health.md).
 
 ### `pfc-trello-daily-render` — Daily Trello dashboard render at local midnight
 
 **Script:** `scripts/trello_render.py`
 **Units:** `systemd/pfc-trello-daily-render.service.template` + `systemd/pfc-trello-daily-render.timer.template`
 
-Runs once daily at **12:05 AM in your local timezone** (`$LOCAL_TZ`, default `America/Denver`). Re-renders all dashboard lists so daily-habit cards uncheck for the new day (the render reads today's habit logs; with no logs yet for the new day, all habit cards render unchecked). Without this, habit cards stay visually checked until the first render-firing skill runs (e.g. morning-checkin) — which could be hours into the day. Edit the `.timer.template` `OnCalendar=` line if you want a different fire time.
+Runs once daily at **12:05 AM in your local timezone** (`$LOCAL_TZ`, default `America/Denver`). Re-renders all dashboard lists so daily-habit cards uncheck for the new day (the render reads today's habit logs; with no logs yet for the new day, all habit cards render unchecked). Without this, habit cards stay visually checked until the first render-firing skill runs (e.g. the evening check-in) — which could be hours into the day. Edit the `.timer.template` `OnCalendar=` line if you want a different fire time.
 
 The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email lists skip 🟡 since this runs without MCP data; cadence checkins still refresh those.
 
@@ -48,12 +49,17 @@ The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email
 
 | Script | Purpose |
 |---|---|
-| `google_health_auth.py` | One-time OAuth2 authorization for Google Health API |
-| `google_health_fetch.py` | Fetch health data for a single date (sleep, HR, AZM) |
-| `google_health_backfill.py` | Backfill historical health data into day-tracking.ndjson |
-| `auto_log_habits.py` | Auto-log habits from Google Health data |
-| `auto_fetch_health.py` | Write raw health data (sleep, HR, AZM) into day-tracking.ndjson — runs nightly via `pfc-habit-autolog` after `auto_log_habits.py` |
-| `analyze_day_trends.py` | Analyze day tracking data for statistical patterns |
+| `google_health_auth.py` | One-time OAuth2 authorization for the Google Health API |
+| `google_health_fetch.py` | Fetch and print one date's flat `health` block (sleep, heart rate, activity, workouts, recovery metrics) |
+| `google_health_backfill.py` | Backfill historical health data into day-tracking.ndjson; `--all` re-derives every record and recomputes QQRT |
+| `google_health_raw.py` | Capture the comprehensive RAW streams (per-minute heart rate, intraday variability/blood oxygen, sleep stages) to `data/health-raw/YYYY-MM-DD.json.gz`; `--range START END` to backfill. A file captured mid-day is re-fetched until one lands after local midnight, then it's final |
+| `sleep_reduce.py` | Shared sleep parsing — awake-gap accounting for fragmented nights, awakenings, stage totals. Imported by both fetch paths so they cannot drift |
+| `exercise_reduce.py` | Shared tracked-workout parsing — session list, intensity, timing, `azm_outside_workouts` |
+| `qqrt.py` | Canonical QQRT sleep-composite levers + sleep-debt ledger. Thresholds are generic defaults, tunable via `config/automation_config.yaml` → `health.sleep` |
+| `backfill_qqrt.py` | Recompute the `qqrt` object on every day-tracking record (idempotent; runs automatically after any health write) |
+| `pulse.py` | Daily Pulse levers, verdict, per-lever fix, and the multi-day trend — the single source of truth every pulse surface imports (Trello render, check-in). Bands tunable via `config/automation_config.yaml` → `health.pulse` |
+| `auto_fetch_health.py` | Fetch health into day-tracking.ndjson + the raw archive, recompute QQRT, commit and push — runs via `pfc-health-fetch` and `pfc-health-fetch-morning` |
+| `analyze_day_trends.py` | Analyze day-tracking data: correlations, gate/gradient classification, QQRT threshold, sleep debt, trailing-2-night worst night |
 
 ---
 
@@ -75,15 +81,15 @@ This will:
 
 ```bash
 # Check timer status and next fire time
-systemctl --user status pfc-habit-autolog.timer
-systemctl --user list-timers pfc-habit-autolog.timer
+systemctl --user status pfc-health-fetch.timer
+systemctl --user list-timers
 
 # Watch live logs
-journalctl --user -u pfc-habit-autolog.service -f
+journalctl --user -u pfc-health-fetch.service -f
 
 # Review past runs
-journalctl --user -u pfc-habit-autolog.service --since today
-journalctl --user -u pfc-habit-autolog.service --since "7 days ago"
+journalctl --user -u pfc-health-fetch.service --since today
+journalctl --user -u pfc-health-fetch.service --since "7 days ago"
 ```
 
 ### Updating units after repo changes
@@ -104,15 +110,15 @@ systemctl --user restart pfc-habit-autolog.timer
 ### Manual test run
 
 ```bash
-# Run for today
-python3 automations/scripts/auto_log_habits.py
+# Fetch health for today
+python3 automations/scripts/auto_fetch_health.py
 
-# Run for a specific date
-python3 automations/scripts/auto_log_habits.py 2026-04-12
+# Fetch health for a specific date
+python3 automations/scripts/auto_fetch_health.py 2025-01-12
 ```
 
 ---
 
 ## Future automation targets
 
-- Task archival (when `5-actions/_data/tasks.ndjson` exceeds ~200 lines)
+- Task archival (when `6-actions/_data/tasks.ndjson` exceeds ~200 lines)

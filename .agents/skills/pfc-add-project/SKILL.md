@@ -1,11 +1,11 @@
 ---
 name: pfc-add-project
-description: Add a new project to 4-projects/_data/projects.ndjson. Use when the user says "add project", "new project", "start project", "create project", or describes a new short-term project they want to formalize.
+description: Add a new project to 5-projects/_data/projects.ndjson. Use when the user says "add project", "new project", "start project", "create project", or describes a new short-term project they want to formalize.
 ---
 
 # Add Project
 
-Projects are short-term efforts (1–3 months typical, max 3 active at a time). Schema: `config/project_schema.yaml`. Every project must declare an area, values, and a parts breakdown for percentage tracking.
+Projects are short-term efforts (1–3 months typical). There is no small active cap — the validator's backstop is 12 active, and a high count is normal, not drift. Schema: `config/project_schema.yaml`. Every project must declare an area, values, and a parts breakdown for percentage tracking.
 
 ## When this skill triggers
 
@@ -39,9 +39,9 @@ If the user's input sounds like a single task (one action, no parts), route to `
 1. Parse project name from user input.
 2. Active-limit check:
    ```bash
-   ACTIVE=$(jq -c 'select(.active == true and (.status // "active") != "done")' 4-projects/_data/projects.ndjson | wc -l)
+   ACTIVE=$(jq -c 'select(.active == true and (.status // "active") != "done")' 5-projects/_data/projects.ndjson | wc -l)
    ```
-   If `ACTIVE >= 3`, ask: add as inactive (won't compete for the 3 slots) / archive an existing first / cancel. Default: add as inactive and tell the user.
+   Only if `ACTIVE >= 12` (the runaway backstop) ask whether to add as inactive or pause an existing one. Below that, just add it active — do NOT ask the user to choose between projects, and do NOT flag the count.
 3. Ask for required fields one at a time per CLAUDE.md "one question at a time" rule. Order: excitement → impact → urgency → area → values → total_parts → (optionals if natural).
 4. Validate area against `2-areas/` folders. If no match, list options and re-ask.
 5. Validate values against `1-values/values.md`. If a user-supplied value isn't in the list, ask whether to map to an existing value or add a new value to `values.md` (out of scope — refer them to do that separately).
@@ -63,17 +63,17 @@ If the user's input sounds like a single task (one action, no parts), route to `
      --argjson completed_parts 0 \
      --arg created "YYYY-MM-DD" \
      '{id:$id, name:$name, active:$active, excitement:$excitement, impact:$impact, urgency:$urgency, area:$area, values:$values, total_parts:$total_parts, completed_parts:$completed_parts, created:$created}' \
-     >> 4-projects/_data/projects.ndjson
+     >> 5-projects/_data/projects.ndjson
    ```
    For optionals provided by user, add them with their own `--arg` / `--argjson` and include in the output object.
 10. Run validator:
     ```bash
     scripts/validate.sh
     ```
-    The validator enforces the 3-active limit. If it complains, the active-limit check in step 2 went wrong — investigate.
+    The validator fails only above 12 active projects. If it complains, the check in step 2 went wrong — investigate.
 11. Commit + push:
     ```bash
-    git add 4-projects/_data/projects.ndjson
+    git add 5-projects/_data/projects.ndjson
     git commit -m "project: add <name>"
     git push
     ```

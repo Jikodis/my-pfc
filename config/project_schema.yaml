@@ -1,5 +1,7 @@
-# Project metadata schema for 4-projects/_data/projects.ndjson
-# Max 3 active projects at a time.
+# Project metadata schema for 5-projects/_data/projects.ndjson
+# No small cap on active projects — the validator's runaway backstop is 12.
+# A project is a group of tasks that belong together, not a claim on attention.
+# The scarcity layer is 4-focus/ (max 6 active pursuits), not this registry.
 # Percentage tracking: total_parts and completed_parts drive completion %.
 
 project:
@@ -13,7 +15,7 @@ project:
   active:
     type: boolean
     required: true
-    constraint: "max 3 active projects at a time"
+    constraint: "runaway backstop of 12 active; not a focus cap"
   excitement:
     type: string
     enum: ["low", "medium", "high"]

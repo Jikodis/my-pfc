@@ -1,0 +1,40 @@
+<script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
+
+{% assign chart_id = 'trends-chart-hh' | append_random %}
+<div class="layout layout--col gap--small">
+  <div class="col">
+    <div id="{{ chart_id }}" class="h--28"></div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Trends - 30 days</span>
+  <span class="instance">7d: avg {{ avg_rating }}, exercise {{ exercise }} - debt {{ sleep_debt }}</span>
+</div>
+
+<script>
+(function () {
+  var days = {{ days | json }};
+  var mean = {{ mean | json }};
+  Highcharts.chart("{{ chart_id }}", {
+    chart: { backgroundColor: "transparent", animation: false, spacing: [2, 12, 2, 12] },
+    xAxis: {
+      categories: days.map(function (d) { return d.label; }),
+      labels: { step: 5, style: { fontSize: "10px", color: "#000" } },
+      lineColor: "#000", tickWidth: 0, gridLineWidth: 0
+    },
+    yAxis: { visible: false, min: 0, max: 5 },
+    plotOptions: { series: { animation: false, enableMouseTracking: false } },
+    series: [
+      { type: "column", animation: false, data: days.map(function (d) { return d.rating; }),
+        color: "#999", borderWidth: 1, borderColor: "#000" },
+      { type: "line", animation: false, data: mean,
+        color: "#000", lineWidth: 3, marker: { enabled: false } }
+    ],
+    legend: { enabled: false },
+    title: { text: null },
+    credits: { enabled: false },
+    tooltip: { enabled: false }
+  });
+})();
+</script>

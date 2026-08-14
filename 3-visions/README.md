@@ -1,6 +1,6 @@
 # Visions
 
-Visions sit between **Areas** and **Projects** in the system (V → A → **V** → P → A → H, "VAVPAH"). They're the layer that lets you express direction without forcing a SMART goal or deadline.
+Visions sit between **Areas** and **Focus** in the system (V → A → **V** → F → P → A → H, "VAVFPAH"). They're the layer that lets you express direction without forcing a SMART goal or deadline.
 
 A vision answers: *what does this look like when it's true, and what habits/projects increase the probability of getting there?*
 
@@ -19,20 +19,45 @@ Anti-pattern: SMART goals like "Be promoted to Staff Engineer by 2027-Q3." Visio
 - Projects and habits **may** declare a `vision:` link in their metadata. Optional but encouraged.
 - Locus of control matters — outside-control visions only have leading indicators, never deadlines.
 
+## Where visions sit relative to Focus
+
+A vision is a **years** horizon and may rest dormant for long stretches — that's a valid state, not failure. The layer one hop below it, [`4-focus/`](../4-focus/README.md), is the **quarter** horizon: the capped, traffic-lit list of what you're actually on right now. A focus may link up to its vision (`link: {type: "vision", ref: "<slug>"}`) when the connection is real. Most visions won't have a live focus under them at any given moment, and that's fine — you can only push a few things per quarter.
+
 ## File layout
 
 - One vision per markdown file: `3-visions/<slug>.md`
 - Use `_template.md` as the starting point.
-- `passion-brainstorm.md` lives here too — annual or on-demand exercise that feeds vision creation.
+- `_data/vision-brainstorm.ndjson` lives here too — the brainstorm that feeds vision creation (see below).
 
 ## Adding a vision
 
-Use `/pfc-add-vision`. The skill walks through every required part — statement, area, why, fulfilled state, locus of control, leading indicators.
+Use `/pfc-add-vision`. The skill covers every required part — statement, area, why, fulfilled state, locus of control, leading indicators. It is **draft-first**: it pre-fills every field from your values, area statement, and existing brainstorm records, then shows you the draft and asks only for edits. Writing a vision statement from a blank page is much harder than reacting to a draft that's already 80% right.
+
+## Vision brainstorm
+
+The brainstorm is the generative exercise that *feeds* visions (and focuses, projects, tasks, habits). It's one record per idea in `_data/vision-brainstorm.ndjson`, so each item carries a lifecycle and a lineage.
+
+**The exercise:** Given 5 minutes, with no judging and no limits, dump everything you want to become, do, see, or have happen. Then sort, categorize, and pick a couple worth pursuing.
+
+**Capture stays frictionless** — you dump free-form (chat or `/pfc-vision-brainstorm`); the skill writes the records. You never hand-author JSON.
+
+**Each record:** `{id, text, created, area, status, became, note}`
+- `status`: `raw` (un-acted) · `promoted` (became a vision/focus/project/task/habit) · `done` (already true) · `dropped` (not wanted)
+- `became`: `null`, or `{type, ref}` pointing at the vision slug / focus id / project id it graduated into
+
+See what's still latent (un-acted ideas):
+
+```bash
+jq -c 'select(.status=="raw")' 3-visions/_data/vision-brainstorm.ndjson
+```
+
+Run it quarterly, annually, or whenever the system feels stagnant.
 
 ## Maintenance
 
-- Reviewed during `/pfc-weekly-checkin` and surfaced by `/pfc-system-health` when an active vision has zero linked projects or habits (a vision with no leading indicators is drifting).
-- A vision with no progress for a long stretch isn't necessarily failing — direction without "progress" is a valid state. But absence of *any* leading indicators in linked projects/habits **is** drift.
+- **Relevance check** (weekly cadence) — look at an active vision alongside its linked projects, focuses, and habits, and ask only whether it still represents where you want to go. If not → `paused` or `abandoned`. A zero-link vision is *not* by itself drift: with a 3-project cap and a 6-pursuit cap against a larger set of visions, most visions won't have a live leading indicator at any moment.
+- **Activation review** (monthly cadence) — list every active vision with its current projects, focuses, and habits so the bare ones stand out, then take a deliberate decision per vision: lean in (start a leading-indicator project or focus, within the caps), let rest, or leave as-is. A dormant vision with nothing under it is a valid state.
+- A vision with no progress for a long stretch isn't necessarily failing. The only real drift is a vision that no longer represents where you want to go — caught by relevance, not by counting links.
 
 ## Why this exists — the design rationale
 
@@ -44,4 +69,4 @@ Full reasoning lives in [`../0-me/working-with-me.md`](../0-me/working-with-me.m
 
 ## Agent operations
 
-If you're an agent reading or writing vision files, see [`AGENTS.md`](AGENTS.md) at this level for the enforcement rules (no deadline field, 0–2 per area cap, drift detection).
+If you're an agent reading or writing vision files, see [`AGENTS.md`](AGENTS.md) at this level for the enforcement rules (no deadline field, 0–2 per area cap, brainstorm write rules).

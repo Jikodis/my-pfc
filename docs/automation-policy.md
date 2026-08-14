@@ -42,7 +42,7 @@ See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for
 
 ## Future automation targets
 
-- Daily check-in prompt (systemd timer, morning)
+- Daily check-in prompt (systemd timer, evening)
 - Weekly review prompt (systemd timer, end of week)
-- Task archival (when `5-actions/_data/tasks.ndjson` exceeds ~200 lines)
+- Task archival (when `6-actions/_data/tasks.ndjson` exceeds ~200 lines)
 - Report generation (on demand or scheduled)

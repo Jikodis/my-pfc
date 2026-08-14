@@ -333,14 +333,14 @@ import subprocess
 
 def test_main_emits_empty_json_array_when_no_data(tmp_path) -> None:
     # Build a minimal repo skeleton
-    (tmp_path / "4-projects" / "_data").mkdir(parents=True)
-    (tmp_path / "5-actions" / "_data").mkdir(parents=True)
+    (tmp_path / "5-projects" / "_data").mkdir(parents=True)
+    (tmp_path / "6-actions" / "_data").mkdir(parents=True)
     (tmp_path / "data").mkdir(parents=True)
     for f in [
-        "4-projects/_data/projects.ndjson",
-        "5-actions/_data/tasks.ndjson",
-        "5-actions/_data/daily-focus.ndjson",
-        "5-actions/_data/task_events.ndjson",
+        "5-projects/_data/projects.ndjson",
+        "6-actions/_data/tasks.ndjson",
+        "6-actions/_data/daily-focus.ndjson",
+        "6-actions/_data/task_events.ndjson",
         "data/revive-events.ndjson",
     ]:
         (tmp_path / f).write_text("")
@@ -355,11 +355,11 @@ def test_main_emits_empty_json_array_when_no_data(tmp_path) -> None:
 
 
 def test_main_emits_watchlist_for_seeded_slip(tmp_path) -> None:
-    (tmp_path / "4-projects" / "_data").mkdir(parents=True)
-    (tmp_path / "5-actions" / "_data").mkdir(parents=True)
+    (tmp_path / "5-projects" / "_data").mkdir(parents=True)
+    (tmp_path / "6-actions" / "_data").mkdir(parents=True)
     (tmp_path / "data").mkdir(parents=True)
     # Seed: one open task created 40 days ago (signal C)
-    (tmp_path / "5-actions" / "_data" / "tasks.ndjson").write_text(
+    (tmp_path / "6-actions" / "_data" / "tasks.ndjson").write_text(
         json.dumps({
             "id": "task-X", "status": "open", "description": "t",
             "size": "S", "location": "PC", "impact": "medium",
@@ -368,9 +368,9 @@ def test_main_emits_watchlist_for_seeded_slip(tmp_path) -> None:
         }) + "\n"
     )
     for f in [
-        "4-projects/_data/projects.ndjson",
-        "5-actions/_data/daily-focus.ndjson",
-        "5-actions/_data/task_events.ndjson",
+        "5-projects/_data/projects.ndjson",
+        "6-actions/_data/daily-focus.ndjson",
+        "6-actions/_data/task_events.ndjson",
         "data/revive-events.ndjson",
     ]:
         (tmp_path / f).write_text("")

@@ -68,13 +68,13 @@ The right number of areas is whatever you'll actually engage with. Pruning is he
 
 ## Area statements
 
-Each `<area>/statement.md` answers: *what does success look like in this area?* It's built up over time, not written all at once. The system surfaces these during weekly check-ins and uses them to push back when a project drifts away from what you said matters here.
+Each `<area>/statement.md` answers: *what does success look like in this area?* It's built up over time, not written all at once. The system surfaces these during review passes and uses them to push back when a project drifts away from what you said matters here.
 
 Run `/pfc-onboarding areas/area-statements` for a guided walkthrough.
 
 ## The Life Wheel
 
-`_data/life-wheel.ndjson` holds monthly ratings for each area (typically 1–10). It feeds the monthly check-in and gives you a longitudinal view of which areas are thriving vs. starving. The Trello dashboard surfaces it as a colored label on each area card.
+`_data/life-wheel.ndjson` holds monthly ratings for each area (typically 1–10). It feeds the `life-wheel` rolling review and gives you a longitudinal view of which areas are thriving vs. starving. The Trello dashboard surfaces it as a colored label on each area card.
 
 ## Schema integrity
 

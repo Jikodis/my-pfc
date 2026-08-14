@@ -7,7 +7,7 @@
 # user judgment for experience-derived). See docs/data-model.md.
 #
 # Reviewed during weekly review (Hypotheses Touch Pass) and surfaced by
-# /pfc-system-health when last_reviewed is stale.
+# /pfc-usage-audit when last_reviewed is stale.
 
 hypothesis:
   id:
@@ -37,7 +37,7 @@ hypothesis:
     type: string
     format: "YYYY-MM-DD"
     nullable: true
-    description: "Date the hypothesis was last touched in a review. Drives stale-hypothesis surfacing in /pfc-system-health and the weekly review touch pass. Null means never explicitly reviewed since capture — treat as 'needs review'."
+    description: "Date the hypothesis was last touched in a review. Drives stale-hypothesis surfacing in /pfc-usage-audit and the weekly review touch pass. Null means never explicitly reviewed since capture — treat as 'needs review'."
   started:
     type: string
     format: "YYYY-MM-DD"

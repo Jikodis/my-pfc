@@ -1,0 +1,47 @@
+<div class="layout layout--col gap">
+  <div class="grid">
+    <div class="col col--span-7 gap--small">
+      <span class="title title--small lg:title--base">{{ verdict_mark }} - {{ verdict }}</span>
+      <div class="columns" data-overflow-max-cols="1">
+        <div class="column">
+          {% for lever in levers %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label lg:label--large" data-clamp="2">{{ lever.mark }} - {{ lever.label }}: {{ lever.value }} (target {{ lever.target }})</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="item">
+              <div class="meta"></div>
+              <div class="content">
+                <span class="label label--gray">No day-tracking data yet</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col col--span-5 gap--small">
+      <span class="title title--small lg:title--base">Tonight's one move</span>
+      <div class="item">
+        <div class="meta"></div>
+        <div class="content">
+          <span class="label lg:label--large" data-clamp="4">{{ move }}</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="meta"></div>
+        <div class="content">
+          <span class="label lg:label--large" data-clamp="1">{% if exercise_done %}[x]{% else %}[ ]{% endif %} {{ exercise_label }}: {{ exercise_text }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Daily Pulse</span>
+  <span class="instance">{{ date }}</span>
+</div>

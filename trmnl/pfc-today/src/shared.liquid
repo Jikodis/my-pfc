@@ -1,0 +1,10 @@
+{%- comment -%}
+Shared partials for PFC Today. Included by every size so the done/not-done
+convention stays identical across views.
+
+E-ink has no emoji font, so completion is text: [x] / [ ]. Never swap these for
+check-mark emoji — they render as empty boxes on the device.
+{%- endcomment -%}
+
+{%- capture done_mark -%}[x]{%- endcapture -%}
+{%- capture open_mark -%}[ ]{%- endcapture -%}
