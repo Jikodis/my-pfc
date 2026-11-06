@@ -29,6 +29,10 @@ Git Repo (this repo)
 GitHub (private, backup + sync)
 ```
 
+## Surfaces
+
+Four surfaces render the repo, and none of them owns state: **Claude Code** (where the work happens), the **Trello board** (phone, `trello_render.py`), the **TRMNL e-ink screen** (ambient, `trmnl/`), and the **local web UI** (`web/`, an Astro app at `http://127.0.0.1:4323` with a Claude Code chat panel and buttons that complete a task, log a habit, or park a focus through `web_write.py`; record changes live in `pfc_writes.py`, shared with the Trello sync, and file rewrites go through `ndjson_file.py`). Numbers with a rule behind them are computed once in Python so the four cannot disagree.
+
 ## Key decisions
 
 | Decision | Choice | Reasoning |

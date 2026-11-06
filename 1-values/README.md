@@ -1,6 +1,6 @@
 # Values
 
-The first letter of VAVFPAH. Your ranked top values — the things that pressure-test every new project, every review pass, every "should I take this on?" decision.
+The first letter of VAVFPTH. Your ranked top values — the things that pressure-test every new project, every review pass, every "should I take this on?" decision.
 
 ## What lives here
 

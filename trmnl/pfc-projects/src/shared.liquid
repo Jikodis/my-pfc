@@ -1,7 +1,7 @@
 {%- comment -%}
-PFC Projects — active projects with percent complete plus the next one or two
-open tasks each (picked the way pfc-pick-tasks orders them: sequence first,
-otherwise impact/urgency/size score). Max 3 active projects by system rule.
+PFC Projects: mirrors the "Projects" band of the web home page (projects_payload in
+automations/scripts/trmnl_home.py). Active projects with percent done (`pct`) and the
+next task (`next`, empty when none), plus counts of on-deck and parked projects.
 
-E-ink rules: no emoji, no inline styles — framework classes only.
+E-ink rules: no emoji, no inline styles, framework classes only.
 {%- endcomment -%}

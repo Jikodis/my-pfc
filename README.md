@@ -1,4 +1,4 @@
-> Generated from modular-pfc commit `2348cb2` on 2026-08-13.
+> Generated from modular-pfc commit `3c6dfc8` on 2026-11-06.
 
 # PFC — Personal Productivity System
 
@@ -16,11 +16,11 @@ The bias is toward **less surface for new users on day one** — you don't need 
 
 Examples of things you can ask your agent to do:
 
-- "Edit `pfc-evening-checkin` to also ask about water intake."
+- "Edit `pfc-log-day` to also ask about water intake."
 - "Add a new skill that pulls weather and tells me if it's a good outdoor-walking day."
 - "Delete the `legal` area — I don't track regulatory work."
 - "Change the daily-focus model from 2+1 to 3+0 — I don't want the bonus slot."
-- "Add a new field `caffeine_mg` to the day-tracker schema and prompt me for it during evening-checkin."
+- "Add a new field `caffeine_mg` to the day-tracker schema and prompt me for it when I rate the day."
 
 The system is built to be modified, not just consumed. When something doesn't fit your life, **change it.** Don't work around it. Run `/pfc-onboarding meta/system-is-editable` for the longer pitch.
 
@@ -42,6 +42,8 @@ That's it for Tier 1. The system works with markdown alone — no Python venv, n
 | 1 | Markdown system + slash commands | 5 min | This README |
 | 2 — Local automations | Auto-fetched sleep/AZM, scheduled jobs | 30 min | [`docs/install/local-automations.md`](docs/install/local-automations.md) |
 | 2 — Connectors | Google Calendar + Gmail integration | 15 min | [`docs/install/connectors.md`](docs/install/connectors.md) |
+| 2 — Web UI | The whole system in a browser at `http://127.0.0.1:4323`, a guided daily tour, and a chat panel | 15 min | [`docs/install/web-ui.md`](docs/install/web-ui.md) |
+| 2 — Daily sync | A morning job that syncs Trello completions, the inbox-to-task reconcile, and the calendar cache | 10 min | [`docs/install/daily-sync.md`](docs/install/daily-sync.md) |
 | 2 — Trello dashboard (recommended) | Visual phone-glance view + mobile capture widget | 20 min | [`docs/install/trello.md`](docs/install/trello.md) |
 | 3 — VPS | 24/7 background automation | 30 min | [`docs/install/vps.md`](docs/install/vps.md) |
 | 3 — Remote access | Drive the VPS from your phone (Termius + tmux + Claude Code Remote Control) | 20 min | [`docs/install/remote-access.md`](docs/install/remote-access.md) |
@@ -50,7 +52,7 @@ Trello is highly recommended for the visualization benefit — externalizing the
 
 ## What's in the box
 
-The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus → Projects → Actions → Habits.
+The system follows a **VAVFPTH** model: Values → Areas → Visions → Focus → Projects → Tasks → Habits.
 
 | Folder | What it holds |
 |---|---|
@@ -60,13 +62,14 @@ The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus �
 | `3-visions/` | Long-term direction tied to an area (no deadlines) |
 | `4-focus/` | Current Focus — the capped, traffic-lit set of what you're on this quarter |
 | `5-projects/` | Short-term projects (1-3 months; backstop of 12 active) |
-| `6-actions/` | Tasks, daily focus picks, event log |
+| `6-tasks/` | Tasks, daily focus picks, event log |
 | `7-habits/` | Daily + monthly habit tracking |
 | `data/` | Day tracking, insights, hypotheses, findings, supplements, review ledger |
 | `config/` | Schemas + integration config |
 | `docs/` | System documentation (start with `docs/system-map.md`) |
 | `automations/` | Python scripts for auto-fetched data + systemd units |
 | `trmnl/` | Optional TRMNL e-ink dashboard plugins |
+| `web/` | Optional local web UI (Astro): the whole system on one page, a daily tour, one-tap writes, and a Claude Code chat panel |
 | `.agents/skills/` | Skill definitions (read by Codex and most other agents) |
 | `.claude/skills/` | Symlink mirror for Claude Code |
 

@@ -5,8 +5,8 @@ Documentation=__REPO_URL__
 [Timer]
 # 12:00 noon local — late enough that last night's sleep has fully synced (an
 # early-morning fetch returns null sleep because it hasn't been ingested yet), and
-# early enough to always beat the evening check-in. The today-pass gives the
-# same-day check-in fresh sleep; the yesterday-pass finalizes complete totals.
+# early enough to beat an evening tour. The today-pass gives a same-day rating
+# fresh sleep; the yesterday-pass finalizes complete totals.
 # Timezone is the 3rd field of OnCalendar (the older "TimeZone=" key is not
 # recognized here).
 OnCalendar=*-*-* 12:00:00 __LOCAL_TZ__

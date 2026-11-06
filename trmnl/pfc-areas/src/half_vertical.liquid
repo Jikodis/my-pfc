@@ -1,17 +1,23 @@
-<div class="layout layout--col gap--small">
-  <div class="col gap--xsmall">
-    {% for area in attention %}
-      <span class="label" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
-    {% else %}
-      <span class="label">Every area is green.</span>
+<div class="layout layout--col gap">
+  <div class="col gap--small">
+    <span class="label label--small label--gray 1bit:text--black">{{ horizon }}</span>
+    {% for group in groups %}
+      {% unless forloop.first %}<div class="divider"></div>{% endunless %}
+      {% render "group_head", group: group, title_size: "title--small", size: "label--small" %}
+      {% for row in group.rows limit: 7 %}
+        <div class="flex flex--row flex--left gap--small">
+          {% render "status_chip", status: row.status, size: "label--small" %}
+          <span class="label label--small no-shrink">{{ row.label }}</span>
+          {% if row.note != "" %}
+            <span class="label label--small label--gray 1bit:text--black" data-clamp="1">{{ row.note }}</span>
+          {% endif %}
+        </div>
+      {% endfor %}
     {% endfor %}
-    {% if greens > 0 %}
-      <span class="label label--small label--gray">{{ greens }} areas green</span>
-    {% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Areas</span>
-  <span class="instance">rated {{ rated }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

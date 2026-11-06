@@ -4,9 +4,9 @@ Trello dashboard write-back: detect cards marked complete in interactive
 lists, log/archive in repo, archive the Trello card.
 
 Usage:
-    python3 automations/scripts/trello_writeback.py [poll | sync | move-2plus1 | move-back-uncompleted]
+    python3 automations/scripts/trello_writeback.py [poll | sync]
 
-Standalone CLI; the pfc-sync-trello skill orchestrates all subcommands.
+Standalone CLI; the pfc-sync-trello skill and the daily sync job run `sync`.
 """
 
 import json
@@ -26,12 +26,14 @@ from trello_helper import (
 from trello_render import (
     parse_pfc_frontmatter, INBOX_LIST_NAME,
 )
+import ndjson_file
+from pfc_writes import complete_task, log_habit
 
 REPO_ROOT = SCRIPT_DIR.parents[1]
 LOCAL_TZ = ZoneInfo(os.environ.get("LOCAL_TZ", "America/Denver"))
 
-INTERACTIVE_LISTS = {"✅ 2+1", "✅ Actions", "☀️ Daily Habits", "🌙 Monthly Habits"}
-TASK_LISTS = {"✅ 2+1", "✅ Actions"}
+INTERACTIVE_LISTS = {"✅ 2+1", "✅ Tasks", "☀️ Daily Habits", "🌙 Monthly Habits"}
+TASK_LISTS = {"✅ 2+1", "✅ Tasks"}
 HABIT_DAILY_LIST = "☀️ Daily Habits"
 HABIT_MONTHLY_LIST = "🌙 Monthly Habits"
 
@@ -104,57 +106,50 @@ def _read_ndjson(path):
 
 
 def _write_ndjson(path, records):
-    p = Path(path)
-    p.write_text("".join(json.dumps(r) + "\n" for r in records))
+    """Line-preserving, atomic rewrite: an unchanged record keeps its exact bytes."""
+    ndjson_file.rewrite(path, records)
 
 
 def _append_ndjson(path, record):
-    p = Path(path)
-    with p.open("a") as f:
-        f.write(json.dumps(record) + "\n")
+    ndjson_file.append(path, record)
 
 
-def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=None, log_date=None):
-    """Mark the task done in tasks.ndjson, log event, archive the Trello card.
+def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=None, log_date=None,
+                            focus_path=None):
+    """Mark the task done in tasks.ndjson, log event, tick the 2+1, archive the Trello card.
 
     The completion date comes from *when the card was checked*, not when this sync
-    runs — see `log_habit_from_card` for why.
+    runs; see `log_habit_from_card` for why. The same date picks the daily-focus
+    record: a 2+1 task checked last night ticks last night's record.
 
     Returns:
       'completed' — task was open, now marked done; archive triggered.
       'already_done' — task was already done; archive triggered (cleans up Trello state).
       'unknown' — task id not found in tasks.ndjson; no changes; no archive.
     """
-    tasks_path = tasks_path or REPO_ROOT / "6-actions/_data/tasks.ndjson"
-    events_path = events_path or REPO_ROOT / "6-actions/_data/task_events.ndjson"
+    tasks_path = tasks_path or REPO_ROOT / "6-tasks/_data/tasks.ndjson"
+    events_path = events_path or REPO_ROOT / "6-tasks/_data/task_events.ndjson"
+    focus_path = focus_path or REPO_ROOT / "6-tasks/_data/daily-focus.ndjson"
     log_date = log_date or _local_date_from_iso(card.get("date_completed")) or _today_mt()
 
     tasks = _read_ndjson(tasks_path)
-    task_idx = next((i for i, t in enumerate(tasks) if t.get("id") == card["pfc_id"]), None)
-    if task_idx is None:
+    focus = _read_ndjson(focus_path)
+    # New event rows only: the events file is appended to, never rewritten.
+    new_events = []
+    status, info = complete_task(tasks, new_events, focus, card["pfc_id"], log_date, "trello",
+                                 focus_date=log_date)
+    if status == "unknown":
         return "unknown"
 
-    task = tasks[task_idx]
-    if task.get("status") == "done":
-        archive_card(api_key, token, card["trello_card_id"])
-        return "already_done"
-
-    # Update in place
-    task["status"] = "done"
-    task["completed"] = log_date
-    tasks[task_idx] = task
-    _write_ndjson(tasks_path, tasks)
-
-    # Log event
-    _append_ndjson(events_path, {
-        "task_id": card["pfc_id"],
-        "event": "completed",
-        "timestamp": log_date,
-        "source": "trello",
-    })
+    if status == "completed":
+        _write_ndjson(tasks_path, tasks)
+        for event in new_events:
+            _append_ndjson(events_path, event)
+        if info["focus_updated"]:
+            _write_ndjson(focus_path, focus)
 
     archive_card(api_key, token, card["trello_card_id"])
-    return "completed"
+    return status
 
 
 def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None, log_date=None):
@@ -168,7 +163,9 @@ def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None
     *with* writeback — would otherwise read yesterday's still-checked card as a
     fresh completion and stamp it today.
 
-    Returns 'logged' or 'already_logged'. Card is NOT archived — habits cycle on next render.
+    Returns 'logged', 'updated', or 'already_logged'. 'updated' means the day already
+    had a missed or skipped row, now marked done in place. Card is NOT archived:
+    habits cycle on next render.
     """
     daily_path = daily_path or REPO_ROOT / "7-habits/_data/habits-daily.ndjson"
     monthly_path = monthly_path or REPO_ROOT / "7-habits/_data/habits-monthly.ndjson"
@@ -185,66 +182,14 @@ def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None
         return "unknown"
 
     existing = _read_ndjson(log_path)
-    # Idempotency: same habit + same date already logged?
-    for r in existing:
-        if r.get("habit_id") == habit_id and r.get("date") == log_date and r.get("completed"):
-            return "already_logged"
-
-    _append_ndjson(log_path, {
-        "habit_id": habit_id,
-        "date": log_date,
-        "completed": True,
-        "source": "trello",
-    })
-    return "logged"
-
-
-def move_2plus1_from_actions(api_key, token, board_id, focus_task_ids):
-    """Move cards with given pfc_ids from ✅ Actions to ✅ 2+1. Returns count moved."""
-    if not focus_task_ids:
-        return 0
-    target_ids = set(focus_task_ids)
-    lists = list_lists(api_key, token, board_id, filter_="open")
-    list_id_to_name = {l["id"]: l["name"] for l in lists}
-    name_to_id = {v: k for k, v in list_id_to_name.items()}
-    if "✅ 2+1" not in name_to_id or "✅ Actions" not in name_to_id:
-        return 0
-
-    twoplus1_id = name_to_id["✅ 2+1"]
-    actions_id = name_to_id["✅ Actions"]
-
-    raw_cards = list_cards_on_board(api_key, token, board_id, filter_="open")
-    moved = 0
-    for c in raw_cards:
-        if c.get("idList") != actions_id:
-            continue
-        fm = parse_pfc_frontmatter(c.get("desc", ""))
-        if fm["pfc-id"] in target_ids:
-            update_card(api_key, token, c["id"], idList=twoplus1_id)
-            moved += 1
-    return moved
-
-
-def move_back_uncompleted(api_key, token, board_id):
-    """At evening, move any card still in ✅ 2+1 (and not completed) back to ✅ Actions. Returns count."""
-    lists = list_lists(api_key, token, board_id, filter_="open")
-    list_id_to_name = {l["id"]: l["name"] for l in lists}
-    name_to_id = {v: k for k, v in list_id_to_name.items()}
-    if "✅ 2+1" not in name_to_id or "✅ Actions" not in name_to_id:
-        return 0
-    twoplus1_id = name_to_id["✅ 2+1"]
-    actions_id = name_to_id["✅ Actions"]
-
-    raw_cards = list_cards_on_board(api_key, token, board_id, filter_="open")
-    moved = 0
-    for c in raw_cards:
-        if c.get("idList") != twoplus1_id:
-            continue
-        if c.get("dueComplete"):
-            continue
-        update_card(api_key, token, c["id"], idList=actions_id)
-        moved += 1
-    return moved
+    # One row per habit and date. A new row is appended; a missed row changed in
+    # place means the file is rewritten.
+    status = log_habit(existing, habit_id, log_date, "trello")
+    if status == "logged":
+        _append_ndjson(log_path, existing[-1])
+    elif status == "updated":
+        _write_ndjson(log_path, existing)
+    return status
 
 
 def sync_completed(api_key, token, board_id):
@@ -263,7 +208,8 @@ def sync_completed(api_key, token, board_id):
                 counters["tasks_unknown"] += 1
         elif c["list_name"] in {HABIT_DAILY_LIST, HABIT_MONTHLY_LIST}:
             r = log_habit_from_card(api_key, token, c)
-            if r == "logged":
+            # A missed row marked done is a write too, so the board renders after it.
+            if r in ("logged", "updated"):
                 counters["habits_logged"] += 1
             elif r == "already_logged":
                 counters["habits_already_logged"] += 1
@@ -283,7 +229,7 @@ def main(argv):
         return 1
 
     if not argv:
-        print("Usage: trello_writeback.py {poll | sync | move-2plus1 <task-id>... | move-back-uncompleted}", file=sys.stderr)
+        print("Usage: trello_writeback.py {poll | sync}", file=sys.stderr)
         return 1
 
     cmd = argv[0]
@@ -296,17 +242,6 @@ def main(argv):
     if cmd == "sync":
         counters = sync_completed(KEY, TOK, BOARD)
         print(json.dumps(counters, indent=2))
-        return 0
-
-    if cmd == "move-2plus1":
-        focus_ids = argv[1:]
-        moved = move_2plus1_from_actions(KEY, TOK, BOARD, focus_ids)
-        print(f"Moved {moved} cards Actions → ✅ 2+1")
-        return 0
-
-    if cmd == "move-back-uncompleted":
-        moved = move_back_uncompleted(KEY, TOK, BOARD)
-        print(f"Moved {moved} cards ✅ 2+1 → Actions")
         return 0
 
     print(f"Unknown command: {cmd}", file=sys.stderr)

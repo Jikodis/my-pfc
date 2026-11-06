@@ -227,9 +227,13 @@ def extract_health(h):
         # total AZM minus session AZM — it holds UNTRACKED workouts, walking, and
         # chores as well as an elevated resting heart rate, so it is NOT a stress
         # or anxiety measure.
+        # workout_minutes is DELIBERATELY NOT a correlation variable: a session
+        # started on the watch and not stopped runs long, so the timer duration (and
+        # calories, and avg_hr_bpm) can badly overstate the real effort. Only the
+        # zone-based fields survive an un-stopped timer, because idle minutes earn no
+        # active-zone credit. Do not add duration back in.
         "workout_azm":      h.get("workout_azm"),
         "workout_vig_min":  h.get("workout_vigorous_minutes"),
-        "workout_minutes":  h.get("workout_minutes"),
         "workout_count":    h.get("workout_count"),
         "azm_outside":      h.get("azm_outside_workouts"),
         "first_workout":    h.get("first_workout_time"),
@@ -287,7 +291,6 @@ def load_records():
             # Tracked workouts
             "workout_azm":     hx["workout_azm"],
             "workout_vig_min": hx["workout_vig_min"],
-            "workout_minutes": hx["workout_minutes"],
             "azm_outside":     hx["azm_outside"],
             "workout_session": (1 if hx["workout_count"] else 0) if hx["workout_count"] is not None else None,
             "workout_start_min": qqrt.wake_offset_minutes(hx["first_workout"], r["date"]),
@@ -331,7 +334,6 @@ VARIABLES = {
     "azm":          "Active zone minutes",
     "workout_azm":     "Workout AZM (tracked sessions)",
     "workout_vig_min": "Vigorous+peak minutes (tracked)",
-    "workout_minutes": "Workout minutes (tracked)",
     "azm_outside":     "AZM outside tracked workouts",
     "workout_session": "Tracked a workout",
     "workout_start_min": "First workout start (min past midnight)",

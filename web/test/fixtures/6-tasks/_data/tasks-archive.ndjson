@@ -1,0 +1,2 @@
+{"id":"task-1","status":"open","description":"An older wording of the porch light task","size":"S","impact":"high","urgency":"high","area":"household","project":"none","deadline":null,"created":"2026-08-01","completed":null}
+{"id":"task-7","status":"done","description":"Return the broken lamp","size":"S","impact":"low","urgency":"low","area":"household","project":"none","deadline":null,"created":"2026-08-02","completed":"2026-08-20"}

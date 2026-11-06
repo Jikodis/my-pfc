@@ -1,10 +1,17 @@
 {%- comment -%}
-Shared partials for PFC Today. Included by every size so the done/not-done
-convention stays identical across views.
+PFC Tasks: mirrors the "Tasks" band of the web home page (tasks_payload in
+automations/scripts/trmnl_home.py). Today's picks (Pick 1, Pick 2, Bonus) with done
+state as [x] / [ ] text, done of total, the no-picks note, and after about 6 PM the
+tomorrow label and tomorrow's picks. Then "What needs you" (title + why) and
+"Hand to an agent" (titles).
 
-E-ink has no emoji font, so completion is text: [x] / [ ]. Never swap these for
-check-mark emoji — they render as empty boxes on the device.
+E-ink rules: no emoji, no inline styles, framework classes only.
 {%- endcomment -%}
-
-{%- capture done_mark -%}[x]{%- endcapture -%}
-{%- capture open_mark -%}[ ]{%- endcapture -%}
+{% template pick_row %}
+<div class="item">
+  <div class="meta"></div>
+  <div class="content">
+    <span class="{{ text_class }}" data-clamp="{{ clamp }}">{% if pick.done %}[x]{% else %}[ ]{% endif %} {{ pick.kind }}: {{ pick.title }}</span>
+  </div>
+</div>
+{% endtemplate %}

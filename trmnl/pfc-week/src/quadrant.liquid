@@ -7,7 +7,7 @@
           <div class="content">
             <span class="label label--small">{{ day.label }}</span>
             {% for event in day.events limit: 2 %}
-              <span class="label label--small label--gray" data-clamp="1">{{ event.time }} {{ event.title }}</span>
+              <span class="label label--small label--gray 1bit:text--black" data-clamp="1">{{ event.time }} {{ event.title }}</span>
             {% endfor %}
           </div>
         </div>
@@ -15,7 +15,7 @@
         <div class="item">
           <div class="meta"></div>
           <div class="content">
-            <span class="label label--small label--gray">No events cached</span>
+            <span class="label label--small label--gray 1bit:text--black">No events cached</span>
           </div>
         </div>
       {% endfor %}
@@ -24,5 +24,5 @@
 </div>
 
 <div class="title_bar">
-  <span class="title">Week</span>
+  <span class="title">{{ title }}</span>
 </div>

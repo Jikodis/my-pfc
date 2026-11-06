@@ -1,11 +1,29 @@
 {%- comment -%}
-PFC Areas — life-wheel status per life area, mirroring the Trello Areas list.
-Red/yellow areas lead with their notes (the why); green areas hold a compact
-list. The rated date is always shown — past ~40 days the wheel itself is the
-stale thing worth knowing (`stale`).
+PFC Areas - mirrors the Areas band of the web home page (`/`): two groups, the
+life wheel and the household rooms, each with its rated date, a stale flag and
+its rows worst first. Payload: `trmnl_home.areas_payload`.
 
-E-ink rules: no emoji, no inline styles — framework classes only.
-Status is the colour spelled out in caps (RED / YELLOW / GREEN) — never
-punctuation, which needs a legend the screen doesn't carry. Areas needing
-attention sort red first, then yellow.
+E-ink rules: no emoji, no inline styles - framework classes only. The light is a
+word (RED / YELLOW / GREEN), never a symbol; RED is filled, YELLOW outlined,
+GREEN plain, so the rows that need attention stand out at a glance.
 {%- endcomment -%}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled w--20 no-shrink">{{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline w--20 no-shrink">{{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} w--20 no-shrink">{{ status }}</span>
+{%- endif -%}
+{% endtemplate %}
+{% template group_head %}
+<div class="flex flex--row flex--left gap--small">
+  <span class="title {{ title_size }}">{{ group.label }}</span>
+  <span class="label {{ size }}">{{ group.green }} of {{ group.rows.size }} GREEN</span>
+</div>
+{%- if group.stale -%}
+<span class="label {{ size }} label--gray 1bit:text--black">{{ group.rated }} - stale, re-rate it</span>
+{%- else -%}
+<span class="label {{ size }} label--gray 1bit:text--black">{{ group.rated }}</span>
+{%- endif -%}
+{% endtemplate %}

@@ -122,8 +122,7 @@ is only correct on a TRMNL+ account — otherwise trim the builder.
 
 The limits are why **the git post-commit hook does not push to TRMNL** even though it
 does render Trello. A working session commits many times an hour and would exhaust the
-quota, leaving the screen stale behind HTTP 429. Push from the evening check-in and on
-demand instead.
+quota, leaving the screen stale behind HTTP 429. Push on demand instead.
 
 2 KB also forces the right habit: shape the data in Python and let Liquid iterate flat
 lists. That matches TRMNL's own "data first" rule — the design system's hard gate is
@@ -139,9 +138,9 @@ to get wrong.
 
 | How the change happens | When the repo knows |
 |---|---|
-| Agent action — evening check-in, "change my 2+1", complete a task in chat | **Immediately.** The skill writes NDJSON and auto-commits in the same turn. |
-| Checking a card off in the Trello widget | Only when `trello_writeback.py` runs — evening check-in, or on demand |
-| Auto-fetched data (sleep, activity → the pulse screens) | Only when the scheduled fetch runs |
+| Agent or page action — the tour, "change my 2+1", complete a task in chat or on the web page | **Immediately.** The skill or `web_write.py` writes NDJSON and commits in the same step. |
+| Checking a card off in the Trello widget | Only when `trello_writeback.py` runs — the daily sync job, or on demand |
+| Auto-fetched data (sleep, activity → the Body first screen) | Only when the scheduled fetch runs |
 
 So agent-driven state is already as fresh as it gets. The lag is confined to changes
 that originate *outside* the repo: phone checkoffs and scheduled fetches. A pulse screen
@@ -282,29 +281,25 @@ repo is canonical.
 
 ## Current plugins
 
-| Plugin | Strategy | Shows | Builder |
+Each screen mirrors one band of the web home page, in the page's order, and all of them
+use the polling strategy.
+
+| Plugin | Web band | Shows | Builder |
 |---|---|---|---|
-| [`pfc-today`](../trmnl/pfc-today/) | polling | The focus day's 2+1 and last day rating | `build_pfc_today` |
-| [`pfc-front-of-mind`](../trmnl/pfc-front-of-mind/) | polling | Active grounding anchors, smaller views rotating by the clock | `build_pfc_front_of_mind` |
-| [`pfc-habits`](../trmnl/pfc-habits/) | polling | Daily habits (today + 7-day counts), monthly habits vs target | `build_pfc_habits` |
-| [`pfc-pulse`](../trmnl/pfc-pulse/) | polling | Daily Pulse levers vs target, verdict, tonight's one move | `build_pfc_pulse` |
-| [`pfc-focus`](../trmnl/pfc-focus/) | polling | Current Focus: pursuits with landings, foundations, consuming | `build_pfc_focus` |
-| [`pfc-projects`](../trmnl/pfc-projects/) | polling | Active projects: percent complete + next 1-2 open tasks each | `build_pfc_projects` |
-| [`pfc-trends`](../trmnl/pfc-trends/) | polling | 30-day rating chart with 7-day rolling mean + tiles | `build_pfc_trends` |
-| [`pfc-week`](../trmnl/pfc-week/) | polling | Week at a Glance from `data/calendar-cache.json` (recurring filtered) | `build_pfc_week` |
-| [`pfc-compass`](../trmnl/pfc-compass/) | polling | One value, area statement, vision, or life question per refresh | `build_pfc_compass` |
-| [`pfc-back-on-track`](../trmnl/pfc-back-on-track/) | polling | Off-track intentions — RED/YELLOW focus, stalled projects, habit gaps — each with the smallest step back in | `build_pfc_back_on_track` |
-| [`pfc-pulse-trend`](../trmnl/pfc-pulse-trend/) | polling | 30-day pulse: per-lever days-on-target, days primed, the standing fix | `build_pfc_pulse_trend` |
-| [`pfc-areas`](../trmnl/pfc-areas/) | polling | Life-wheel status per area: red/yellow with notes, greens holding | `build_pfc_areas` |
+| [`pfc-values`](../trmnl/pfc-values/) | Values | Your values in rank order and the question of the day | `trmnl_home.build_pfc_values` |
+| [`pfc-areas`](../trmnl/pfc-areas/) | Areas | Life wheel and household lights, worst first, with notes | `trmnl_home.build_pfc_areas` |
+| [`pfc-visions`](../trmnl/pfc-visions/) | Visions | Active visions, today's vision and the value it serves | `trmnl_home.build_pfc_visions` |
+| [`pfc-focus`](../trmnl/pfc-focus/) | Focuses | Foundations, Active Pursuits, Currently Consuming: light and progress | `trmnl_home.build_pfc_focus` |
+| [`pfc-projects`](../trmnl/pfc-projects/) | Projects | Active projects: percent done and the next task | `trmnl_home.build_pfc_projects` |
+| [`pfc-pulse`](../trmnl/pfc-pulse/) | Body first | Last night's sleep, the exercise habit today, the verdict and tonight's move, each lever with last night and nights on target over 30 | `trmnl_home.build_pfc_body` |
+| [`pfc-today`](../trmnl/pfc-today/) | Tasks | Today's 2+1 (tomorrow's too after about 6 PM), what needs you, hand-offs | `trmnl_home.build_pfc_today` |
+| [`pfc-habits`](../trmnl/pfc-habits/) | Habits | Daily and monthly habits: logged today, yesterday, or not | `trmnl_home.build_pfc_habits` |
+| [`pfc-trends`](../trmnl/pfc-trends/) | Trends | How the last 30 days turned out: day rating, energy, mood, focus, picks done | `trmnl_home.build_pfc_trends` |
+| [`pfc-front-of-mind`](../trmnl/pfc-front-of-mind/) | Front of mind | Active anchors, smaller views rotating by the clock | `trmnl_push.build_pfc_front_of_mind` |
+| [`pfc-week`](../trmnl/pfc-week/) | Week | The next seven days from `data/calendar-cache.json` (filtered per `config/trello_calendar_filters.yaml`; multi-day events span their range; every event shown) | `trmnl_push.build_pfc_week` |
 
-Thirteen screens is the full set the repo ships, not a target. A playlist of two or
-three you actually read beats thirteen you scroll past.
-
-`pfc-today`'s **focus day** is tomorrow once tomorrow's 2+1 has been staged, otherwise
-today. The evening check-in stages tomorrow's pick and TRMNL's next poll picks it up
-(the endpoint builds per request), so the screen flips to the coming day at the
-check-in instead of sitting on the day just closed — which is what you want on the
-wall overnight and at breakfast.
+Eleven screens is the full set the repo ships, not a target. A playlist of two or three
+you actually read beats eleven you scroll past.
 
 ### Data each screen needs before it is worth a slot
 
@@ -313,20 +308,23 @@ one to the playlist, check its source has real content:
 
 | Plugin | Needs |
 |---|---|
-| `pfc-today` | `6-actions/_data/daily-focus.ndjson` — set a 2+1 |
-| `pfc-habits` | habits defined in `config/habit_schema.yaml`, plus a few days of logs |
-| `pfc-pulse`, `pfc-pulse-trend`, `pfc-trends` | `data/day-tracking.ndjson` with `health` populated — a wearable connector, or manual entry |
+| `pfc-values` | ranked values in `1-values/values.md` (numbered), and questions in `0-me/questions.md` |
+| `pfc-areas` | `2-areas/_data/life-wheel.ndjson`, and `2-areas/_data/household-status.ndjson` for the household group |
+| `pfc-visions` | active visions in `3-visions/` |
 | `pfc-focus` | `4-focus/_data/focus.ndjson` |
-| `pfc-projects`, `pfc-back-on-track` | active projects and open tasks |
-| `pfc-compass` | ranked values (numbered), area statements written as quoted lines, or active visions |
-| `pfc-areas` | `2-areas/_data/life-wheel.ndjson` |
+| `pfc-projects` | active projects and open tasks |
+| `pfc-pulse`, `pfc-trends` | `data/day-tracking.ndjson` with `health` populated — a wearable connector, or manual entry — and a few rated days |
+| `pfc-today` | `6-tasks/_data/daily-focus.ndjson` — set a 2+1 |
+| `pfc-habits` | habits defined in `config/habit_schema.yaml`, plus a few days of logs |
 | `pfc-front-of-mind` | `data/grounding.ndjson` |
-| `pfc-week` | `data/calendar-cache.json`, written by the calendar fetch |
+| `pfc-week` | `data/calendar-cache.json`, written by the daily sync job or `/pfc-render-trello` |
 
 ### Tuning the pulse to your own data
 
-`pfc-pulse` and `pfc-pulse-trend` render whatever `automations/scripts/pulse.py`
-computes — they hold no thresholds of their own. That module ships generic
+`pfc-pulse` renders whatever `automations/scripts/pulse.py` computes — it holds no
+thresholds of its own. Each lever row carries last night's reading and the nights on
+target over the last 30 (`build_pfc_pulse` and `build_pfc_pulse_trend` in
+`trmnl_push.py`, folded together by `home_data`). That module ships generic
 sleep-guidance bands, which are a starting point, **not findings about you**.
 
 Retune without touching code by overriding the bands under `health.pulse` in
@@ -337,9 +335,33 @@ separate a good day from a mediocre one does not earn a status light. `PULSE_FIX
 the same module holds the concrete "when this is off, do THIS" line each lever shows —
 rewrite those in your own words; a fix you would not actually do is dead text on a wall.
 
-The one thing the TRMNL side owns is the *today* row on `pfc-pulse`: the exercise habit,
-set by `EXERCISE_HABIT_ID` / `EXERCISE_LABEL` at the top of `trmnl_push.py`. Point it at
-your own movement habit id from `config/habit_schema.yaml`.
+The exercise row is your movement habit, set by `EXERCISE_HABIT_ID` / `EXERCISE_LABEL`
+in `automations/scripts/pfc_writes.py` — one setting the web page and the wall both
+read. Point it at your own habit id from `config/habit_schema.yaml`.
+
+## Changing what the wall shows
+
+Each screen is built from the same `home_data.build_home` call the web page makes
+(`automations/scripts/trmnl_home.py`), so the wall and the page never disagree. A band
+added to or removed from the page gets the same change here.
+
+**Add a screen** (repo side, then trmnl.com):
+
+1. Add a builder to `trmnl_home.py` and register it in `BUILDERS` (`trmnl_push.py`).
+2. Copy a plugin folder, drop the `id:` line from its `src/settings.yml`, write the
+   markup, `trmnl/bin/preview <plugin>` and read the PNGs.
+3. `cd trmnl/<plugin> && echo y | ../bin/trmnlp push` creates the private plugin on
+   trmnl.com; keep the `id:` line the push writes back, `git restore` the rest.
+4. On trmnl.com, open the new plugin: polling URL `https://<your-endpoint>/p/<plugin>`,
+   polling header `Authorization: Bearer <TRMNL_SERVE_TOKEN>`, then Save.
+5. Add it to the device's playlist (Playlists, Add item), in the page's order.
+6. On the server: `systemctl --user restart pfc-trmnl-serve` so the endpoint loads the
+   new builder (the repo-sync timer pulls the code within 5 minutes; the restart is
+   still needed).
+
+**Remove a screen:** delete its folder and builder, then on trmnl.com remove it from the
+playlist and delete the private plugin. A plugin left on the playlist after its builder
+is gone shows an error screen.
 
 ## References
 

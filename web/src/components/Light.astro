@@ -1,0 +1,14 @@
+---
+/**
+ * A status never rests on colour alone: the dot carries the colour, the word
+ * carries the meaning. Python writes several spellings ('red', 'RED') and two
+ * stand-ins for a reading it does not have ('NO DATA', '[-]'), so anything that is
+ * not one of the three light words reads as a muted "No data".
+ */
+interface Props { status: string }
+const LIGHTS = new Set(['green', 'yellow', 'red'])
+const s = (Astro.props.status ?? '').toLowerCase()
+const known = LIGHTS.has(s)
+const word = known ? s.charAt(0).toUpperCase() + s.slice(1) : 'No data'
+---
+<span class={`light ${known ? `light-${s}` : 'muted'}`}><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor" /></svg> {word}</span>

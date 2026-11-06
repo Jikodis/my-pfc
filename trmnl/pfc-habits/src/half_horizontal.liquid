@@ -1,19 +1,29 @@
-<div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="2">
-    <div class="column">
-      {% for habit in daily %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
-          </div>
-        </div>
-      {% endfor %}
+<div class="layout layout--col layout--top gap--small">
+  <div class="col gap--small">
+    <div class="flex flex--row flex--between">
+      <span class="label label--small label--gray 1bit:text--black" data-clamp="1">{{ horizon }}</span>
+      <span class="label label--small no-shrink">{% for group in groups %}{{ group.label }} {{ group.logged }}/{{ group.count }}{% unless forloop.last %} · {% endunless %}{% endfor %}</span>
+    </div>
+    <div class="columns" data-overflow-max-cols="3">
+      <div class="column">
+        {% for group in groups %}
+          {% for row in group.rows %}
+            {% if row.state == "Not logged" %}
+              <div class="item">
+                <div class="meta"></div>
+                <div class="content">
+                  <span class="label label--small" data-clamp="1">{{ row.title }}</span>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </div>
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Habits</span>
-  <span class="instance">{{ daily_done }}/{{ daily_total }} today</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">Not logged · {{ date }}</span>
 </div>

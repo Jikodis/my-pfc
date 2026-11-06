@@ -76,7 +76,7 @@ If they already named the type in their message, skip the question and go to Ste
 
 **If several apply at once (e.g. A + C + D + E): that's usually ONE thing — depletion, an empty tank — wearing several masks, not four separate problems.** Default to *settle + refuel + protect tomorrow*. No initiation push. If something genuinely can't wait (a promise, a hard deadline), use the **mixed-state settle→activate sequence** in the lever menu below — never an activating spike while overwhelmed.
 
-**Also establish context.** If it's not clear from their message, ask: "Work or personal?" This changes which task list Types A and C pull from. If they say work, do NOT pull from `6-actions/_data/tasks.ndjson` — those are personal tasks. Use the work path below.
+**Also establish context.** If it's not clear from their message, ask: "Work or personal?" This changes which task list Types A and C pull from. If they say work, do NOT pull from `6-tasks/_data/tasks.ndjson` — those are personal tasks. Use the work path below.
 
 ---
 
@@ -107,7 +107,7 @@ If music alone isn't moving you after a few minutes:
 **If personal context:**
 
 ```bash
-jq -c 'select(.status == "open" and (.size == "XS" or .size == "S"))' 6-actions/_data/tasks.ndjson \
+jq -c 'select(.status == "open" and (.size == "XS" or .size == "S"))' 6-tasks/_data/tasks.ndjson \
   | jq -s -r 'sort_by(if .size == "XS" then 0 else 1 end) | .[:3][]
               | "[\(.size)] \(.id): \(.description) (\(.location))"'
 ```
@@ -146,7 +146,7 @@ If cardio isn't accessible right now:
 
 **Second:** stand up and leave the room the task is in. Different space, then 3–5 minutes of vigorous movement (jumping jacks, run in place). Environmental change plus movement can partially break the lock.
 
-**Third — re-orient.** Read the day's 2+1 from `6-actions/_data/daily-focus.ndjson`. Is the thing you're locked into actually one of them? If not, you're off-plan; switch to one of the 2+1 for at least 30 minutes before returning.
+**Third — re-orient.** Read the day's 2+1 from `6-tasks/_data/daily-focus.ndjson`. Is the thing you're locked into actually one of them? If not, you're off-plan; switch to one of the 2+1 for at least 30 minutes before returning.
 
 **Structural note:** ordinary alarms don't penetrate lock-in. What can work: an alarm that requires a physical action to dismiss (not a passive ping), a pre-set external obligation with real consequences (a pickup, a scheduled live event), or another person physically entering and talking to you. The most reliable always-available version is anchoring stop-time to a downstream *running state* — "cooking starts at X," "the household is home at Y" — rather than to a clock.
 

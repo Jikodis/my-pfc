@@ -1,0 +1,109 @@
+---
+import ChatDrawer from '../components/ChatDrawer.astro'
+import { COMMANDS } from '../lib/chat/prompts'
+import { META_POLICY } from '../lib/csp'
+
+interface Props { title: string; lede?: string }
+const { title, lede } = Astro.props
+const path = Astro.url.pathname
+// Two tabs: the one page, and the task list.
+const tabs: [string, string][] = [['/', 'Now'], ['/tasks', 'Tasks']]
+const pageTitle = title === 'PFC' ? title : `${title} | PFC`
+---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Defense in depth for the chat drawer, which renders sanitized markdown replies.
+     The policy itself lives in src/lib/csp.ts, which src/middleware.ts also
+     reads, so the tag and the response header cannot drift apart. The header carries
+     one directive this tag cannot, frame-ancestors, because a browser ignores that one
+     inside a meta tag and logs an error on every page. -->
+<meta http-equiv="content-security-policy" content={META_POLICY} />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<title>{pageTitle}</title>
+<!-- Before the first paint, so a page opened with the chat docked does not jump sideways. -->
+<script is:inline>try { if (localStorage.getItem('pfc.chat.open') === '1') document.documentElement.classList.add('chat-docked') } catch {}</script>
+<style is:global>
+  :root { --bg:#fdf6e3; --panel:#eee8d5; --text:#657b83; --strong:#586e75; --muted:#93a1a1; --border:#dcd4bc;
+    --blue:#268bd2; --green:#859900; --yellow:#b58900; --red:#dc322f; --violet:#6c71c4; --cyan:#2aa198; --orange:#cb4b16; --magenta:#d33682; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 -apple-system,"Segoe UI",sans-serif; overflow-wrap:break-word; }
+  a { color:var(--blue); }
+  header { background:var(--panel); border-bottom:1px solid var(--border); padding:10px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  header nav { display:flex; gap:4px; flex-wrap:wrap; }
+  header nav a { text-decoration:none; color:var(--text); padding:4px 10px; border-radius:4px; }
+  header nav a[aria-current="page"] { background:var(--bg); color:var(--strong); font-weight:600; }
+  header .chat-open { margin-left:auto; }
+  .tour-start { background:var(--blue); color:var(--bg); border:0; border-radius:4px; padding:5px 12px; font-weight:600; text-decoration:none; }
+  main { max-width:1200px; margin:0 auto; padding:20px 16px 48px; }
+  h1 { color:var(--strong); font-size:24px; margin:0 0 4px; }
+  h2 { color:var(--strong); font-size:18px; margin:28px 0 10px; }
+  .lede, .muted { color:var(--muted); }
+  /* Secondary text that carries information. Muted sits at about 2:1 on a panel, so it is
+     only for empty-state messages and minor labels, never for a reason, a rate, or a date. */
+  .sub { color:var(--text); font-size:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:12px 14px; min-width:0; }
+  .panel h2 { margin-top:0; }
+  .panel ul { margin:0; padding-left:20px; }
+  .panel li { margin-bottom:6px; }
+  .tag { display:inline-block; font:12px ui-monospace,Menlo,monospace; border:1px solid var(--border); border-radius:10px; padding:0 7px; color:var(--strong); background:var(--bg); white-space:nowrap; }
+  .scroll-x { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--strong); background:var(--panel); position:sticky; top:0; white-space:nowrap; }
+  /* A heading with a light beside it. Astro drops the whitespace between an element
+     and an expression on separate lines, so the gap has to come from the layout. */
+  .heading-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .light { white-space:nowrap; }
+  .light-red { color:var(--red); } .light-yellow { color:var(--yellow); } .light-green { color:var(--green); }
+  .done { text-decoration:line-through; color:var(--muted); }
+  .overdue { color:var(--red); }
+  /* The first column of a long table: wide enough to read a whole task in a line or two. */
+  td.wide { min-width:260px; max-width:520px; }
+  td.nowrap { white-space:nowrap; }
+  select, button, input[type=search], input[type=text] { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:5px 8px; color:var(--strong); font:inherit; }
+  button { cursor:pointer; }
+  /* Buttons that hand the chat drawer a prompt: a row of them under a heading, or a
+     pair at the end of a table row. */
+  .actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:10px 0 4px; }
+  button.act { font-size:13px; padding:1px 8px; }
+  td.acts { white-space:nowrap; }
+  li .act { margin-left:6px; }
+  /* A second list inside one panel, such as tomorrow's picks under today's. */
+  .panel-label { margin:12px 0 4px; color:var(--strong); font-weight:600; }
+  .quick-add { display:flex; gap:6px; margin-top:12px; }
+  .quick-add input { flex:1; min-width:0; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0; }
+  .filters label { font-size:14px; white-space:nowrap; }
+  progress { width:90px; height:9px; vertical-align:middle; -webkit-appearance:none; appearance:none; border:1px solid var(--border); border-radius:5px; background:var(--bg); }
+  progress::-webkit-progress-bar { background:var(--bg); border-radius:5px; }
+  progress::-webkit-progress-value { background:var(--blue); border-radius:5px; }
+  progress::-moz-progress-bar { background:var(--blue); border-radius:5px; }
+  details > summary { cursor:pointer; color:var(--strong); }
+  .prose { white-space:pre-wrap; margin:6px 0 0; }
+  code, .mono { font:13px ui-monospace,Menlo,monospace; }
+</style>
+</head>
+<body>
+<header>
+  <nav>{tabs.map(([href, label]) => <a href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}</nav>
+  {/* On the home page the tour runs in place (src/scripts/tour-client.ts); anywhere
+      else the link opens the home page with the tour started. */}
+  {path === '/'
+    ? <button type="button" id="tour-start" class="tour-start">Walk me through</button>
+    : <a href="/?tour=1" class="tour-start">Walk me through</a>}
+  {/* A bare skill name has nothing to check first, so it sends at once. */}
+  <button type="button" data-chat-prompt={COMMANDS.stuck} data-chat-send="1">Stuck</button>
+  <button type="button" id="chat-open" class="chat-open" aria-expanded="false" aria-controls="chat-drawer" title="Chat with Claude Code (Cmd+K)">Chat</button>
+</header>
+<main>
+  <h1>{title}</h1>
+  {lede && <p class="lede">{lede}</p>}
+  <slot />
+</main>
+<ChatDrawer />
+</body>
+</html>

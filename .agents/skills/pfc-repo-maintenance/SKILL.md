@@ -12,7 +12,7 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 | Domain | Checked |
 |---|---|
 | **Validation** | `scripts/validate.sh` (NDJSON parse, schema lint, skill frontmatter) |
-| **Cross-file integrity** | task.project → projects.ndjson; task.depends_on → tasks.ndjson or tasks-archive.ndjson (no self-reference); daily-focus ids → tasks.ndjson; habit.area → `2-areas/`; project.area → `2-areas/`; insight.area → `2-areas/`; insight.graduated_to (when set) resolves to a real task/project/habit; finding.source_hypothesis_id → hypotheses.ndjson; finding.superseded_by → findings.ndjson; supplements.ndjson active `started` date not in the future; supplements.ndjson schema referenced in `docs/data-model.md`; insights.ndjson + insight_schema referenced in `docs/data-model.md`; habits-daily.ndjson: any record with `skipped:true` must have `completed:false` and a non-empty `skip_reason`; tasks.ndjson: any record with `deferred:true` must have `status:"open"` and a non-empty `deferred_reason` (a done task cannot be parked, and a park with no stated reason is unrecoverable at un-park time); focus.area → `2-areas/` and the pursuit cap ≤6 (both covered by validator §14 — reference it, don't re-implement); focus.link.ref (when set) resolves to a vision slug / habit id / project id; grounding.area (when set) → `2-areas/` |
+| **Cross-file integrity** | task.project → projects.ndjson; task.depends_on → tasks.ndjson or tasks-archive.ndjson (no self-reference); daily-focus ids (`critical`, `bonus` and `skipped`) → tasks.ndjson or tasks-archive.ndjson; habit.area → `2-areas/`; project.area → `2-areas/`; insight.area → `2-areas/`; insight.graduated_to (when set) resolves to a real task/project/habit; finding.source_hypothesis_id → hypotheses.ndjson; finding.superseded_by → findings.ndjson; supplements.ndjson active `started` date not in the future; supplements.ndjson schema referenced in `docs/data-model.md`; insights.ndjson + insight_schema referenced in `docs/data-model.md`; habits-daily.ndjson: any record with `skipped:true` must have `completed:false` and a non-empty `skip_reason`; tasks.ndjson: any record with `deferred:true` must have `status:"open"` and a non-empty `deferred_reason` (a done task cannot be parked, and a park with no stated reason is unrecoverable at un-park time); focus.area → `2-areas/` and the pursuit cap ≤6 (both covered by validator §14 — reference it, don't re-implement); focus.link.ref (when set) resolves to a vision slug / habit id / project id; grounding.area (when set) → `2-areas/` |
 | **Orphans** | Scripts called by no skill; skills referencing missing files/scripts; empty NDJSON files referenced in skills |
 | **Stale** | tasks.ndjson > 200 lines; done tasks not archived; unpushed commits; docs untouched 90+ days; expected notes subdirectories (`notes/daily/`, `notes/yearly/`) exist (`notes/weekly/` + `notes/monthly/` are archival — the ritual weekly/monthly check-ins were replaced by the rolling-review ledger, so nothing writes there anymore and they are not required) |
 | **Docs accuracy** | CLAUDE.md claims vs reality; every data/ file documented in `docs/data-model.md`; every skill listed exists; no contradictions between CLAUDE.md and `docs/`; `data/findings.ndjson` and `config/finding_schema.yaml` both present in `docs/data-model.md`; `data/supplements.ndjson` and `config/supplement_schema.yaml` both present in `docs/data-model.md`; `data/hypotheses.ndjson` and `config/hypothesis_schema.yaml` both present in `docs/data-model.md`; `4-focus/_data/focus.ndjson` + `config/focus_schema.yaml` + `config/focus.yaml` all present; `data/grounding.ndjson` + `config/grounding_schema.yaml` both present; `data/review-ledger.ndjson` + `config/review_ledger_schema.yaml` both present |
@@ -22,11 +22,12 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 | **Tool-usage contradictions** | No doc recommends a tool that CLAUDE.md forbids (e.g. `sed`/`echo >>` on NDJSON) |
 | **Deprecated vocabulary** | No doc still references deleted files or removed concepts |
 | **Env-var coverage** | Every var declared in `.env.example` is referenced by at least one script or skill; vars referenced in scripts/skills exist in `.env.example`. `.env` populating is informational only — never a failure. |
-| **pfc-revive plumbing** | `data/revive-events.ndjson` exists and parses (validator §13); `config/revive_event_schema.yaml` exists; `automations/scripts/revive_watchlist.py` exists and runs cleanly against the live repo; integration references intact — `pfc-evening-checkin` SKILL.md cites `revive_watchlist.py` (the `stale-task-triage` gate in Step 3c) and `pfc-revive` (the owning-skill map), AGENTS.md mentions `pfc-revive` |
-| **Rolling-review wiring** | Every id in `data/review-ledger.ndjson` has BOTH a `case` branch in the `gate()` block of `pfc-evening-checkin` Step 3c AND a row in that step's owning-skill map — and neither the gate nor the map names an id the ledger doesn't have. A three-way drift check: a ledger id with no gate never surfaces, a gate with no ledger id is dead code, a surfaced id with no map row leaves the user with no next step |
+| **pfc-revive plumbing** | `data/revive-events.ndjson` exists and parses (validator §13); `config/revive_event_schema.yaml` exists; `automations/scripts/revive_watchlist.py` exists and runs cleanly against the live repo; integration references intact — `pfc-review` SKILL.md cites `revive_watchlist.py` (Step 1 gate) and `pfc-revive` (owning-skill map), AGENTS.md mentions `pfc-revive` |
+| **Rolling-review wiring** | Every id in `data/review-ledger.ndjson` has BOTH a `case` branch in the `gate()` block of `pfc-review` Step 1 AND a row in that skill's owning-skill map, and `REVIEW_SKILLS` in `automations/scripts/home_data.py` (the tour's one-due-review button) carries the same ids — and none of the three names an id the ledger doesn't have. A ledger id with no gate never surfaces in a catch-up, a gate with no ledger id is dead code, a surfaced id with no map row leaves the user with no next step |
 | **Current Focus plumbing** | `4-focus/_data/focus.ndjson` parses (validator §14); `config/focus_schema.yaml` + `config/focus.yaml` exist; the pursuit cap in `config/focus.yaml` matches the cap the validator and `automations/scripts/trello_render.py` enforce; `4-focus/README.md` + `4-focus/AGENTS.md` + `4-focus/CLAUDE.md` all present |
 | **Front-of-Mind plumbing** | `data/grounding.ndjson` parses (validator §16); `config/grounding_schema.yaml` exists; the `soft_cap.active_records` value in the schema matches `GROUNDING_CAP` in `automations/scripts/trello_render.py` |
-| **TRMNL plumbing** | Every folder under `trmnl/` (except `bin/`) has `.trmnlp.yml` + `src/settings.yml` + `src/full.liquid`; every plugin folder has a matching key in `BUILDERS` in `automations/scripts/trmnl_push.py` and vice versa (a folder with no builder never updates its screen; a builder with no folder is dead code); every plugin appears in the tables in `docs/trmnl-plugins.md` and `trmnl/README.md`; no `_build/` output is tracked by git; no `polling_url:` / `polling_headers:` **key** appears in any `src/settings.yml` (the header carries a bearer token and `trmnlp push` would round-trip it into the repo); `TRMNL_SERVE_TOKEN` is declared in `.env.example`; `.claude/settings.json` still declares the `trmnl` plugin under both `extraKnownMarketplaces` and `enabledPlugins`; framework hard rules hold in `trmnl/**/*.liquid` (no `style="`, no `<style>`, no emoji, no `usetrmnl.com` URLs); `data/calendar-cache.json` (when present) parses and has `fetched_at` + `events` |
+| **TRMNL plumbing** | Every folder under `trmnl/` (except `bin/`) has `.trmnlp.yml` + `src/settings.yml` + `src/full.liquid`; every plugin folder has a matching key in `BUILDERS` in `automations/scripts/trmnl_push.py` and vice versa (a folder with no builder never updates its screen; a builder with no folder is dead code); every plugin appears in the tables in `docs/trmnl-plugins.md` and `trmnl/README.md`; no `_build/` output is tracked by git; no `polling_url:` / `polling_headers:` **key** appears in any `src/settings.yml` (the header carries a bearer token and `trmnlp push` would round-trip it into the repo); `TRMNL_SERVE_TOKEN` is declared in `.env.example`; `.claude/settings.json` still declares the `trmnl` plugin under both `extraKnownMarketplaces` and `enabledPlugins`; framework hard rules hold in `trmnl/**/*.liquid` (no `style="`, no `<style>`, no emoji, no `usetrmnl.com` URLs); `data/calendar-cache.json` (when present) parses and has `fetched_at` + `events`; the TRMNL tests under `automations/scripts/tests/` pass (`test_trmnl_home.py` included); `BUILDERS` lists one plugin per band of the web home page, in the page's order (a band added to or removed from `web/src/pages/index.astro` needs the same change here) |
+| **Web UI plumbing** | Every NDJSON data file is in `HOME_DATA` or `AGENT_ONLY_DATA` in `web/src/lib/data-files.ts`: `cd web && npx vitest run test/data-files.test.ts` (a failure lists the files in neither list); the web writer has the twelve actions that `web/src/components/ActionButton.astro`, `web/src/pages/api/write/` and `web/AGENTS.md` name; `web/AGENTS.md` exists and `web/CLAUDE.md` is exactly the one line `@AGENTS.md`; `data/.web-write.lock` is git-ignored, `web_write.py --dry-run` on a missing id exits 2 without changing `git status`, and the writer tests pass; `scripts/open-web-ui.sh` is executable, on the allow list, and still run by `pfc-daily-summary` |
 | **Area note indexes** | For every `2-areas/<area>/CLAUDE.md` that exists, the rows in its Contents table match the `.md` files actually in that folder (excluding `statement.md` and `CLAUDE.md` itself). Area folders ship without a `CLAUDE.md` — an absent index is not a finding, a stale one is |
 
 ## Steps
@@ -41,12 +42,12 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
    ```bash
    # Tasks referencing projects that don't exist
    comm -23 \
-     <(jq -r 'select(.project != "none" and .project != null) | .project' 6-actions/_data/tasks.ndjson | sort -u) \
+     <(jq -r 'select(.project != "none" and .project != null) | .project' 6-tasks/_data/tasks.ndjson | sort -u) \
      <(jq -r '.id' 5-projects/_data/projects.ndjson | sort -u)
 
    # Daily-focus task ids that don't exist in tasks.ndjson (live or archive)
-   jq -r '.critical[]?, .bonus // empty' 6-actions/_data/daily-focus.ndjson | sort -u > /tmp/focus-ids
-   jq -r '.id' 6-actions/_data/tasks.ndjson 6-actions/_data/tasks-archive.ndjson | sort -u > /tmp/task-ids
+   jq -r '.critical[]?, (.bonus // empty), .skipped[]?' 6-tasks/_data/daily-focus.ndjson | sort -u > /tmp/focus-ids
+   jq -r '.id' 6-tasks/_data/tasks.ndjson 6-tasks/_data/tasks-archive.ndjson | sort -u > /tmp/task-ids
    comm -23 /tmp/focus-ids /tmp/task-ids
 
    # Findings → hypotheses: source_hypothesis_id must resolve
@@ -66,7 +67,7 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
    # habits-daily: skipped:true must have completed:false and non-empty skip_reason
    # tasks: deferred:true must be open and carry a reason
    jq -c 'select(.deferred == true and (.status != "open" or (.deferred_reason // "") == ""))' \
-     6-actions/_data/tasks.ndjson
+     6-tasks/_data/tasks.ndjson
 
    jq -c 'select(.skipped == true and (.completed != false or (.skip_reason // "") == ""))' \
      7-habits/_data/habits-daily.ndjson
@@ -76,7 +77,7 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
      jq -r 'select(.status == "graduated") | .graduated_to' data/insights.ndjson | sort -u | while read -r tid; do
        [ -z "$tid" ] && continue
        case "$tid" in
-         task-*) jq -e --arg t "$tid" 'select(.id == $t)' 6-actions/_data/tasks.ndjson 6-actions/_data/tasks-archive.ndjson >/dev/null 2>&1 || echo "insight graduated_to unresolved task: $tid" ;;
+         task-*) jq -e --arg t "$tid" 'select(.id == $t)' 6-tasks/_data/tasks.ndjson 6-tasks/_data/tasks-archive.ndjson >/dev/null 2>&1 || echo "insight graduated_to unresolved task: $tid" ;;
          proj-*) jq -e --arg t "$tid" 'select(.id == $t)' 5-projects/_data/projects.ndjson >/dev/null 2>&1 || echo "insight graduated_to unresolved project: $tid" ;;
          *)      grep -qE "^[[:space:]]*-[[:space:]]*id:[[:space:]]*[\"']?$tid[\"']?" config/habit_schema.yaml || echo "insight graduated_to unresolved habit_id: $tid" ;;
        esac
@@ -119,8 +120,8 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
 4. **Stale detection:**
    ```bash
-   test $(wc -l < 6-actions/_data/tasks.ndjson) -gt 200 && echo "tasks.ndjson over 200 lines — run archive"
-   jq -c 'select(.status == "done")' 6-actions/_data/tasks.ndjson | wc -l  # done tasks still in live file
+   test $(wc -l < 6-tasks/_data/tasks.ndjson) -gt 200 && echo "tasks.ndjson over 200 lines — run archive"
+   jq -c 'select(.status == "done")' 6-tasks/_data/tasks.ndjson | wc -l  # done tasks still in live file
    git log origin/main..HEAD --oneline                          # unpushed commits
    find docs -name '*.md' -mtime +90                            # docs older than 90 days
    # Notes subdirectory structure — daily + yearly are actively written and must exist.
@@ -141,6 +142,24 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
        echo "hook:OK:$name"
      fi
    done
+   # Bash permission hook registered in .claude/settings.json, and its tests pass
+   jq -e '.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[] | select(.command | endswith("scripts/hook-allow-known-commands.py"))' .claude/settings.json >/dev/null \
+     && echo "hook:OK:allow-known-commands registered" || echo "hook:MISSING:allow-known-commands (PreToolUse Bash entry in .claude/settings.json)"
+   pytest scripts/tests -q >/dev/null 2>&1 \
+     && echo "hook:OK:allow-known-commands tests" || echo "hook:FAIL:allow-known-commands tests (run pytest scripts/tests -q)"
+   # Session sync hook registered — levels the clone with origin at session start, so the
+   # clones (a laptop and a server, say) stop stranding commits on each other (see automations/scripts/repo_sync.py)
+   jq -e '.hooks.SessionStart[]? | .hooks[] | select(.command | endswith("scripts/hook-session-sync.sh"))' .claude/settings.json >/dev/null \
+     && echo "hook:OK:session-sync registered" || echo "hook:MISSING:session-sync (SessionStart entry in .claude/settings.json)"
+   [ -x scripts/hook-session-sync.sh ] && echo "hook:OK:session-sync executable" || echo "hook:MISSING:session-sync script not executable"
+   pytest automations/scripts/tests/test_repo_sync.py -q >/dev/null 2>&1 \
+     && echo "hook:OK:repo_sync tests" || echo "hook:FAIL:repo_sync tests (run pytest automations/scripts/tests/test_repo_sync.py -q)"
+   # Missed check-in hook registered — flags yesterday or the day before when either was never rated
+   jq -e '.hooks.SessionStart[]? | .hooks[] | select(.command | endswith("scripts/hook-missing-checkin.sh"))' .claude/settings.json >/dev/null \
+     && echo "hook:OK:missing-checkin registered" || echo "hook:MISSING:missing-checkin (SessionStart entry in .claude/settings.json)"
+   [ -x scripts/hook-missing-checkin.sh ] && echo "hook:OK:missing-checkin executable" || echo "hook:MISSING:missing-checkin script not executable"
+   # Daily sync job present (docs/install/daily-sync.md)
+   [ -x scripts/daily-sync.sh ] && echo "daily-sync:OK" || echo "daily-sync:MISSING-OR-NOT-EXECUTABLE"
    ```
 
 5. **Docs gardening:**
@@ -194,22 +213,22 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
    - **Bare-path verification** — unlinked path references in prose should resolve. Grep the live docs:
      ```bash
-     grep -rnE '\b(data|config|0-me|1-values|2-areas|3-visions|4-focus|5-projects|6-actions|7-habits|notes|trmnl|automations)/[A-Za-z0-9_.-]+' \
+     grep -rnE '\b(data|config|0-me|1-values|2-areas|3-visions|4-focus|5-projects|6-tasks|7-habits|notes|trmnl|automations)/[A-Za-z0-9_.-]+' \
        --include='*.md' \
        CLAUDE.md AGENTS.md README.md docs/ 0-me/ 1-values/ 2-areas/AGENTS.md trmnl/AGENTS.md \
-       4-focus/AGENTS.md 5-projects/AGENTS.md 6-actions/AGENTS.md 7-habits/AGENTS.md data/AGENTS.md \
-       | grep -oE '\b(data|config|0-me|1-values|2-areas|3-visions|4-focus|5-projects|6-actions|7-habits|notes|trmnl|automations)/[A-Za-z0-9_./-]+' \
+       4-focus/AGENTS.md 5-projects/AGENTS.md 6-tasks/AGENTS.md 7-habits/AGENTS.md data/AGENTS.md \
+       | grep -oE '\b(data|config|0-me|1-values|2-areas|3-visions|4-focus|5-projects|6-tasks|7-habits|notes|trmnl|automations)/[A-Za-z0-9_./-]+' \
        | grep -vE 'YYYY|MM|NN|/\.[a-z_]+\.tmp$|XX|<area>|<slug>|<plugin>|<area-folder-name>' \
        | sort -u
      ```
-     Keep the folder alternation in **both** `grep` expressions in sync with the live top-level layout (`4-focus/` is easy to forget — it was the last VAVFPAH folder added). A folder missing from the alternation means every bare path under it goes unchecked.
+     Keep the folder alternation in **both** `grep` expressions in sync with the live top-level layout (`4-focus/` is easy to forget — it was the last numbered folder added). A folder missing from the alternation means every bare path under it goes unchecked.
      For each path extracted, `test -e` to confirm it exists. Report misses. The `grep -vE` filter drops template placeholders (`YYYY-MM-DD`, `WNN`, `<slug>`) and jq tempfile names (`data/.jq_update.tmp`) — these are *intentional* non-existent paths in conventions and code examples, not drift.
 
    - **Tool-usage contradictions** — CLAUDE.md forbids certain tools on structured data. Grep secondary docs for the forbidden forms:
      ```bash
      grep -rnE 'via sed|sed.*ndjson|echo.*>>.*\.ndjson|sed -i.*ndjson' \
        --include='*.md' docs/ CLAUDE.md AGENTS.md 0-me/ 1-values/ README.md trmnl/AGENTS.md \
-       4-focus/AGENTS.md 5-projects/AGENTS.md 6-actions/AGENTS.md 7-habits/AGENTS.md data/AGENTS.md \
+       4-focus/AGENTS.md 5-projects/AGENTS.md 6-tasks/AGENTS.md 7-habits/AGENTS.md data/AGENTS.md \
        | grep -vE 'forbidden|never|do not|no raw'
      ```
      Preferred form for any NDJSON edit is `jq` with a temp file. Flag any remaining recommendation of `sed`, `awk -i`, `echo >>`, or raw `>>` appends targeting NDJSON.
@@ -233,32 +252,38 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
      | Old | New | Why |
      |---|---|---|
-     | `pfc-morning-checkin` | — | Deleted. The daily spine is `pfc-evening-checkin`; there is no morning ritual. |
-     | `pfc-weekly-checkin` | `pfc-evening-checkin` Step 3c + `/pfc-review` | Deleted. Weekly review work became rolling-ledger items that drip ≤2 per evening. |
-     | `pfc-monthly-checkin` | `pfc-evening-checkin` Step 3c + `/pfc-review` | Deleted. Same ledger; monthly-cadence items. |
+     | `pfc-morning-checkin` | — | Deleted. There is no morning ritual. |
+     | `pfc-weekly-checkin` | the rolling-review ledger + `/pfc-review` | Deleted. Weekly review work became rolling-ledger items. |
+     | `pfc-monthly-checkin` | the rolling-review ledger + `/pfc-review` | Deleted. Same ledger; monthly-cadence items. |
      | `📧 Email Priorities` (Trello list) | email→task pipeline | Replaced. Labeled inbox emails auto-create tasks via `pfc-email-triage` Step 0; there is no rendered email list. |
      | `passion-brainstorm` | `3-visions/_data/vision-brainstorm.ndjson` + `/pfc-vision-brainstorm` | Renamed. The markdown file is gone; the exercise is a skill writing NDJSON. |
      | `daily_pulse` (module) | `pulse` (`automations/scripts/pulse.py`) | Renamed. Any `import daily_pulse` / `from daily_pulse` is dead. |
      | ✅ calendar completion-sync | Trello Mark Complete + `/pfc-sync-trello` | Retired. Focus completion is never inferred from a calendar-event title marker. |
-     | `4-focus` living in `data/focus.ndjson` | `4-focus/_data/focus.ndjson` | Moved when the Focus layer got its own VAVFPAH folder. |
-     | `pfc-learned` (TRMNL plugin + builder) | — | Deleted — surfaced too much; insights/findings review lives in the check-in ledger. |
-     | `pfc-slipping` (TRMNL plugin + builder) | `pfc-back-on-track` | Reworked into the off-track intentions screen (focus/projects/habits + re-entry steps; task watchlist dropped). |
+     | `4-focus` living in `data/focus.ndjson` | `4-focus/_data/focus.ndjson` | Moved when the Focus layer got its own numbered folder. |
+     | `pfc-learned` (TRMNL plugin + builder) | — | Deleted — surfaced too much; insights/findings review lives in the rolling-review ledger. |
+     | `pfc-slipping` (TRMNL plugin + builder) | — | Reworked into `pfc-back-on-track`, which is itself deleted (below). |
      | `life_event` field (day-tracking) | — | Deleted. Days are never tagged or dropped for what happened in them. |
      | `pfc-system-health` (skill) + ledger id `system-health` | `pfc-usage-audit` / `usage-audit` | Renamed — the description now says what it audits (usage, not machinery). |
+     | `pfc-evening-checkin` (skill) | the web home page tour (`Walk me through`), the daily sync job (`scripts/daily-sync.sh`), and `/pfc-review` | Deleted. The tour is the any-time daily spine; the daily sync job runs the Trello and email syncs; `/pfc-review` now owns the gate table and the owning-skill map. |
+     | 2+1 calendar anchor (`PFC - 🎯 2+1` recurring event) | the tour's picks step | Deleted. The 2+1 lives on the web page, not the calendar. |
+     | `pfc-compass`, `pfc-back-on-track`, `pfc-pulse-trend` (TRMNL plugins + builders) | `pfc-values`, `pfc-visions`, and the other band screens (`automations/scripts/trmnl_home.py`) | Deleted. The TRMNL screens now mirror the web home page band for band. |
+     | `6-actions/` folder, the `VAVFPAH` acronym, the `✅ Actions` Trello list | `6-tasks/`, `VAVFPTH`, `✅ Tasks` | Renamed. The Actions layer is now called Tasks. |
 
      ```bash
-     grep -rnE 'pfc-morning-checkin|pfc-weekly-checkin|pfc-monthly-checkin|Email Priorities|render_email|--email-data|passion-brainstorm|daily_pulse|\bdata/focus\.ndjson|pfc-learned|build_pfc_learned|pfc-slipping|build_pfc_slipping|pfc-system-health' \
+     grep -rnE 'pfc-morning-checkin|pfc-weekly-checkin|pfc-monthly-checkin|Email Priorities|render_email|--email-data|passion-brainstorm|daily_pulse|\bdata/focus\.ndjson|pfc-learned|build_pfc_learned|pfc-slipping|build_pfc_slipping|pfc-system-health|pfc-evening-checkin|pfc-compass|build_pfc_compass|pfc-back-on-track|build_pfc_back_on_track|pfc-pulse-trend|build_pfc_pulse_trend|6-actions/|VAVFPAH|✅ Actions' \
        --include='*.md' --include='*.py' \
        CLAUDE.md AGENTS.md README.md docs/ 0-me/ 1-values/ 2-areas/ 3-visions/ trmnl/ \
        .agents/skills/ automations/scripts/ \
-       4-focus/AGENTS.md 5-projects/AGENTS.md 6-actions/AGENTS.md 7-habits/AGENTS.md data/AGENTS.md
+       4-focus/AGENTS.md 5-projects/AGENTS.md 6-tasks/AGENTS.md 7-habits/AGENTS.md data/AGENTS.md
      ```
 
      The `\b` before `data/focus.ndjson` is required — without it the pattern also matches inside `4-focus/_data/focus.ndjson` and every correct path reads as a hit.
 
      Expected exceptions: this skill file itself contains the table and the grep — that's the registry, not drift. `AGENTS.md` carries one deliberate mention of "Email Priorities" in the sentence explaining that the list no longer exists; a mention *about* the removal should stay. The `pfc-usage-audit` skill's one "renamed from `pfc-system-health`" line is likewise a mention about the rename.
 
-     `life_event` is deliberately **not** in the grep. Surviving mentions (in `pfc-evening-checkin`, `pfc-log-day`, `pfc-analyze-trends`, `docs/data-model.md`) are load-bearing "do NOT tag or discount days for external events" guardrails, not drift — the rule has to stay stated or the behavior creeps back. What the audit should catch instead is *reintroduction*: `jq -e 'has("life_event")' data/day-tracking.ndjson` must find nothing.
+     Expected exceptions: this skill file itself contains the deprecated-vocabulary table and the grep — those are the registry, not drift.
+
+     `life_event` is deliberately **not** in the grep. Surviving mentions (in `pfc-log-day`, `pfc-analyze-trends`, `docs/data-model.md`) are load-bearing "do NOT tag or discount days for external events" guardrails, not drift — the rule has to stay stated or the behavior creeps back. What the audit should catch instead is *reintroduction*: `jq -e 'has("life_event")' data/day-tracking.ndjson` must find nothing.
 
      Report any hits. **When deleting a file or concept, append a row here and extend the grep** so future audits catch lingering references.
 
@@ -284,7 +309,10 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
 6. **pfc-revive plumbing:**
 
-   Verify the revive-watchlist machinery is intact end-to-end.
+   Verify the revive-watchlist machinery is intact end-to-end. (Invariant: Signals C/D
+   in `revive_watchlist.py` skip project-linked tasks — only standalone tasks age-flag;
+   project health rides on signals A/B/F. See `6-tasks/AGENTS.md` § "Project tasks live
+   outside the 2+1".)
 
    ```bash
    # (a) Data file exists and parses (validator §13 also covers this — this is the docs-side cross-check)
@@ -309,22 +337,13 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
      echo "revive_watchlist.py:MISSING"
    fi
 
-   # (d) Integration references intact. The watchlist is wired into the evening
-   #     check-in twice: the `stale-task-triage` gate calls the script, and the
-   #     owning-skill map points the user at /pfc-revive. /pfc-review runs the
-   #     same ledger uncapped. All three references must survive.
-   grep -q 'revive_watchlist\.py' .agents/skills/pfc-evening-checkin/SKILL.md \
-     && echo "evening-checkin→revive_watchlist.py:OK" \
-     || echo "evening-checkin→revive_watchlist.py:MISSING"
-   grep -q 'pfc-revive' .agents/skills/pfc-evening-checkin/SKILL.md \
-     && echo "evening-checkin→pfc-revive:OK" \
-     || echo "evening-checkin→pfc-revive:MISSING"
-   # /pfc-review deliberately does NOT name /pfc-revive: it delegates the gate table
-   # and the owning-skill map to the evening check-in rather than copying them. So the
-   # check here is that the delegation link is intact, not that the skill name appears.
-   grep -q 'pfc-evening-checkin' .agents/skills/pfc-review/SKILL.md \
-     && echo "review→evening-checkin(delegation):OK" \
-     || echo "review→evening-checkin(delegation):MISSING"
+   # (d) Integration references intact
+   grep -q 'revive_watchlist\.py' .agents/skills/pfc-review/SKILL.md \
+     && echo "review→revive_watchlist.py:OK" \
+     || echo "review→revive_watchlist.py:MISSING"
+   grep -q 'pfc-revive' .agents/skills/pfc-review/SKILL.md \
+     && echo "review→pfc-revive:OK" \
+     || echo "review→pfc-revive:MISSING"
    grep -q 'pfc-revive' AGENTS.md \
      && echo "AGENTS.md→pfc-revive:OK" \
      || echo "AGENTS.md→pfc-revive:MISSING"
@@ -332,43 +351,37 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
    Any `MISSING` / `PARSE-FAIL` / `RUN-FAIL` → 🔴 in the report. The script-run check (c) is the load-bearing one — a passing parse doesn't catch broken jq filters inside the script.
 
-7. **Rolling-review wiring (three-way drift check):**
+7. **Rolling-review wiring (drift check):**
 
-   Every review-ledger id needs a gate (or it can never surface) and a map row (or a surfaced item has no next step). Every gate and map row needs a ledger id (or it's dead code). Compare all three sets.
+   Every review-ledger id needs a gate (or it can never surface in a catch-up), a row in the owning-skill map (or a surfaced item has no next step), and an entry in `REVIEW_SKILLS` (or the tour's one-due-review button has no skill to name). Every gate, map row, and `REVIEW_SKILLS` key needs a ledger id (or it's dead code). `pfc-review` is the one home of the gate table and the map; compare all four sets.
 
    ```bash
-   CHK=.agents/skills/pfc-evening-checkin/SKILL.md
+   REV=.agents/skills/pfc-review/SKILL.md
 
    # (a) ids in the ledger
    jq -r '.id' data/review-ledger.ndjson | sort -u > /tmp/ledger-ids
 
    # (b) ids with a `case` branch in the gate() block — one branch may list
    #     several ids separated by |, so split on that too.
-   awk '/^gate\(\)/{f=1;next} f && /^\}/{f=0} f' "$CHK" \
+   awk '/^gate\(\)/{f=1;next} f && /^\}/{f=0} f' "$REV" \
      | grep -oE '^[[:space:]]*[a-z][a-z0-9|-]*\)' \
      | tr -d ' )' | tr '|' '\n' | sort -u > /tmp/gate-ids
 
    # (c) ids with a row in the owning-skill map (leading `| \`id\` |` cells)
-   grep -oE '^\| `[a-z][a-z0-9-]*` \|' "$CHK" | tr -d '|` ' | sort -u > /tmp/map-ids
+   grep -oE '^\| `[a-z][a-z0-9-]*` \|' "$REV" | tr -d '|` ' | sort -u > /tmp/map-ids
+
+   # (d) keys of REVIEW_SKILLS in home_data.py (the tour's button)
+   python3 -c "import sys; sys.path.insert(0, 'automations/scripts'); import home_data; print('\n'.join(sorted(home_data.REVIEW_SKILLS)))" > /tmp/home-ids
 
    echo "--- ledger ids with no gate (can never surface) ---"; comm -23 /tmp/ledger-ids /tmp/gate-ids
    echo "--- gate ids not in the ledger (dead code) ---";      comm -13 /tmp/ledger-ids /tmp/gate-ids
    echo "--- ledger ids with no map row (no next step) ---";   comm -23 /tmp/ledger-ids /tmp/map-ids
    echo "--- map rows not in the ledger (dead row) ---";       comm -13 /tmp/ledger-ids /tmp/map-ids
+   echo "--- ledger ids missing from REVIEW_SKILLS ---";       comm -23 /tmp/ledger-ids /tmp/home-ids
+   echo "--- REVIEW_SKILLS keys not in the ledger ---";        comm -13 /tmp/ledger-ids /tmp/home-ids
    ```
 
-   Any non-empty list → 🟡, except "ledger ids with no gate," which is 🔴: that item silently never runs, and nothing else in the system notices. Fix by adding the missing branch/row, or by removing the ledger entry if the review is genuinely retired.
-
-   `/pfc-review` is the uncapped counterpart to the same ledger and deliberately owns **no** copy of the gate table or the owning-skill map — it re-reads both from the evening check-in each run. Confirm that delegation is intact and that no second implementation has crept in:
-
-   ```bash
-   REV=.agents/skills/pfc-review/SKILL.md
-   grep -q 'data/review-ledger\.ndjson' "$REV" && echo "review→ledger:OK" || echo "review→ledger:MISSING"
-   grep -q 'pfc-evening-checkin' "$REV"       && echo "review→gate-source:OK" || echo "review→gate-source:MISSING"
-   grep -qE '^gate\(\)' "$REV" \
-     && echo "review:DUPLICATE-GATE (a second gate() definition will drift from Step 3c)" \
-     || echo "review:no-duplicate-gate:OK"
-   ```
+   Any non-empty list → 🟡, except "ledger ids with no gate," which is 🔴: that item silently never runs in a catch-up, and nothing else in the system notices. Fix by adding the missing branch, row, or key, or by removing the ledger entry if the review is genuinely retired. Change the map in `pfc-review` and `REVIEW_SKILLS` together.
 
 7b. **Focus vehicles + habit ramps** (see [`docs/habit-mechanics.md`](../../../docs/habit-mechanics.md)):
 
@@ -398,8 +411,9 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
    PY_RAMP
 
    # (c) The daily-habit cap agrees between the schema comment and the validator.
-   SCHEMA_CAP=$(grep -oP 'Daily habits: max \K[0-9]+' config/habit_schema.yaml)
-   VALIDATOR_CAP=$(grep -oP 'daily_count" -gt \K[0-9]+' scripts/validate.sh)
+   #     grep -oE, not -oP: the macOS system grep has no -P and would report false drift.
+   SCHEMA_CAP=$(grep -oE 'Daily habits: max [0-9]+' config/habit_schema.yaml | grep -oE '[0-9]+$')
+   VALIDATOR_CAP=$(grep -oE 'daily_count" -gt [0-9]+' scripts/validate.sh | grep -oE '[0-9]+$')
    [ "$SCHEMA_CAP" = "$VALIDATOR_CAP" ] \
      && echo "habit_cap_agrees:$SCHEMA_CAP" \
      || echo "habit_cap_drift:schema=$SCHEMA_CAP validator=$VALIDATOR_CAP"
@@ -470,6 +484,77 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
    ```
 
    A unit template under `automations/systemd/` that is absent from the `UNITS` array in `install.sh` is 🔴, not 🟡 — the reconcile pass at the top of `install.sh` stops, disables, and deletes any deployed `pfc-*` unit not in `UNITS`, so the next install silently tears down a service the docs tell users to rely on.
+
+8b. **Web UI plumbing:**
+
+   The web UI is one page (`/`) plus Tasks (`/tasks`). Every NDJSON file in the repo is
+   either read for the home page (`HOME_DATA`) or kept for the agent alone
+   (`AGENT_ONLY_DATA`, which holds findings, hypotheses and insights), both in
+   `web/src/lib/data-files.ts`. A new data file must be placed in one of them on purpose,
+   so the guard is a test rather than an eye. There is no page-per-view check: the smoke
+   script checks `/` and `/tasks`, and that the deleted pages answer 404.
+
+   ```bash
+   # (a) Every NDJSON data file is on the home page or agent-only. The test reads
+   #     the live data folders, so it fails on a real new file, not on a fixture.
+   (cd web && npx vitest run test/data-files.test.ts) \
+     && echo "web_data_files_cover:OK" || echo "web_data_files_cover:FAIL"
+
+   # (b) The subtree harness files are present and the shim is the one-line import.
+   [ -f web/AGENTS.md ] && echo "web/AGENTS.md:OK" || echo "web/AGENTS.md:MISSING"
+   [ "$(cat web/CLAUDE.md 2>/dev/null)" = "@AGENTS.md" ] \
+     && echo "web/CLAUDE.md:OK" || echo "web/CLAUDE.md:NOT-A-SHIM"
+
+   # (b2) The page is opened for the user, not left to be remembered: the opener script
+   #      is executable, on the allow list, and still the last step of the daily summary.
+   [ -x scripts/open-web-ui.sh ] && echo "open-web-ui.sh:OK" || echo "open-web-ui.sh:MISSING-OR-NOT-EXECUTABLE"
+   grep -q '"Bash(scripts/open-web-ui.sh)"' .claude/settings.json \
+     && echo "open-web-ui allow rule:OK" || echo "open-web-ui allow rule:MISSING"
+   for skill in pfc-daily-summary; do
+     grep -q 'scripts/open-web-ui.sh' ".agents/skills/$skill/SKILL.md" \
+       && echo "$skill opens the web UI:OK" || echo "$skill opens the web UI:MISSING"
+   done
+
+   # (c) Every skill the chat panel names still exists: the ones page buttons start
+   #     (slash commands in prompts.ts and any data-chat-prompt in a page), the ones
+   #     skills.ts lists in TAKES_ARGS and PREFILL, and the drawer's pinned list in
+   #     pinned.ts. A renamed skill otherwise leaves a button that sends a command
+   #     nobody answers.
+   { grep -rhoE "/pfc-[a-z0-9-]+" web/src/lib/chat/prompts.ts; \
+     grep -rhoE "data-chat-prompt=[\"'{][^>]*" web/src/pages web/src/components | grep -oE "/pfc-[a-z0-9-]+"; \
+     grep -oE "^  'pfc-[a-z0-9-]+':" web/src/lib/chat/skills.ts | tr -d " ':" | sed 's#^#/#'; \
+     grep -oE "'pfc-[a-z0-9-]+'" web/src/lib/chat/pinned.ts | tr -d "'" | sed 's#^#/#'; } \
+     | sort -u | while read -r cmd; do
+       name="${cmd#/}"
+       [ -f ".agents/skills/$name/SKILL.md" ] && echo "chat_skill $name:OK" || echo "chat_skill $name:MISSING"
+     done
+
+   # (c2) The twelve writer actions: web_write.py, the routes in web/src/pages/api/write/,
+   #      and the ActionButton header agree on the same set.
+   writer=$(grep -oE '"[a-z]+-[a-z]+": \((TASK_ID|HABIT_ID|FOCUS_ID|DAY|RATING_KEY|GROUND_ID|PROJECT_ID)' automations/scripts/web_write.py | cut -d'"' -f2 | sort -u)
+   routes=$(ls web/src/pages/api/write | sed 's/\.ts$//' | sort -u)
+   [ "$writer" = "$routes" ] && [ "$(echo "$writer" | wc -l | tr -d ' ')" = 12 ] \
+     && echo "web_write_actions:12 OK" || echo "web_write_actions:FAIL"
+   for a in $writer; do grep -q "$a" web/src/components/ActionButton.astro || echo "ActionButton header missing $a:FAIL"; done
+
+   # (d) The web writer: its lock file is ignored, a dry run of an id that does not
+   #     exist exits 2 with a JSON error and changes nothing, and its tests pass.
+   git check-ignore -q data/.web-write.lock && echo "web_write_lock_ignored:OK" || echo "web_write_lock_ignored:FAIL"
+   before=$(git status --porcelain)
+   out=$(python3 automations/scripts/web_write.py --dry-run complete-task task-00000000-000); code=$?
+   { [ "$code" = 2 ] && echo "$out" | grep -q '"ok": false' && [ "$(git status --porcelain)" = "$before" ]; } \
+     && echo "web_write_dry_run:OK" || echo "web_write_dry_run:FAIL"
+   python3 -m pytest -q automations/scripts/tests/test_web_write.py automations/scripts/tests/test_pfc_writes.py \
+     && echo "web_write_tests:OK" || echo "web_write_tests:FAIL"
+   ```
+
+   Any `FAIL` / `MISSING` / `NOT-A-SHIM` → 🔴. A `chat_skill ...:MISSING` names a skill
+   that was renamed or removed: update the template in `web/src/lib/chat/prompts.ts`, the
+   page's `data-chat-prompt`, the `TAKES_ARGS` or `PREFILL` entry in `web/src/lib/chat/skills.ts`,
+   or the name in `PINNED` in `web/src/lib/chat/pinned.ts`.
+   `web/test/chat-prompts.test.ts` checks the prompts half of this on every test run. A failing (a) prints the uncovered file
+   paths: add each one to `HOME_DATA` when `home_data.py` reads it for the home page, or to
+   `AGENT_ONLY_DATA` when only the agent uses it, both in `web/src/lib/data-files.ts`.
 
 9. **Report:**
 

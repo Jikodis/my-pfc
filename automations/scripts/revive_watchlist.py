@@ -17,12 +17,14 @@ import dataclasses
 import json
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
-# Thresholds (per design spec; tune by editing here)
-SIGNAL_A_LATE_DAYS = 7        # project velocity > N days late
+import project_gauges
+
+# Thresholds (per design spec; tune by editing here). Signal A's own threshold,
+# SIGNAL_A_LATE_DAYS, lives in project_gauges beside the velocity rule it grades.
 SIGNAL_B_ZERO_PARTS_DAYS = 14 # active project at 0 completed parts since started
 SIGNAL_C_TASK_AGE_DAYS = 30   # open task age
 SIGNAL_D_HIGH_IMPACT_DAYS = 7 # high-impact open task age
@@ -88,32 +90,27 @@ def _parse_date(s: Optional[str]) -> Optional[date]:
 
 
 def detect_signal_a_velocity(projects: Iterable[Project], today: date) -> list[WatchlistItem]:
-    """Signal A: active project velocity 🔴 (>7 days late vs deadline)."""
+    """Signal A: active project velocity 🔴 (>7 days late vs deadline).
+
+    The arithmetic and the red threshold live in project_gauges.velocity, which
+    the e-ink screen and the web UI read too. A project with no deadline, no
+    start, or no completed part gets no days_late, so it never fires here; zero
+    completed parts falls under signal B instead.
+    """
     out: list[WatchlistItem] = []
     for p in projects:
         if not p.active:
             continue
-        deadline = _parse_date(p.deadline)
-        if deadline is None:
+        gauge = project_gauges.velocity(dataclasses.asdict(p), today)
+        days_late = gauge["days_late"]
+        if days_late is None or gauge["light"] != "red":
             continue
-        started = _parse_date(p.created)
-        if started is None:
-            continue
-        days_elapsed = max(1, (today - started).days)
-        if p.completed_parts <= 0:
-            continue  # no velocity data; falls under signal B
-        parts_per_day = p.completed_parts / days_elapsed
-        remaining = max(0, p.total_parts - p.completed_parts)
-        remaining_days = remaining / parts_per_day
-        estimated_completion = today + timedelta(days=remaining_days)
-        days_late = (estimated_completion - deadline).days
-        if days_late > SIGNAL_A_LATE_DAYS:
-            out.append(WatchlistItem(
-                item_type="project",
-                item_id=p.id,
-                signals=["A"],
-                detail=f"velocity 🔴 — est completion {estimated_completion.isoformat()} vs deadline {deadline.isoformat()} ({days_late} days late)",
-            ))
+        out.append(WatchlistItem(
+            item_type="project",
+            item_id=p.id,
+            signals=["A"],
+            detail=f"velocity 🔴 — est completion {gauge['estimated_completion']} vs deadline {_parse_date(p.deadline).isoformat()} ({days_late} days late)",
+        ))
     return out
 
 
@@ -355,7 +352,7 @@ def load_projects(repo_root: Path) -> list[Project]:
 
 
 def load_tasks(repo_root: Path) -> list[Task]:
-    rows = _load_ndjson(repo_root / "6-actions/_data/tasks.ndjson")
+    rows = _load_ndjson(repo_root / "6-tasks/_data/tasks.ndjson")
     out: list[Task] = []
     for r in rows:
         out.append(Task(
@@ -370,7 +367,7 @@ def load_tasks(repo_root: Path) -> list[Task]:
 
 
 def load_focuses(repo_root: Path) -> list[DailyFocus]:
-    rows = _load_ndjson(repo_root / "6-actions/_data/daily-focus.ndjson")
+    rows = _load_ndjson(repo_root / "6-tasks/_data/daily-focus.ndjson")
     out: list[DailyFocus] = []
     for r in rows:
         out.append(DailyFocus(
@@ -388,7 +385,7 @@ def load_events(repo_root: Path) -> list[TaskEvent]:
     Accepts: task_id | id (task id), timestamp | ts | date (when), event (required).
     Rows missing the task id, timestamp, or event are skipped (logged event file has drift).
     """
-    rows = _load_ndjson(repo_root / "6-actions/_data/task_events.ndjson")
+    rows = _load_ndjson(repo_root / "6-tasks/_data/task_events.ndjson")
     out: list[TaskEvent] = []
     for r in rows:
         task_id = r.get("task_id") or r.get("id")

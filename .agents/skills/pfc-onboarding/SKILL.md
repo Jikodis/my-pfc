@@ -5,7 +5,7 @@ description: Introduce PFC system features one at a time. Use when the user says
 
 # PFC Onboarding
 
-Walk new users through the system one feature at a time. This skill covers the full feature catalog (43 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
+Walk new users through the system one feature at a time. This skill covers the full feature catalog (45 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
 
 ---
 
@@ -54,7 +54,7 @@ When appending a `tried` event, always append it immediately after the user comp
 
 ## Step 3: Feature catalog
 
-43 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
+45 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
 
 | Category | Feature key | Description | Auth-gated? |
 |---|---|---|---|
@@ -66,8 +66,9 @@ When appending a `tried` event, always append it immediately after the user comp
 | daily-loop | daily-loop/list-tasks | See your open tasks | No |
 | daily-loop | daily-loop/complete-task | Mark a task done | No |
 | daily-loop | daily-loop/focus-2plus1 | Pick 2 critical + 1 bonus for the day | No |
-| daily-loop | daily-loop/evening-checkin | End-of-day spine: rate/log today, habits, rolling reviews, set tomorrow's 2+1 | No |
+| daily-loop | daily-loop/guided-tour | The daily spine, any time: the web page's `Walk me through` tour rates the day, logs habits, shows one due review, sets the 2+1 | No |
 | daily-loop | daily-loop/plan-open-day | Plan a wide-open day as a chain of calendar blocks | No |
+| daily-loop | daily-loop/agent-handoff | Hand agent-doable tasks to a browser agent instead of doing them yourself | No |
 | daily-loop | daily-loop/log-day | Rate the day (1–5) | No |
 | daily-loop | daily-loop/add-hypothesis | Capture a testable claim | No |
 | daily-loop | daily-loop/add-project | Register a new short-term project | No |
@@ -79,7 +80,7 @@ When appending a `tried` event, always append it immediately after the user comp
 | knowledge | knowledge/findings | Promote validated hypotheses | No |
 | health | health/supplements | Supplement registry | No |
 | health | health/google-health | Auto-fetch sleep + AZM | Yes |
-| reviews | reviews/rolling-reviews | The review ledger that drips ≤2 due items into each evening check-in | No |
+| reviews | reviews/rolling-reviews | The review ledger: the tour shows one due item, `/pfc-review` clears the rest | No |
 | reviews | reviews/review-catchup | `/pfc-review` — clear all currently-due reviews at once | No |
 | reviews | reviews/yearly-checkin | Annual reflection | No |
 | reviews | reviews/revive | Detect and revive stalled tasks and projects | No |
@@ -94,6 +95,7 @@ When appending a `tried` event, always append it immediately after the user comp
 | integrations | integrations/google-health | Auto-fetch sleep + AZM | Yes |
 | integrations | integrations/trello-inbox | Phone widget for fast voice capture | Yes |
 | integrations | integrations/trello-dashboard | Full PFC board + mark-complete sync from phone | Yes |
+| integrations | integrations/daily-sync | A morning job that syncs Trello completions, labeled emails, and the calendar cache | Yes |
 | meta | meta/personas | Voice/character overlays for the assistant | No |
 | meta | meta/profile | Personality/brain context (interview + optional assessments) | No |
 | meta | meta/personality | Deep personality reference file (`0-me/personality.md`) | No |
@@ -135,7 +137,7 @@ Run the matching lesson below. After the user completes "Try it now," append a `
 ### Lesson: daily-loop/add-task
 
 **What it is**
-Tasks live in `6-actions/_data/tasks.ndjson`. Every task has a size (XS–XL), location (Home/PC/Errand/Phone/Anywhere), impact (high/medium/low), and urgency (high/medium/low). The system picks tasks for you based on these fields — you don't have to re-prioritize by hand each morning.
+Tasks live in `6-tasks/_data/tasks.ndjson`. Every task has a size (XS–XL), location (Home/PC/Errand/Phone/Anywhere), impact (high/medium/low), and urgency (high/medium/low). The system picks tasks for you based on these fields — you don't have to re-prioritize by hand each morning.
 
 **Why use it**
 Use this whenever something occurs to you that you don't want to lose. The external capture is the whole point — your brain doesn't have to hold it. Skip if you already have a capture system you trust.
@@ -159,7 +161,7 @@ Not ready? `/pfc-onboarding skip daily-loop/add-task`
 ### Lesson: daily-loop/list-tasks
 
 **What it is**
-Shows all open tasks in a readable list, sorted by urgency and impact. Pulls directly from `6-actions/_data/tasks.ndjson` using `jq`.
+Shows all open tasks in a readable list, sorted by urgency and impact. Pulls directly from `6-tasks/_data/tasks.ndjson` using `jq`.
 
 **Why use it**
 Your task file is the canonical backlog. This is the fast way to see what's there without opening the file. Use it any time you want to know what you have in flight.
@@ -179,7 +181,7 @@ Your task file is the canonical backlog. This is the fast way to see what's ther
 ### Lesson: daily-loop/complete-task
 
 **What it is**
-Marks a task done, sets the `completed` date, and logs a lifecycle event to `6-actions/_data/task_events.ndjson`. Completed tasks stay in `tasks.ndjson` until the next weekly check-in archives them.
+Marks a task done, sets the `completed` date, and logs a lifecycle event to `6-tasks/_data/task_events.ndjson`. Completed tasks stay in `tasks.ndjson` until archived (during a `stale-task-triage` review pass, or when the live file grows past ~200 lines).
 
 **Why use it**
 Closing the loop matters. Completed tasks get archived weekly, which keeps the active file clean. The event log builds a history of what you actually shipped.
@@ -201,18 +203,15 @@ The skill will ask which task to close if you don't specify one.
 ### Lesson: daily-loop/focus-2plus1
 
 **What it is**
-Each morning you pick 3 deliberate items: 2 critical tasks + 1 bonus stretch task. Optionally a 4th slot for an active project task. Logged in `6-actions/_data/daily-focus.ndjson`. The morning check-in runs this automatically, but you can run it standalone too.
+Each day you pick 3 deliberate items: 2 critical tasks + 1 bonus stretch task. Optionally a 4th slot for an active project task. Logged in `6-tasks/_data/daily-focus.ndjson`. The tour's picks step sets the rest of today's 2+1 (tomorrow's after about 6 PM), and `/pfc-pick-tasks` suggests picks in chat.
 
 **Why use it**
-The 2+1 structure prevents the "I'll just pick the easy things" trap. Two critical items forces prioritization. The bonus slot gives you a safe stretch without guilt if it doesn't land. If you're doing the evening check-in daily, tomorrow's 2+1 is picked there automatically — no need to run it separately.
+The 2+1 structure prevents the "I'll just pick the easy things" trap. Two critical items forces prioritization. The bonus slot gives you a safe stretch without guilt if it doesn't land. If you run the tour daily, the picks are set as part of it — no need to run anything separately.
 
 **Try it now**
+Open `http://127.0.0.1:4323/`, press `Walk me through`, and stop at the picks step. Or in chat:
 ```
 /pfc-pick-tasks
-```
-Or as part of the daily spine:
-```
-/pfc-evening-checkin
 ```
 
 *(After user completes the action, append `tried` event for `daily-loop/focus-2plus1`.)*
@@ -222,23 +221,21 @@ Or as part of the daily spine:
 
 ---
 
-### Lesson: daily-loop/evening-checkin
+### Lesson: daily-loop/guided-tour
 
 **What it is**
-The daily spine. Logs which focus tasks were completed, surfaces active project status, prompts for manual habits, rates the day, drips ≤2 due rolling reviews, then trickles Current Focus and pre-commits tomorrow's 2+1. Takes 5-10 minutes. This is the one daily ritual — there's no separate morning routine.
+The daily spine, run any time from the web page (`http://127.0.0.1:4323/`, the `Walk me through` button). One step at a time, each skippable: rate yesterday before about 6 PM (today after), body check and habit ticks, music on, what needs you (at most one due rolling review), the rest of today's 2+1 (tomorrow's after 6 PM), and one focus with its vision and value. There's no separate morning or evening ritual. The Trello completions sync and the inbox-to-task reconcile run on their own every morning (`scripts/daily-sync.sh`).
 
 **Why use it**
-The evening check-in closes today's loop *and* opens tomorrow's. It catches drift — tasks that didn't happen, habits that were missed, project velocity that slipped — surfaces whatever reviews are due, and hands you a pre-committed 2+1 so tomorrow starts with a plan already in place. If you do one thing in the system daily, make it this.
+It catches drift — habits that were missed, a red focus, a review that's due — and ends with a plan in place, without asking you to remember a sequence: the page holds each step.
 
 **Try it now**
-```
-/pfc-evening-checkin
-```
+Open `http://127.0.0.1:4323/` and press `Walk me through`.
 
-*(After user completes the action, append `tried` event for `daily-loop/evening-checkin`.)*
+*(After user completes the action, append `tried` event for `daily-loop/guided-tour`.)*
 
 **Skip / dismiss**
-`/pfc-onboarding skip daily-loop/evening-checkin`
+`/pfc-onboarding skip daily-loop/guided-tour`
 
 ---
 
@@ -250,18 +247,39 @@ Takes a wide-open day — a Saturday, a holiday, a PTO day — and lays it out a
 **Why use it**
 Open days fail differently than structured ones. On a workday, each thing bends out of the thing before it; on an open day every block is a cold start, and a cold start reliably loses to "not worth it." A written list of ten things is an invisible object, not a trigger. The chain is the fix: every block carries the running state it starts from. The capacity math is the other half — ten things planned into six hours is the second failure, and this is the only skill that totals it out loud.
 
-The whole day replaces the 2+1 (that day's anchor instance is folded into the chain), so what's in each slot is readable straight off the calendar.
+The whole day is the plan, with the 2+1 placed inside the chain, so what's in each slot is readable straight off the calendar.
 
 **Try it now**
 ```
 /pfc-plan-open-day
 ```
-It also offers itself from the evening check-in the night before, so the plan exists before the day starts.
+The tour offers it on a Friday or Saturday after about 6 PM (`Plan tomorrow as an open day`), so the plan exists before the day starts.
 
 *(After user completes the action, append `tried` event for `daily-loop/plan-open-day`.)*
 
 **Skip / dismiss**
 `/pfc-onboarding skip daily-loop/plan-open-day`
+
+---
+
+### Lesson: daily-loop/agent-handoff
+
+**What it is**
+Every open task carries `agent_doable`: `yes` (an agent can run it start to finish), `partly` (an agent does the setup, you do the call, signature, or physical step), or `no` (the doing is the point — your learning, your body, your relationships). `/pfc-add-task` sets it on capture, and `/pfc-pick-tasks` offers the `yes` batch before it suggests the 2+1. Trello marks those cards with 🤖. Rules: `6-tasks/AGENTS.md` § Agent delegation.
+
+**Why use it**
+Forms, portals, registrations, returns, comparison shopping — these stall for months because starting them costs more than doing them. An agent with a browser finishes them while you watch, and several can run at once. The 2+1 slots stay for the work only you can do.
+
+**Try it now**
+```
+/pfc-pick-tasks
+```
+If three or more open tasks are agent-doable, it leads with the hand-off batch. Pick one and ask Claude to do it.
+
+*(After user completes the action, append `tried` event for `daily-loop/agent-handoff`.)*
+
+**Skip / dismiss**
+`/pfc-onboarding skip daily-loop/agent-handoff`
 
 ---
 
@@ -308,7 +326,7 @@ The skill will ask for a rating and a few optional tags.
 Daily and monthly habit tracking. Up to 5 daily habits (logged each day, frequency 1–7/week) and 5 monthly habits (frequency 1–4/month). Defined in `config/habit_schema.yaml`. Logged to `7-habits/_data/habits-daily.ndjson` and `habits-monthly.ndjson`. Some habits can be auto-fetched from Google Health (sleep, active zone minutes) — the automation handles those without prompting.
 
 **Why use it**
-Habits are the repeating behaviors that compound. The system tracks streaks, surfaces missed habits in check-ins, and feeds the trend-analysis skill so you can see which habits actually move your day rating. Skip if you're already using a separate habit tracker you trust — don't double-log.
+Habits are the repeating behaviors that compound. The system tracks streaks, shows unlogged habits in the tour, and feeds the trend-analysis skill so you can see which habits actually move your day rating. Skip if you're already using a separate habit tracker you trust — don't double-log.
 
 **Try it now**
 Think of one behavior you want to build or track. Run:
@@ -396,19 +414,19 @@ Auth-gated — requires Google Health setup. See `docs/install/connectors.md`. *
 ### Lesson: reviews/rolling-reviews
 
 **What it is**
-The old weekly/monthly ritual reviews are gone. Their work lives in a rolling ledger (`data/review-ledger.ndjson`): each review item has a cadence (weekly/monthly/quarterly) and a `last_done`. Your evening check-in surfaces at most 2 *due* items per night, each a one-line pointer at the skill that runs it. No batch ritual to remember — the reviews come to you, a couple at a time.
+The old weekly/monthly ritual reviews are gone. Their work lives in a rolling ledger (`data/review-ledger.ndjson`): each review item has a cadence (weekly/monthly/quarterly) and a `last_done`. The tour shows at most 1 *due* item, as a button that opens the skill that runs it. No batch ritual to remember — the reviews come to you, one at a time.
 
 **Why use it**
-Batch reviews get skipped (the morning gets away from you, the week fills up). Dripping 2/night keeps the review load tiny and always-current instead of a dreaded 30-minute block. You don't invoke this directly — it's part of `/pfc-evening-checkin`.
+Batch reviews got skipped (the morning got away from you, the week filled up). One at a time keeps the review load tiny and always-current instead of a dreaded 30-minute block. You don't invoke this directly — it's part of the tour.
 
-**Try it now:** `/pfc-evening-checkin` (watch the rolling-reviews step) | **Skip:** `/pfc-onboarding skip reviews/rolling-reviews`
+**Try it now:** the tour's What needs you step | **Skip:** `/pfc-onboarding skip reviews/rolling-reviews`
 
 ---
 
 ### Lesson: reviews/review-catchup
 
 **What it is**
-`/pfc-review` runs the same rolling-review ledger as the evening drip but with **no cap** — every currently-due, actionable item in one sitting, tier-ordered (weekly → monthly → quarterly). Use it when reviews have piled up and you want to clear the backlog deliberately.
+`/pfc-review` runs the same rolling-review ledger as the tour but with **no cap** — every currently-due, actionable item in one sitting, tier-ordered (weekly → monthly → quarterly). Use it when reviews have piled up and you want to clear the backlog deliberately.
 
 **Try it now:** `/pfc-review` | **Skip:** `/pfc-onboarding skip reviews/review-catchup`
 
@@ -428,7 +446,7 @@ Batch reviews get skipped (the morning gets away from you, the week fills up). D
 A diagnostic skill that finds stalled work and walks you through a structured revival. It scans for six signals — projects with no measurable velocity, projects sitting at zero parts completed for ≥14 days, open tasks older than 30 days, high-impact open tasks older than 7 days, tasks that have been in the 2+1 for ≥3 days without completing, and active projects with no activity in the event log for ≥10 days. For each stalled item, it asks why (using a multi-select diagnostic across seven frameworks: initiation deficit, missing implementation intention, external dependency, low salience, delay discounting, behavioral-activation drift, or the honest answer that it's time to drop the work) and proposes a tailored intervention. Outcomes are appended to `data/revive-events.ndjson` so the pattern of what works for you compounds over time.
 
 **Why use it**
-Stalled work is the most expensive state in any productivity system because it taxes you without producing anything. Asking "what should I do next?" reaches for the easiest item; asking "what's stalled and why?" reaches for the item your system already failed once. Revive is surfaced by the `stale-task-triage` rolling review (evening check-in or `/pfc-review`), but it's also worth running standalone when you feel the drag of unfinished work without being able to name it.
+Stalled work is the most expensive state in any productivity system because it taxes you without producing anything. Asking "what should I do next?" reaches for the easiest item; asking "what's stalled and why?" reaches for the item your system already failed once. Revive is surfaced by the `stale-task-triage` rolling review (the tour's one due review or `/pfc-review`), but it's also worth running standalone when you feel the drag of unfinished work without being able to name it.
 
 **Try it now**
 Run the revive walk. If nothing is stalled by the watchlist thresholds, the skill will say so and exit — that's a healthy outcome.
@@ -561,7 +579,7 @@ Visions written cold tend to be what you think you *should* want. A brainstorm f
 The Focus layer sits between Visions (years) and Projects (weeks): the scarce, capped, traffic-lit list of what you're actively on **this quarter**. Three tiers — 🧱 Foundations (always-on keystones), 🎯 Active Pursuits (hard cap 6), 🎧 Currently Consuming (book/podcasts/audiobook). Each pursuit carries a traffic light (🟢 going / 🟡 easing / 🔴 paused) and a **landing** — the anchor-first when/where it actually fires.
 
 **Why use it**
-Long-running interests vanish when nothing keeps them in perception. The Focus list is the middle altitude that keeps a quarter's worth of pursuits visible (it trickles into every evening check-in) without pretending they're projects with deadlines. The caps force honesty about how much fits in a quarter.
+Long-running interests vanish when nothing keeps them in perception. The Focus list is the middle altitude that keeps a quarter's worth of pursuits visible (the tour shows one focus with its vision every day) without pretending they're projects with deadlines. The caps force honesty about how much fits in a quarter.
 
 **Try it now:** `/pfc-focus` | **Skip:** `/pfc-onboarding skip focus/current-focus`
 
@@ -608,8 +626,9 @@ After creating each filter, check "Apply to existing conversations" to backfill.
 **Daily workflow:**
 
 - Anything that lands unlabeled in inbox is "unprocessed." During the day, swipe-label or click-label important threads as `AA`/`AB`/`BA`/`AC`/`BB`/`CA`.
-- **Labeling an email creates a task.** The pipeline (`pfc-email-triage` Step 0, run daily by the evening check-in) auto-creates a linked task for every labeled inbox email, and auto-completes the task when the email leaves the inbox (archived or deleted). Label = "this needs action"; archive = "handled".
+- **Labeling an email creates a task.** The pipeline (`pfc-email-triage` Step 0, run every morning by the daily sync job) auto-creates a linked task for every labeled inbox email, and auto-completes the task when the email leaves the inbox (archived or deleted). Label = "this needs action"; archive = "handled".
 - Run `/pfc-email-triage` once or twice a day. It shows everything labeled, walks you through high/medium items, offers to convert each into a task.
+- **Clear the unlabeled rest in batches.** Say "clear my inbox" and the skill proposes one action per thread (trash, unsubscribe, archive, draft a reply, or make a task) in a numbered table of 25, with a "worth knowing" table that pulls the dates and amounts out of emails before they go. Nothing changes until you approve by number, nothing is ever sent, and an email linked to a task is never trashed. Needs the Gmail connector authorized with modify access.
 
 **MCP gate:** also requires the Gmail MCP connector. See `docs/install/connectors.md` for the auth flow.
 
@@ -709,7 +728,7 @@ Then run `/pfc-onboarding reset integrations/trello-dashboard` once you've worke
    - `☀️ Daily Habits` (tap-to-check off habits)
    - One board widget as a one-tap launcher into the full dashboard.
    Add the others (`🗓️ Week at a Glance`, `🛠️ Projects`, `⬅ Last 7 Days`, `🧠 Front of Mind`, `🎯 Current Focus`) once you know which surfaces you reach for most.
-3. **Sync verification** (~5 min) — mark a habit complete from the widget, run `/pfc-sync-trello` or wait for the next checkin, and confirm the entry landed in `7-habits/_data/habits-daily.ndjson`. Do the same for a 2+1 task. If the round-trip works, the system is live.
+3. **Sync verification** (~5 min) — mark a habit complete from the widget, run `/pfc-sync-trello` or wait for the next daily sync, and confirm the entry landed in `7-habits/_data/habits-daily.ndjson`. Do the same for a 2+1 task. If the round-trip works, the system is live.
 
 **Try it now**
 
@@ -730,6 +749,24 @@ Then run `/pfc-onboarding reset integrations/trello-dashboard` once you've worke
 
 **Skip / dismiss**
 `/pfc-onboarding skip integrations/trello-dashboard`
+
+---
+
+### Lesson: integrations/daily-sync
+
+**What it is**
+One scheduled job (`scripts/daily-sync.sh`, early every morning) that does the background upkeep so no ritual has to: it pulls Trello widget completions into the repo, runs the Gmail labeled-email-to-task reconcile, and refreshes the calendar cache the week screens read. It takes a lock, refuses to run on a dirty tree or the wrong branch, levels with origin before it pushes, and times out instead of hanging.
+
+**Why use it**
+Without it, those syncs only happen when you remember to run a skill — and a sync you have to remember is a sync that drifts.
+
+**Try it now**
+Follow `docs/install/daily-sync.md`, then run the script once by hand and read its one-line summary. It needs the Claude Code CLI signed in, plus whichever integrations (Trello, Gmail, Calendar) you've set up.
+
+*(After user completes the action, append `tried` event for `integrations/daily-sync`.)*
+
+**Skip / dismiss**
+`/pfc-onboarding skip integrations/daily-sync`
 
 ---
 
@@ -764,7 +801,7 @@ TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d %H:%M %Z'
 
 **What it is.** Claude Code's "auto mode" lets the assistant execute multi-step work without pausing to ask permission after every tool call. With auto mode off, you tap enter dozens of times per session to approve each Bash / Edit / Read. With it on, low-risk operations run autonomously and you're only interrupted for destructive or shared-system actions (force-pushes, deletions, etc.).
 
-**Why this is worth doing.** The PFC system runs *lots* of small operations per skill — a single evening check-in can fire 30+ tool calls. Auto mode keeps you out of the loop for the safe ones while still asking before anything you'd actually want to think about.
+**Why this is worth doing.** The PFC system runs *lots* of small operations per skill — a single `/pfc-review` can fire 30+ tool calls. Auto mode keeps you out of the loop for the safe ones while still asking before anything you'd actually want to think about.
 
 **Safety note.** Auto mode does NOT mean "no guardrails." Anything that deletes data, force-pushes, or modifies shared systems still requires explicit confirmation. The harness classifier blocks destructive actions even in auto mode unless you've explicitly authorized them.
 
@@ -780,7 +817,7 @@ claude --help | grep -iE "auto|accept|mode" || true
 
 **Try it now**
 1. Start a session, type `/`, look for an auto-mode or accept-edits entry, enable it.
-2. Run `/pfc-evening-checkin` and notice how few times you're asked to approve a tool call.
+2. Run `/pfc-review` and notice how few times you're asked to approve a tool call.
 3. If you don't like the lower friction, switch it back off — it's a session-level toggle.
 
 *(After user has tried it once, append `tried` event for `meta/auto-mode`.)*
@@ -948,7 +985,7 @@ High-leverage edits to consider early:
 - Change the default task fields in `pfc-add-task` (e.g., add "energy required" as a field)
 - Edit `0-me/profile.md` to match your actual brain and working style
 - Update `config/habit_schema.yaml` with habits you actually want to track
-- Adjust the 2+1 logic in `pfc-evening-checkin` (plan-tomorrow step) if 2 critical + 1 bonus doesn't fit your flow
+- Adjust the 2+1 logic in `pfc-pick-tasks` and the suggested picks in `automations/scripts/home_data.py` if 2 critical + 1 bonus doesn't fit your flow
 
 **Try it now**
 Pick one thing that already feels off about the system. Tell Claude what you want changed and say "update the skill" or "add this rule to CLAUDE.md." Watch what it does. If you don't like the result, revert with `git checkout <file>`.
@@ -970,7 +1007,7 @@ Your fork drifts from upstream over time as new skills, refinements, and fixes s
 **Why use it**
 Most people fork a template, customize it, then never pull updates, because merging hand-edited files is painful and risks losing real data. This skill removes both risks. It snapshots to a tag first, refuses to overwrite anything on a protected list (your tasks, habits, day tracking, values, areas, habit definitions), and verifies your record counts afterward — a drop means something went wrong and you roll back to the tag.
 
-The one to watch for: upstream ships data files as *empty starters*. Accepting `6-actions/_data/tasks.ndjson` from a release over your populated file would wipe your tasks. The skill's guard catches exactly that.
+The one to watch for: upstream ships data files as *empty starters*. Accepting `6-tasks/_data/tasks.ndjson` from a release over your populated file would wipe your tasks. The skill's guard catches exactly that.
 
 **Try it now**
 ```

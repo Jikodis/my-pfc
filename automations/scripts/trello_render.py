@@ -187,6 +187,17 @@ from trello_helper import (
 # 9 impact×urgency tiers collapse to 5 priority colors. The 9-tier distinction
 # stays visible in card titles ("AA (M) - desc"); the label is just the 5-bucket
 # priority severity. Labels are plain (unnamed) Trello labels — color-only.
+# Tasks a browser agent can run start to finish get 🤖 in the title, so the
+# hand-off batch is visible at a glance on the phone. Only "yes" is marked —
+# "partly" and "no" carry nothing, because a second marker would need a legend
+# and a legend that isn't on the screen is a legend the reader doesn't have.
+AGENT_MARK = " 🤖"
+
+
+def _agent_mark(task) -> str:
+    return AGENT_MARK if task.get("agent_doable") == "yes" else ""
+
+
 TIER_PRIORITY_COLOR = {
     "AA": "red",
     "AB": "orange", "BA": "orange",
@@ -196,7 +207,7 @@ TIER_PRIORITY_COLOR = {
 }
 # Order chosen so emoji codepoints sort red → orange → yellow → green → purple
 # in Trello's "Sort by card name". Avoid ⚫ (U+26AB) or ⬛ (U+2B1B) — both sort
-# BEFORE 🔴 (U+1F534) and broke the Actions list ordering.
+# BEFORE 🔴 (U+1F534) and broke the Tasks list ordering.
 PRIORITY_COLORS = ("red", "orange", "yellow", "green", "purple")
 
 
@@ -217,7 +228,7 @@ def ensure_lists(api_key, token, board_id, list_names):
 #
 # Each active project (projects.ndjson `active: true`) gets its own list
 # `🎯 <project name>` so the project backlog doesn't drown the standalone
-# Actions list on the mobile dashboard. When a project flips inactive, its list
+# Tasks list on the mobile dashboard. When a project flips inactive, its list
 # is archived on the next render. Tasks belonging to inactive projects don't
 # render to Trello at all — they remain in NDJSON until the project reactivates.
 
@@ -334,8 +345,8 @@ def load_repo_state():
         "areas": _load_areas(),
         "visions": _load_visions(),
         "projects": _read_ndjson("5-projects/_data/projects.ndjson"),
-        "tasks": _read_ndjson("6-actions/_data/tasks.ndjson"),
-        "daily_focus": _read_ndjson("6-actions/_data/daily-focus.ndjson"),
+        "tasks": _read_ndjson("6-tasks/_data/tasks.ndjson"),
+        "daily_focus": _read_ndjson("6-tasks/_data/daily-focus.ndjson"),
         "habits_daily": _read_ndjson("7-habits/_data/habits-daily.ndjson"),
         "habits_monthly": _read_ndjson("7-habits/_data/habits-monthly.ndjson"),
         "habit_schema": _load_habit_schema(),
@@ -660,8 +671,9 @@ def render_2plus1(repo_state, plain_color_labels=None) -> list:
         tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
         # Title format: "🔴 AA (M) - description" — emoji prefix makes priority
         # visible on Android Trello widgets where labels are not rendered.
-        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
-                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
+        bot = _agent_mark(t)
+        formatted_name = (f"{tier_emoji} {tier} ({size}){bot} - {desc_text}"
+                          if tier_emoji else f"{tier} ({size}){bot} - {desc_text}")[:200]
         cards.append(Card(
             pfc_id=t["id"],
             pfc_type="task",
@@ -675,9 +687,9 @@ def render_2plus1(repo_state, plain_color_labels=None) -> list:
     return cards
 
 
-def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
+def render_tasks(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
     """Render open standalone tasks (no project) except those in today's 2+1.
-    Project-linked tasks render via render_project_actions instead."""
+    Project-linked tasks render via render_project_tasks instead."""
     plain_color_labels = plain_color_labels or {}
     exclude = set(exclude_2plus1_ids or [])
     cards = []
@@ -702,12 +714,13 @@ def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None)
         size = t.get("size", "?")
         desc_text = t.get("description", "")
         tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
-        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
-                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
+        bot = _agent_mark(t)
+        formatted_name = (f"{tier_emoji} {tier} ({size}){bot} - {desc_text}"
+                          if tier_emoji else f"{tier} ({size}){bot} - {desc_text}")[:200]
         cards.append(Card(
             pfc_id=t["id"],
             pfc_type="task",
-            list_name="✅ Actions",
+            list_name="✅ Tasks",
             name=formatted_name,
             body="\n".join(body_lines),
             label_names=_priority_plain_label(tier, plain_color_labels),
@@ -717,7 +730,7 @@ def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None)
     return cards
 
 
-def render_project_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
+def render_project_tasks(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
     """Render open tasks for each active project to that project's dedicated list.
     Tasks belonging to inactive/done/missing projects are NOT rendered to Trello —
     they remain in NDJSON until the project reactivates."""
@@ -752,8 +765,9 @@ def render_project_actions(repo_state, plain_color_labels=None, exclude_2plus1_i
         size = t.get("size", "?")
         desc_text = t.get("description", "")
         tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
-        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
-                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
+        bot = _agent_mark(t)
+        formatted_name = (f"{tier_emoji} {tier} ({size}){bot} - {desc_text}"
+                          if tier_emoji else f"{tier} ({size}){bot} - {desc_text}")[:200]
         cards.append(Card(
             pfc_id=t["id"],
             pfc_type="task",
@@ -1232,6 +1246,63 @@ def _event_to_due(start):
     return None
 
 
+# A cache older than the window it covers has no future events left in it, so
+# there is nothing to render. /pfc-render-trello fetches 7 days forward.
+CALENDAR_CACHE_MAX_AGE_DAYS = 7
+
+
+def load_calendar_cache(path=None, today=None):
+    """Second source for 🗓️ Week at a Glance when no live Calendar fetch happened.
+
+    Only a live session can fetch Calendar, because reading it needs the Google
+    Calendar MCP connector. A scheduled render (a systemd timer, the post-commit
+    hook) would otherwise skip the list entirely, so it silently goes stale between
+    live renders. /pfc-render-trello Step 1, which the daily sync job runs every
+    morning, commits data/calendar-cache.json for the TRMNL pfc-week builder;
+    reading it here means a scheduled render shows a slightly older week instead
+    of no week.
+
+    Returns (events, note). events is None whenever the cache can't be used —
+    every failure is soft, and the note explains which one so the render can
+    print it. Past events are dropped: the cache covers 7 days from its fetch,
+    so by the time a scheduled render reads it the front of that window is gone.
+    """
+    path = Path(path) if path else REPO_ROOT / "data" / "calendar-cache.json"
+    today = today or _today_mt()
+
+    if not path.exists():
+        return None, f"no calendar cache at {path.name}"
+    try:
+        blob = json.loads(path.read_text())
+        fetched_at = blob["fetched_at"]
+        events = blob["events"]
+    except (ValueError, KeyError, TypeError, OSError):
+        return None, f"calendar cache unreadable ({path.name})"
+
+    fetched_day = str(fetched_at)[:10]
+    try:
+        age = (_dt.date.fromisoformat(today)
+               - _dt.date.fromisoformat(fetched_day)).days
+    except ValueError:
+        return None, f"calendar cache unreadable (bad fetched_at {fetched_at!r})"
+    if age > CALENDAR_CACHE_MAX_AGE_DAYS:
+        return None, f"calendar cache stale ({age}d old, fetched {fetched_day})"
+
+    upcoming = [e for e in events if _event_start_day(e) >= today]
+    if not upcoming:
+        return None, f"calendar cache has no upcoming events (fetched {fetched_day})"
+    return upcoming, f"calendar cache from {fetched_day} ({age}d old, {len(upcoming)} upcoming)"
+
+
+def _event_start_day(evt) -> str:
+    """YYYY-MM-DD an event starts on, for timed and all-day events alike.
+    Unparseable starts sort last so a malformed event is never silently dropped.
+    """
+    start = evt.get("start", {}) or {}
+    raw = start.get("dateTime") or start.get("date") or ""
+    return str(raw)[:10] or "9999-12-31"
+
+
 def load_calendar_filters() -> dict:
     """Read config/trello_calendar_filters.yaml. Shared by the Trello render and
     the TRMNL pfc-week builder so the two week surfaces filter identically.
@@ -1478,7 +1549,7 @@ ALL_LIST_NAMES = [
     "🧭 Areas",  # life-wheel state surfaces as a plain-color label here, not a separate list
     "🔭 Visions",
     "🛠️ Projects",
-    "✅ Actions",
+    "✅ Tasks",
     "☀️ Daily Habits",
     "🌙 Monthly Habits",
     "💡 Insights",
@@ -1575,8 +1646,8 @@ def render(api_key, token, board_id, calendar_events=None, calendar_filters=None
     desired += render_visions(state)
     desired += render_projects(state, plain_color_labels=plain_color_label_map)
     desired += twoplus1
-    desired += render_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
-    desired += render_project_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
+    desired += render_tasks(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
+    desired += render_project_tasks(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
     desired += render_daily_habits(state)
     desired += render_monthly_habits(state)
     # Life Wheel list: no longer rendered. Existing cards in that list will be
@@ -1648,7 +1719,7 @@ def render(api_key, token, board_id, calendar_events=None, calendar_filters=None
 
 def main(argv):
     # Local-only mode — no Trello credentials needed. Prints the Superman Pulse
-    # 7-day trend for the evening check-in. Optional integer arg = window size.
+    # 7-day trend for pfc-daily-summary's Superman Pulse. Optional integer arg = window size.
     if "--pulse-history" in argv:
         i = argv.index("--pulse-history")
         n = 7
@@ -1730,6 +1801,19 @@ def main(argv):
         if i + 1 < len(argv):
             with open(argv[i + 1]) as f:
                 calendar_events = json.load(f)
+
+    # No live fetch (a scheduled render, the post-commit hook — neither can reach
+    # the Calendar MCP connector): fall back to the cache the daily sync job
+    # commits each morning (/pfc-render-trello Step 1). A slightly older week beats
+    # a blank list that nothing reports. --no-calendar-cache opts out and restores
+    # the skip-the-list behavior.
+    if calendar_events is None and "--no-calendar-cache" not in argv:
+        cached, note = load_calendar_cache()
+        if cached is None:
+            print(f"   🟡 Calendar not fetched and {note}; 🗓️ Week at a Glance will be skipped")
+        else:
+            print(f"   🟡 Calendar not fetched; falling back to {note}")
+            calendar_events = cached
 
     # Always load filters; harmless if no calendar data provided.
     calendar_filters = load_calendar_filters()

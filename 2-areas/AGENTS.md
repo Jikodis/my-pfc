@@ -18,7 +18,7 @@ Folder-scoped operational rules for any agent reading or writing in `2-areas/`. 
 2. **Before deleting an area folder**, check for inbound references:
    ```bash
    AREA="legal"
-   echo "tasks:"; jq -c --arg a "$AREA" 'select(.area == $a)' 6-actions/_data/tasks.ndjson
+   echo "tasks:"; jq -c --arg a "$AREA" 'select(.area == $a)' 6-tasks/_data/tasks.ndjson
    echo "projects:"; jq -c --arg a "$AREA" 'select(.area == $a)' 5-projects/_data/projects.ndjson
    echo "insights:"; jq -c --arg a "$AREA" 'select(.area == $a)' data/insights.ndjson
    echo "habits:"; grep -c "area: $AREA" config/habit_schema.yaml || echo 0
@@ -90,4 +90,4 @@ jq -cn --arg m "$THIS_MONTH" --arg a "career" --argjson r 7 \
 ## See also
 
 - [`README.md`](README.md) — human-facing intro + customization recipes.
-- Repo-root [`AGENTS.md`](../AGENTS.md) § System structure — VAVFPAH framing.
+- Repo-root [`AGENTS.md`](../AGENTS.md) § System structure — VAVFPTH framing.

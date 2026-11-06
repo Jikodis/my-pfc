@@ -1,14 +1,26 @@
 <div class="layout layout--col gap--small">
-  <div class="col gap--xsmall">
-    {% for area in attention limit: 3 %}
-      <span class="label" data-clamp="1">{{ area.mark }} - {{ area.title }}{% if area.note != "" %} - {{ area.note }}{% endif %}</span>
-    {% else %}
-      <span class="label">Every area is green.</span>
-    {% endfor %}
+  <div class="col gap--small">
+    <span class="label label--small label--gray 1bit:text--black">{{ horizon }}</span>
+    <div class="grid">
+      {% for group in groups %}
+        <div class="col col--span-6 gap--xsmall">
+          {% render "group_head", group: group, title_size: "title--small", size: "label--small" %}
+          {% for row in group.rows limit: 5 %}
+            <div class="flex flex--row flex--left gap--small">
+              {% render "status_chip", status: row.status, size: "label--small" %}
+              <span class="label label--small no-shrink">{{ row.label }}</span>
+              {% if row.note != "" %}
+                <span class="label label--small label--gray 1bit:text--black" data-clamp="1">{{ row.note }}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Areas</span>
-  <span class="instance">{{ reds }}R {{ yellows }}Y {{ greens }}G</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

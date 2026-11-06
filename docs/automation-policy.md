@@ -14,7 +14,7 @@ See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for
 - Daily focus picks
 - Habit logging
 - Day tracking entries
-- Daily check-in appends
+- Day ratings and review stamps
 - Project progress updates
 - Automation-generated data (NDJSON appends)
 - Generated reports
@@ -28,9 +28,10 @@ See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for
 
 ## Execution on VPS
 
-- **systemd timers** for scheduled automations (daily check-in prompts, weekly reviews)
+- **systemd timers** for scheduled automations (health fetch, Trello sync and render)
 - **systemd services** for long-running processes if needed
 - Scripts may invoke Claude Code CLI with `claude -p` for automated workflows
+- **Daily sync:** `scripts/daily-sync.sh` runs the Trello completions sync, then `claude -p` steps for the Gmail inbox-to-task reconcile and the calendar cache, and commits and pushes the result; see `docs/install/daily-sync.md`.
 
 ## Safety rules
 
@@ -42,7 +43,5 @@ See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for
 
 ## Future automation targets
 
-- Daily check-in prompt (systemd timer, evening)
-- Weekly review prompt (systemd timer, end of week)
-- Task archival (when `6-actions/_data/tasks.ndjson` exceeds ~200 lines)
+- Task archival (when `6-tasks/_data/tasks.ndjson` exceeds ~200 lines)
 - Report generation (on demand or scheduled)

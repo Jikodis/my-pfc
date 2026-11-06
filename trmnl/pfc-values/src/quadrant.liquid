@@ -1,0 +1,10 @@
+<div class="layout layout--col layout--center gap--small">
+  <span class="title text--center">{{ values | slice: 0, 5 | join: " - " }}</span>
+  {% if question != "" %}
+    <span class="description description--large text--center" data-clamp="2">{{ question }}</span>
+  {% endif %}
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+</div>

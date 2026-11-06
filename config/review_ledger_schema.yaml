@@ -1,23 +1,22 @@
 # Schema for data/review-ledger.ndjson — the Rolling Reviews ledger.
 #
 # One record per review item. The weekly / monthly / quarterly review work that
-# used to live in separate batch check-in rituals now lives here and drips
-# through the evening check-in (≤2 due items per night) or clears all at once
-# via /pfc-review.
+# used to live in separate batch check-in rituals now lives here. The home page
+# tour shows at most one due item a day; /pfc-review clears every due item at once.
 #
 # An item is a *candidate* once  today - last_done >= cadence_days.
-# Each candidate is then filtered through a per-id **gate** defined in
-# pfc-evening-checkin Step 3c — a small check that returns a reason string only
-# when there is genuinely something to act on. A due-but-empty-gate item
-# silently passes (not shown, not stamped) and re-checks the next night.
+# In /pfc-review each candidate is then filtered through a per-id **gate**
+# (pfc-review Step 1) — a small check that returns a reason string only when
+# there is genuinely something to act on. A due-but-empty-gate item silently
+# passes (not shown, not stamped) and re-checks next time.
 #
 # The seed ships every item with last_done "2000-01-01" — a far-past sentinel
-# meaning "never reviewed." Everything is due on day one; the ≤2/night cap keeps
-# that from becoming a wall of reviews, and each item's real cadence starts the
-# first time you engage with it.
+# meaning "never reviewed." Everything is due on day one; the tour's one-a-day
+# cap keeps that from becoming a wall of reviews, and each item's real cadence
+# starts the first time you engage with it.
 
 required_fields:
-  - id            # stable slug mapped to a gate in pfc-evening-checkin Step 3c
+  - id            # stable slug mapped to a gate in pfc-review Step 1
   - label         # human-readable name shown in chat
   - tier          # weekly | monthly | quarterly
   - cadence_days  # minimum days between surfacings (int > 0; 7 / 30 / 90)

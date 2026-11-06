@@ -12,7 +12,7 @@ Folder-scoped operational rules for any agent reading or writing in `data/`. Cro
 | `day-tracking.ndjson` | One entry per day | Append for new day; mutable in place during the day |
 | `supplements.ndjson` | One supplement entry per line | Mutable for stop-date; new doses are new records, never edits to `dose` |
 | `grounding.ndjson` | One Front-of-Mind topic per line | Mutable (status → `retired`, `retired_date`) |
-| `review-ledger.ndjson` | One rolling-review item per line | Mutable (`last_done` stamped on engagement) |
+| `review-ledger.ndjson` | One rolling-review item per line | Mutable (`last_done` stamped on engagement, by the tour's `stamp-review` or `/pfc-review`) |
 | `revive-events.ndjson` | One revive intervention per line | Append; `outcome` updated in place later |
 | `health-raw/` | One gzipped JSON per day | Written by the health fetch; not NDJSON, not validated |
 | `.jq_update.tmp` | Temp file | Should NEVER persist between operations |

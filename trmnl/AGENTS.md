@@ -73,7 +73,7 @@ Every plugin, existing or new, is held to these:
   `value--large lg:value--xxlarge`). Base classes alone render small type on a large
   panel.
 - **Sparse-by-nature content gets the poster treatment.** When a screen's data is
-  naturally 1–6 short lines (compass, learned, front-of-mind), render it centered with
+  naturally 1–6 short lines (values, trends, front-of-mind), render it centered with
   size-tiered type (`_text_size` / `_text_size_lg` in `trmnl_push.py`) instead of a
   small list in a corner.
 - **Never truncate while the screen has blank space.** Short clips (40–60 chars) and
@@ -161,12 +161,25 @@ trmnl/bin/preview <plugin> --serve    # same, then live reload at http://localho
 not layout that overflows, collapses, or centers when it should be left-aligned. Read
 `_build/<view>.png` and check it.
 
-**The full loop can run on a small server — a workstation is not required.** Data
-refresh, lint, 4-bit PNG render, and `trmnlp push` all work on a 1 GB VPS *if it has
-swap*: the `--png` step runs headless Chrome in the container and needs roughly 500 MB
-free, so add a 2 GB swap file and expect the render to be slow (a couple of minutes;
-first run longer while the image downloads), not broken. If a render fails, check free
-swap before blaming the container.
+**Most of the loop runs on a small server — the PNG render often will not.** Data
+refresh, lint, and `trmnlp push` all work on a 1 GB VPS, so plugin development can
+happen from Claude Code anywhere. The `--png` step is the exception: it runs headless
+Chrome in the container, and Chrome has to load the page inside a hard-coded 5-second
+Selenium wait. Once the box is swapping it cannot, and no amount of retrying or waiting
+changes that — swap does not make it fit. It renders when memory is genuinely free and
+fails with `Selenium::WebDriver::Error::TimeoutError` when it is not.
+
+So when the PNG step fails:
+
+1. Check `free -m` **first**. Under about 300 MB available, the render will not
+   succeed — stop retrying; it is a resource wall, not a flake.
+2. Fall back to reading `_build/<view>.html`. It is written before the screenshot
+   step, so it exists even on failure, and it verifies structure, real data, and class
+   names — everything except visual layout.
+3. **Say plainly that layout is unverified.** `trmnlp lint` checks rules, not emptiness
+   or overflow. "Lint passed" is not "I looked at it."
+4. Render on a machine with real memory when layout genuinely matters, or push and
+   look at the device.
 
 The underlying commands, if you need them individually: `trmnl_push.py <plugin> --local`
 writes sample data, then `bin/trmnlp lint` / `build --png --color-depth 4` / `serve`
@@ -210,10 +223,18 @@ actually sends.
    `polling_headers` out of the file — they are set in the TRMNL UI, because the header
    carries a bearer token and `trmnlp push` would round-trip it through the repo. Leave
    `id:` out too until a first push assigns one.
-3. Register a payload builder in `trmnl_push.py` — **data first, before any markup.**
+3. Write the payload builder — in `trmnl_home.py` for a web band, in `trmnl_push.py`
+   for a screen with no band — and register it in `BUILDERS` in `trmnl_push.py`.
+   **Data first, before any markup.** Keep the `author_bio` custom field in
+   `src/settings.yml` (copy it from any existing plugin); `trmnlp lint` expects it.
 4. `trmnl/bin/preview <plugin>`, then read the PNGs.
 5. `trmnlp push` the markup. Create the plugin in the TRMNL UI pointing at
    `https://<your-endpoint>/p/<plugin>` with the bearer header, then restart the
    endpoint so it picks up the new builder:
    `systemctl --user restart pfc-trmnl-serve`.
 6. Add the plugin to the tables in `docs/trmnl-plugins.md` and `trmnl/README.md`.
+
+**One screen per web band.** The screens mirror the web home page's bands in its order,
+built in `automations/scripts/trmnl_home.py` from `home_data.build_home`, the same call
+the page makes. Do not compute a number for a screen that the page does not show; add it
+to `home_data.py` so both surfaces get it.

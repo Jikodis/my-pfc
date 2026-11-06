@@ -1,12 +1,15 @@
 <div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="2">
-    <div class="column">
-      {% for item in pursuits %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
-          </div>
+  <div class="col gap--xsmall stretch-x">
+    <span class="label label--small" data-clamp="1">{% if repick != "" %}{{ repick }}{% else %}{{ horizon }}{% endif %}</span>
+    <div class="grid">
+      {% for tier in tiers %}
+        <div class="col {% if tier.label == "Active Pursuits" %}col--span-5{% elsif tier.label == "Foundations" %}col--span-4{% else %}col--span-3{% endif %} gap--xsmall">
+          <span class="title title--small" data-clamp="1">{{ tier.label }}</span>
+          {% for row in tier.rows limit: 6 %}
+            <span class="label label--small" data-clamp="1">{{ row.status }} - {{ row.title }}</span>
+          {% else %}
+            <span class="label label--small">None.</span>
+          {% endfor %}
         </div>
       {% endfor %}
     </div>
@@ -14,6 +17,6 @@
 </div>
 
 <div class="title_bar">
-  <span class="title">Current Focus</span>
-  <span class="instance">{{ quarter }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

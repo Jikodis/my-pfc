@@ -11,5 +11,14 @@ polling_body:
 # later pushes update this plugin instead of creating a new one. Leave the
 # polling URL and headers in the TRMNL UI: the header carries a bearer token and
 # `trmnlp push` would round-trip it into this file.
-name: PFC Today
+name: PFC Tasks
 refresh_interval: 15
+# trmnlp lint expects an author_bio field with a contact link on every plugin. It
+# points at the public template these screens come from; use your own fork's URL
+# if you prefer.
+custom_fields:
+- keyname: about
+  name: About This Plugin
+  field_type: author_bio
+  description: Private PFC dashboard screen, built from your PFC repo.
+  github_url: https://github.com/Jikodis/my-pfc

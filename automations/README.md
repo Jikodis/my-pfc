@@ -29,8 +29,7 @@ Writes two layers per run: derived day metrics into `data/day-tracking.ndjson` �
 Three cadences, because the data lands at three different times:
 
 - **Morning retry** — every 30 minutes from 6:00 AM local, fetching **today** (last night's sleep). Sleep lands whenever the watch syncs, not on a clock, so one fixed hour is either too early or too late.
-- **Noon two-pass** — pass 1 today (fresh sleep for the same-day evening check-in), pass 2 yesterday (finalizes complete full-day activity totals).
-- **On demand** — the evening check-in fetches before reading health data.
+- **Noon two-pass** — pass 1 today (fresh sleep beside a same-day rating in the tour), pass 2 yesterday (finalizes complete full-day activity totals).
 
 Idempotent, and that's what makes the retry loop cheap: with unchanged data it writes nothing, commits nothing, and pushes nothing. Full setup in [`docs/install/google-health.md`](../docs/install/google-health.md).
 
@@ -39,9 +38,9 @@ Idempotent, and that's what makes the retry loop cheap: with unchanged data it w
 **Script:** `scripts/trello_render.py`
 **Units:** `systemd/pfc-trello-daily-render.service.template` + `systemd/pfc-trello-daily-render.timer.template`
 
-Runs once daily at **12:05 AM in your local timezone** (`$LOCAL_TZ`, default `America/Denver`). Re-renders all dashboard lists so daily-habit cards uncheck for the new day (the render reads today's habit logs; with no logs yet for the new day, all habit cards render unchecked). Without this, habit cards stay visually checked until the first render-firing skill runs (e.g. the evening check-in) — which could be hours into the day. Edit the `.timer.template` `OnCalendar=` line if you want a different fire time.
+Runs once daily at **12:05 AM in your local timezone** (`$LOCAL_TZ`, default `America/Denver`). Re-renders all dashboard lists so daily-habit cards uncheck for the new day (the render reads today's habit logs; with no logs yet for the new day, all habit cards render unchecked). Without this, habit cards stay visually checked until the first render-firing skill runs (any `pfc-*` skill that renders, or a web UI write) — which could be hours into the day. Edit the `.timer.template` `OnCalendar=` line if you want a different fire time.
 
-The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email lists skip 🟡 since this runs without MCP data; cadence checkins still refresh those.
+The render is idempotent: a no-change render is a 0-diff no-op. It has no MCP access, so `🗓️ Week at a Glance` falls back to `data/calendar-cache.json` (refreshed each morning by the daily sync job).
 
 ---
 
@@ -57,8 +56,11 @@ The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email
 | `exercise_reduce.py` | Shared tracked-workout parsing — session list, intensity, timing, `azm_outside_workouts` |
 | `qqrt.py` | Canonical QQRT sleep-composite levers + sleep-debt ledger. Thresholds are generic defaults, tunable via `config/automation_config.yaml` → `health.sleep` |
 | `backfill_qqrt.py` | Recompute the `qqrt` object on every day-tracking record (idempotent; runs automatically after any health write) |
-| `pulse.py` | Daily Pulse levers, verdict, per-lever fix, and the multi-day trend — the single source of truth every pulse surface imports (Trello render, check-in). Bands tunable via `config/automation_config.yaml` → `health.pulse` |
+| `pulse.py` | Daily Pulse levers, verdict, per-lever fix, and the multi-day trend — the single source of truth every pulse surface imports (Trello render, TRMNL, the daily summary). Bands tunable via `config/automation_config.yaml` → `health.pulse` |
 | `auto_fetch_health.py` | Fetch health into day-tracking.ndjson + the raw archive, recompute QQRT, commit and push — runs via `pfc-health-fetch` and `pfc-health-fetch-morning` |
+| `repo_sync.py` | Levels a clone with origin before a writer reads and before it pushes (`git pull --rebase` on a clean tree, fast-forward only otherwise); used by `auto_fetch_health.py` and `web_write.py` |
+| `pfc_writes.py` · `ndjson_file.py` | The task, habit, focus and day-rating record changes shared by the web writer and the Trello sync, and the line-preserving atomic NDJSON rewrite they write through |
+| `web_data.py` · `home_data.py` · `web_write.py` | The web UI's Python side: every number it shows, and the one writer behind its buttons (see `web/AGENTS.md`) |
 | `analyze_day_trends.py` | Analyze day-tracking data: correlations, gate/gradient classification, QQRT threshold, sleep debt, trailing-2-night worst night |
 
 ---
@@ -121,4 +123,4 @@ python3 automations/scripts/auto_fetch_health.py 2025-01-12
 
 ## Future automation targets
 
-- Task archival (when `6-actions/_data/tasks.ndjson` exceeds ~200 lines)
+- Task archival (when `6-tasks/_data/tasks.ndjson` exceeds ~200 lines)

@@ -1,53 +1,55 @@
 <div class="layout layout--col gap">
-  <div class="grid">
-    <div class="col col--span-7 gap--small">
-      <span class="title title--small lg:title--base">Today's 2+1</span>
-      <div class="columns" data-overflow-max-cols="1">
-        <div class="column">
-          {% for task in critical %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">{{ forloop.index }}</span>
-              </div>
-              <div class="content">
-                <span class="title title--small lg:title--base" data-clamp="3">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
-              </div>
-            </div>
-          {% else %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label label--gray">No 2+1 set for today</span>
-              </div>
-            </div>
-          {% endfor %}
-          {% if bonus %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">+</span>
-              </div>
-              <div class="content">
-                <span class="title title--small lg:title--base" data-clamp="3">{% if bonus.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ bonus.title }}</span>
-                <span class="label label--small label--gray">Bonus</span>
-              </div>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <div class="col col--span-5 gap--small">
-      <span class="title title--small lg:title--base">Habits today {{ habits_done }}/{{ habits_total }}</span>
-      {% for habit in habits %}
-        <span class="label lg:label--large" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
+  <div class="col gap--small stretch-x">
+    <span class="description lg:description--large">{{ horizon }}{% if single_pick %} Lower the bar today: one pick, not 2+1.{% endif %}</span>
+    <span class="title title--small lg:title--base">Today{% if total > 0 %}: {{ done }} of {{ total }} done{% endif %}</span>
+    {% for pick in picks %}
+      {% render "pick_row", pick: pick, text_class: "title title--small lg:title--base", clamp: 1 %}
+    {% else %}
+      <span class="title title--small lg:title--base">{{ picks_note }}</span>
+    {% endfor %}
+    {% if evening %}
+      <span class="title title--small lg:title--base">{{ tomorrow_label }}</span>
+      {% for pick in tomorrow %}
+        {% render "pick_row", pick: pick, text_class: "label lg:label--large", clamp: 1 %}
       {% else %}
-        <span class="label label--gray">No daily habits defined</span>
+        <span class="label lg:label--large">Not set yet. Set them on the web page.</span>
       {% endfor %}
+    {% endif %}
+    {%- if evening -%}{%- assign room = 2 -%}{%- else -%}{%- assign room = 3 -%}{%- endif -%}
+    <div class="divider"></div>
+    <div class="grid">
+      <div class="col col--span-6 gap--small">
+        <span class="title title--small lg:title--base">What needs you</span>
+        {% for n in needs_you limit: room %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="label lg:label--large" data-clamp="2">{{ n.title }}</span>
+              <span class="label lg:label--large">{{ n.why }}</span>
+            </div>
+          </div>
+        {% else %}
+          <span class="label lg:label--large">Nothing overdue or due soon.</span>
+        {% endfor %}
+      </div>
+      <div class="col col--span-6 gap--small">
+        <span class="title title--small lg:title--base">Hand to an agent</span>
+        {% for h in handoffs limit: room %}
+          <div class="item">
+            <div class="meta"></div>
+            <div class="content">
+              <span class="label lg:label--large" data-clamp="2">{{ h }}</span>
+            </div>
+          </div>
+        {% else %}
+          <span class="label lg:label--large">Nothing to hand off.</span>
+        {% endfor %}
+      </div>
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">{{ weekday }}</span>
-  <span class="instance">{% if last_rating %}Last day rated {{ last_rating }}/5{% else %}No rating logged{% endif %}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

@@ -1,0 +1,12 @@
+daily_habits:
+  - id: walk-every-morning
+    description: "Walk before the day starts"
+    frequency: 5
+    area: health
+    values: [Health]
+monthly_habits:
+  - id: clear-the-garage-bench
+    description: "Clear the bench once a month"
+    frequency: 1
+    area: household
+    values: [Health]

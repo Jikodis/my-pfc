@@ -1,12 +1,12 @@
 # 4 · Focus
 
-The **Focus** layer of VAVFPAH — the quarter-horizon band between **Vision** (years) and **Habit** (a day). It holds the scarce, capped, traffic-lit set of what you're actively pursuing *right now*.
+The **Focus** layer of VAVFPTH — the quarter-horizon band between **Vision** (years) and **Habit** (a day). It holds the scarce, capped, traffic-lit set of what you're actively pursuing *right now*.
 
 Visions answer *where am I headed*. Habits answer *what's today's rep*. Neither answers *what am I actually on this season* — that's this folder.
 
 - Data: [`_data/focus.ndjson`](_data/focus.ndjson) — one record per active or retired focus. Ships empty; fill it with `/pfc-focus`.
 - Managed by `/pfc-focus` (view · add · park · graduate · retire · quarterly re-pick).
-- Surfaced in the daily check-in as a read-only trickle, and rendered to the `🎯 Current Focus` Trello list if you use the dashboard.
+- Surfaced daily by the web page's tour (one focus and its vision, rotating daily), shown in the home page's Focuses band, and rendered to the `🎯 Current Focus` Trello list if you use the dashboard.
 - Schema: [`../config/focus_schema.yaml`](../config/focus_schema.yaml). Tier caps: [`../config/focus.yaml`](../config/focus.yaml).
 
 ## The three tiers
@@ -51,7 +51,7 @@ Every focus names exactly one `area` matching a folder under `2-areas/` — that
 
 | When | What |
 |---|---|
-| Daily | Read-only surfacing in the check-in — keeps the list in perception so a pursuit can't quietly go invisible |
+| Daily | One focus shown in the tour, rotating daily — keeps the list in perception so a pursuit can't quietly go invisible |
 | Weekly | Drift check: did anything silently die? Any pursuit missing a landing? |
 | Monthly | Shown next to the vision review so the two altitudes are visible together. Informational — no forced swaps |
 | Quarterly | The re-pick: keep / ease / pause / retire / graduate each pursuit, refresh landings, bump the `quarter` tag |

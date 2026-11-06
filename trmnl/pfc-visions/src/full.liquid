@@ -1,0 +1,32 @@
+<div class="layout layout--col gap--space-between">
+  <span class="label label--small lg:label--base label--gray 1bit:text--black">{{ horizon }}</span>
+
+  {% if today_title != "" %}
+    <div class="flex flex--col flex--center-x gap--small text--center">
+      <span class="label label--small lg:label--base label--gray 1bit:text--black">Today's vision</span>
+      <span class="title title--xlarge lg:title--xxlarge" data-clamp="2">{{ today_title }}</span>
+      {% if today_value != "" %}
+        <div class="flex flex--row flex--center-x"><span class="label lg:label--large label--outline">Serves {{ today_value }}</span></div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="divider"></div>
+
+  <div class="grid grid--cols-2 gap--small">
+    {% for vision in visions %}
+      {% if vision.today %}
+        <div class="flex flex--row flex--left"><span class="label label--large lg:label--xlarge label--filled" data-clamp="1">{{ vision.title }}</span></div>
+      {% else %}
+        <span class="label label--large lg:label--xlarge" data-clamp="1">{{ vision.title }}</span>
+      {% endif %}
+    {% else %}
+      <span class="label label--gray 1bit:text--black">No active visions.</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ count }} active - {{ date }}</span>
+</div>

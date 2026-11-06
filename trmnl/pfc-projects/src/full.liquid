@@ -1,32 +1,24 @@
 <div class="layout layout--col gap">
-  <div class="col gap--small">
-    <div class="columns" data-overflow-max-cols="1">
-      <div class="column">
-        {% for project in projects %}
-          <div class="item">
-            <div class="meta"></div>
-            <div class="content">
-              <span class="title title--small lg:title--base" data-clamp="1">{{ project.name }} — {{ project.percent }}%</span>
-              <span class="label label--small lg:label--base label--gray" data-clamp="1">{% if project.parts != "" %}parts {{ project.parts }}{% endif %}{% if project.deadline_disp != "" %} · {{ project.deadline_disp }}{% endif %}</span>
-              {% for task in project.tasks %}
-                <span class="label label--small lg:label--base" data-clamp="2">-> {{ task.title }}</span>
-              {% endfor %}
-            </div>
-          </div>
-        {% else %}
-          <div class="item">
-            <div class="meta"></div>
-            <div class="content">
-              <span class="label label--gray">No active projects</span>
-            </div>
-          </div>
-        {% endfor %}
+  <div class="col gap--medium stretch-x">
+    <span class="description lg:description--large">{{ horizon }} {{ count }} active, {{ on_deck }} on deck, {{ parked }} parked.</span>
+    {% for p in active limit: 5 %}
+      <div class="flex flex--col flex--left gap--xsmall w--full">
+        <div class="flex flex--row flex--between w--full">
+          <span class="title title--small lg:title--base" data-clamp="1">{{ p.name }}</span>
+          <span class="label lg:label--large">{{ p.pct }}% done</span>
+        </div>
+        <div class="progress-bar progress-bar--small w--full">
+          <div class="track"><div class="fill w--[{{ p.pct }}cqw]"></div></div>
+        </div>
+        <span class="label lg:label--large" data-clamp="1">{% if p.next != "" %}Next: {{ p.next }}{% else %}No next task.{% endif %}</span>
       </div>
-    </div>
+    {% else %}
+      <span class="title title--small lg:title--base">No active projects.</span>
+    {% endfor %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Projects</span>
-  <span class="instance">{{ count }} active</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

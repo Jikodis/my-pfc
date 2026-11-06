@@ -1,14 +1,10 @@
 {%- comment -%}
-PFC Daily Pulse — last night's levers vs target, the verdict, and tonight's one
-move. Data comes pre-digested from pulse.pulse_snapshot via build_pfc_pulse;
-templates only print. Thresholds live in automations/scripts/pulse.py (bands
-overridable under `health.pulse` in config/automation_config.yaml) — tune them
-there, never here.
+PFC Body first: mirrors the "Body first" band of the web home page (body_payload in
+automations/scripts/trmnl_home.py). Last night's sleep, the broken-night flag, the
+exercise habit today and over the last 30 days, the pulse verdict, tonight's one move, the
+one-pick note, and the levers. Each lever shows its light, today's value, the
+target, and nights on target over the window (`month`, "5 of 30"), which replaced
+the retired 30-day pulse-trend screen. Every count runs higher = better.
 
-Status is the colour spelled out in caps, never emoji (e-ink has no emoji
-font): RED / YELLOW / GREEN / NO DATA. Not punctuation marks — those need a
-legend, and a legend that isn't on the screen is a legend nobody has.
-
-Levers render worst-first: red, then yellow, then green. Tier only breaks
-ties within a colour. See AGENTS.md § "Metrics point one direction".
+E-ink rules: no emoji, no inline styles, framework classes only.
 {%- endcomment -%}

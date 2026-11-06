@@ -1,0 +1,93 @@
+---
+/**
+ * A button that changes the repo directly. It posts to `/api/write/<action>`
+ * through `src/scripts/write-client.ts`, and the words next to it say what happened.
+ *
+ * `web_write.py` has twelve actions, each with its own route in `src/pages/api/write/`.
+ * This component renders seven of them; page scripts post the other five.
+ * `extra` is the action's one extra argument, and `id` is the record's id:
+ *
+ *   complete-task     id = task id. No extra.
+ *   drop-task         id = task id. No extra.
+ *   log-habit         id = habit id. extra = the day, YYYY-MM-DD, when it is not today.
+ *   park-focus        id = focus id. extra = `on` parks, `off` unparks.
+ *   skip-suggestion   id = task id. extra = the day it is skipped for, YYYY-MM-DD.
+ *   set-project       id = project id. extra = `active` or `parked`.
+ *   retire-anchor     id = Front-of-Mind anchor id. No extra.
+ *
+ * Posted by `src/scripts/tour-client.ts`, `src/scripts/home-client.ts` (the area and
+ * room lights) and `src/pages/tasks.astro` (pull a task into today) instead of a button:
+ *
+ *   rate-day          day, energy, mood, focus 1-5, optional hyper.
+ *   set-picks         day, one or two critical task ids, optional bonus task id.
+ *   stamp-review      review id.
+ *   set-area          area key, green|yellow|red, optional note.
+ *   set-room          room key, green|yellow|red, optional note.
+ *
+ * The record's id sits in `data-id` only, never in text a person reads. `name` is
+ * the record's title, used for the accessible label and the confirm question.
+ * `disabled` renders a button that cannot be pressed, with `reason` as its tooltip.
+ * Anything passed as children (the `Done in chat` button) sits in the same wrapping
+ * row, after the Yes / No question, so the status line wraps under all of them
+ * instead of pushing them past the edge of a table cell.
+ */
+import type { ButtonAction } from '../lib/write-ui'
+
+interface Props {
+  action: ButtonAction
+  id: string
+  label: string
+  /** The record's title, for screen readers: `Done: Call the dentist`. */
+  name?: string
+  /** When set, the first click asks this question with Yes / No. */
+  confirm?: string
+  disabled?: boolean
+  reason?: string
+  /** The action's one extra argument; see the list above. */
+  extra?: string
+}
+
+const { action, id, label, name, confirm, disabled = false, reason, extra } = Astro.props
+---
+<span class="write">
+  <button
+    type="button"
+    class="act act-write"
+    data-write-action={action}
+    data-id={id}
+    data-label={label}
+    data-write-confirm={confirm}
+    data-write-extra={extra}
+    data-write-locked={disabled ? '1' : undefined}
+    disabled={disabled}
+    title={disabled ? reason : undefined}
+    aria-label={name ? `${label}: ${name}` : undefined}
+  >{label}</button>
+  <slot />
+  <span class="write-status" role="status" aria-live="polite"></span>
+</span>
+
+<script>
+  import '../scripts/write-client'
+</script>
+
+<style is:global>
+  /* Global: the Yes / No buttons and the status words are made by the script, so a
+     scoped style would never reach them. */
+  .write { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px 6px; max-width:100%; vertical-align:top; }
+  li .write .act { margin-left:0; }
+  button.act-write { border-color:var(--blue); color:var(--blue); font-weight:600; }
+  button.act-write:disabled { border-color:var(--border); color:var(--muted); cursor:default; }
+  .write-confirm { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; color:var(--strong); font-size:13px; }
+  button.write-yes { border-color:var(--green); border-width:2px; color:var(--strong); font-weight:600; }
+  /* Its own line under the buttons, wrapped, even in a no-wrap table cell. Width 0
+     with min-width 100% keeps the words from widening the row: the buttons set the
+     width and the words wrap inside it, never under 12em. */
+  .write-status { flex-basis:100%; width:0; min-width:max(100%, 12em); font-size:13px; white-space:normal; }
+  .write-status:empty { display:none; }
+  .write-ok { color:var(--strong); font-weight:600; border-left:3px solid var(--green); padding-left:6px; }
+  .write-info { color:var(--strong); border-left:3px solid var(--blue); padding-left:6px; }
+  /* A row whose change is saved, waiting for the page to reload. */
+  .write-saved { opacity:0.55; }
+  .write-error { color:var(--strong); font-weight:600; border-left:3px solid var(--red); padding-left:6px; }
+</style>

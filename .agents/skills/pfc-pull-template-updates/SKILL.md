@@ -17,7 +17,7 @@ This skill brings those changes in **on your terms**. Three guarantees, in prior
 
 ## Read this before pulling — three caveats
 
-1. **The maintainer tailors the template to his own workflows.** Some changes will fit you; some won't. Drop the ones that don't. The template's whole shape — VAVFPAH, the 2+1 daily focus, the skills, the persona system — was built around how *one specific brain* operates well. Defaults assume ADHD/autism/executive-function variants, but no two profiles in that audience are identical. The system was always meant to be edited; pulling updates is no exception.
+1. **The maintainer tailors the template to his own workflows.** Some changes will fit you; some won't. Drop the ones that don't. The template's whole shape — VAVFPTH, the 2+1 daily focus, the skills, the persona system — was built around how *one specific brain* operates well. Defaults assume ADHD/autism/executive-function variants, but no two profiles in that audience are identical. The system was always meant to be edited; pulling updates is no exception.
 
 2. **Upstream changes may clash with your modifications.** If you've customized a skill, a schema, or a config file, an incoming change to the same file conflicts. **Your version wins by default** — take upstream only where you actively want the new behavior.
 
@@ -33,7 +33,7 @@ Everything below is **yours**. Upstream ships these as *empty or example-filled 
 
 | Path | What's in it |
 |---|---|
-| `6-actions/_data/*.ndjson` | tasks, task events, daily focus, archive |
+| `6-tasks/_data/*.ndjson` | tasks, task events, daily focus, archive |
 | `7-habits/_data/*.ndjson` | habit logs |
 | `5-projects/_data/*.ndjson` | project registry |
 | `4-focus/_data/*.ndjson` | Current Focus records |
@@ -49,7 +49,7 @@ Everything below is **yours**. Upstream ships these as *empty or example-filled 
 
 **The rule: for a protected path, take the *idea* and hand-apply it. Never take the file.**
 
-An upstream commit that "adds" `6-actions/_data/tasks.ndjson` is adding an **empty starter**. If you accept it over a populated file, your tasks are gone. That is the single most likely way to lose data in this workflow, and Step 3's guard exists to catch exactly it.
+An upstream commit that "adds" `6-tasks/_data/tasks.ndjson` is adding an **empty starter**. If you accept it over a populated file, your tasks are gone. That is the single most likely way to lose data in this workflow, and Step 3's guard exists to catch exactly it.
 
 ---
 
@@ -136,7 +136,7 @@ Before applying anything, list which protected paths the commit touches:
 
 ```bash
 git show --name-only --format= "$SHA" | grep -E \
-  '^(0-me/|1-values/values\.md|2-areas/|3-visions/|4-focus/_data/|5-projects/_data/|6-actions/_data/|7-habits/_data/|data/|notes/|config/(habit_schema|trello_calendar_filters|automation_config|persona)\.)' \
+  '^(0-me/|1-values/values\.md|2-areas/|3-visions/|4-focus/_data/|5-projects/_data/|6-tasks/_data/|7-habits/_data/|data/|notes/|config/(habit_schema|trello_calendar_filters|automation_config|persona)\.)' \
   || echo "clean — no protected paths in this commit"
 ```
 
@@ -150,7 +150,7 @@ git show --name-only --format= "$SHA" | grep -E \
 2. If yours is non-empty → **never take the file.** Use partial adoption (Step 4) to exclude it, then hand-apply the *idea* (Step 5).
 3. If yours is genuinely empty/absent and upstream's is a useful starter → taking it is fine.
 
-**Special case — upstream moved a folder.** Releases sometimes renumber the VAVFPAH folders (`6-habits/` → `7-habits/`, `data/focus.ndjson` → `4-focus/_data/focus.ndjson`). The commit then reads as *"add an empty file at the new path"* while your populated file sits at the old path. Do **not** accept the empty file and do **not** let your old one linger. Move yours:
+**Special case — upstream moved a folder.** Releases sometimes renumber the VAVFPTH folders (`6-habits/` → `7-habits/`, `6-actions/` → `6-tasks/`, `data/focus.ndjson` → `4-focus/_data/focus.ndjson`). The commit then reads as *"add an empty file at the new path"* while your populated file sits at the old path. Do **not** accept the empty file and do **not** let your old one linger. Move yours:
 
 ```bash
 mkdir -p 7-habits/_data
@@ -180,7 +180,7 @@ git status --short                   # review everything staged
 
 # Drop any protected or unwanted path, restoring YOUR version:
 git restore --staged --worktree -- config/habit_schema.yaml
-git restore --staged --worktree -- 6-actions/_data/
+git restore --staged --worktree -- 6-tasks/_data/
 
 git commit -m "template: adopt <what> from upstream $SHA (excluded: <what and why>)"
 ```
@@ -276,7 +276,7 @@ git diff --stat "pre-template-sync-$STAMP"..HEAD      # everything this sync cha
 Then confirm your data survived — counts should be **unchanged or higher**, never lower:
 
 ```bash
-for f in 6-actions/_data/tasks.ndjson 7-habits/_data/habits-daily.ndjson \
+for f in 6-tasks/_data/tasks.ndjson 7-habits/_data/habits-daily.ndjson \
          data/day-tracking.ndjson 4-focus/_data/focus.ndjson; do
   [ -f "$f" ] && printf '%-45s %s\n' "$f" "$(wc -l < "$f")"
 done
@@ -285,12 +285,12 @@ done
 Compare to the same counts at the tag:
 
 ```bash
-git show "pre-template-sync-$STAMP":6-actions/_data/tasks.ndjson | wc -l
+git show "pre-template-sync-$STAMP":6-tasks/_data/tasks.ndjson | wc -l
 ```
 
 **Any drop in a data-file line count means something overwrote your records — stop and roll back.**
 
-Finally, run one real workflow end to end (`/pfc-status`, or an evening check-in) before calling it done. A green validator with a broken daily loop is not a successful migration.
+Finally, run one real workflow end to end (`/pfc-status`, or the web page's `Walk me through` tour) before calling it done. A green validator with a broken daily loop is not a successful migration.
 
 ---
 

@@ -61,7 +61,7 @@ Read a sampling of daily notes plus any archival monthly notes that exist, and p
 - **Trend analysis** — full-year statistical pass (`/pfc-analyze-trends`).
 - **Values / findings alignment** — cross-check active findings and project `values` links against the year.
 
-The owning-skill map in `pfc-evening-checkin` Step 3c section 2 is the canonical list of review passes and the skill that owns each. Skip any cadence-stamping and the monthly-only reflection questions — the yearly reflection in Step 9 replaces them. This check-in produces its own summary and commit.
+Use the owning-skill map in `pfc-review` Step 2 as the canonical list of review passes and their skills. Skip cadence-stamping and any monthly-only reflection questions (replaced by yearly's in Step 9). The yearly checkin produces its own summary and commit.
 
 ---
 
@@ -139,7 +139,7 @@ Write a markdown file at `notes/yearly/${REVIEWED_YEAR}.md` with sections:
 
 ## Step 11 — Sync Trello dashboard (fail-safe)
 
-If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the dashboard so the board reflects post-archive, post-life-wheel, post-values/areas/visions state. Mirrors the evening-checkin pattern.
+If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the dashboard so the board reflects post-archive, post-life-wheel, post-values/areas/visions state. Same render `pfc-review` runs at its end.
 
 ```bash
 python3 automations/scripts/trello_render.py 2>&1
@@ -152,7 +152,7 @@ On error: print `🟡 Trello render failed (non-blocking): <error>` and continue
 ## Step 12 — Commit
 
 ```bash
-git add notes/yearly/ data/ 2-areas/ 6-actions/_data/ 5-projects/_data/ 7-habits/_data/ config/ 1-values/ 3-visions/
+git add notes/yearly/ data/ 2-areas/ 6-tasks/_data/ 5-projects/_data/ 7-habits/_data/ config/ 1-values/ 3-visions/
 git commit -m "report: generate yearly check-in ${REVIEWED_YEAR}"
 git push
 ```

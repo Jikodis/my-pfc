@@ -7,12 +7,10 @@
 **Any event the PFC system creates gets the literal prefix `PFC - ` at the very start of the title.** No exceptions, no emoji before it — the prefix has to be the first characters so the calendar sorts and filters cleanly. This tells you at a glance which events came from the productivity system versus real life.
 
 ```
-PFC - 🎯 2+1 anchor (post-work)
-PFC - Evening Checkin
 PFC - ⭐ [AA-S] Complete important task [task-YYYYMMDD-NNN]
 ```
 
-Applies to everything the system writes: the 2+1 anchors, check-in reminders, `pfc-schedule-focus` per-task events, course/study series batches, and any recurring block a skill creates. It does **not** apply to events the user made themselves — never rename a personal event into the PFC namespace.
+Applies to everything the system writes: `pfc-schedule-focus` per-task events, `pfc-plan-open-day` blocks, course/study series batches, and any recurring block a skill creates. It does **not** apply to events the user made themselves — never rename a personal event into the PFC namespace.
 
 This is a naming convention only. Lookups still find events by **time window**, never by title — so the prefix is safe to change and safe to rely on for human scanning, not for matching.
 
@@ -82,7 +80,7 @@ Once you know the conflict's cadence, the response splits cleanly:
 
 The deciding question is **not** "is there a conflict on the next instance?" — it's **"does the conflict itself recur on a fixed cadence?"** Only fixed-cadence conflicts justify alternating events; sporadic ones are handled by the slot-loss rule, with the agent cancelling the colliding instances of its own series automatically.
 
-**When the agent cancels instances:** (a) at creation/maintenance — during the audit pass below, scan the horizon (~8 weeks) and cancel any anchor instance overlapping a one-off; (b) ongoing — the evening check-in cancels tomorrow's instance if a one-off has since appeared on the slot. Always delete the INSTANCE (`<seriesId>_<YYYYMMDD>T…`), never the whole series, and never the user's event.
+**When the agent cancels instances:** (a) at creation/maintenance — during the audit pass below, scan the horizon (~8 weeks) and cancel any instance of the series overlapping a one-off; (b) ongoing — any skill that reads the calendar and finds a one-off that has since appeared on a series slot cancels that instance. Always delete the INSTANCE (`<seriesId>_<YYYYMMDD>T…`), never the whole series, and never the user's event.
 
 ## Alternating recurring events for biweekly / monthly conflicts
 
@@ -174,11 +172,7 @@ After batch-creating events, re-pull every target date (no `fullText` filter, bo
 
 ## Focus-task scheduling
 
-The 2+1 lands on the calendar via a **recurring anchor slot** (one event per day — pick times that fit your week, e.g. weekday late-afternoon, weekend morning). The evening check-in annotates **tomorrow's** anchor instance with tomorrow's pre-committed tasks; no per-task events are created.
-
-**Every 2+1 change re-annotates that day's anchor (mandatory).** Any time the 2+1 for a date is set, re-picked, or has a single slot swapped — night-before flow OR an ad-hoc same-day change — update that date's specific anchor instance (`<seriesId>_<YYYYMMDD>T…`) so its description matches `daily-focus.ndjson`. The calendar must never show stale picks after a 2+1 write.
-
-The standalone `pfc-schedule-focus` skill remains available for manual placement when a specific task needs a dedicated time block outside the anchor (e.g. invoked by `pfc-revive` for a reschedule). Its slot-finder (`automations/scripts/find_focus_slots.py`) enforces:
+The 2+1 lives on the web page (the home page tour's picks step sets it); no calendar event is created for it. The standalone `pfc-schedule-focus` skill places a task on the calendar when a specific task needs a dedicated time block and the user asks for one (e.g. invoked by `pfc-revive` for a reschedule). Its slot-finder (`automations/scripts/find_focus_slots.py`) enforces:
 
 **Allowed windows (your local timezone — defaults shown):**
 - Weekdays (Mon–Fri): 8–9 AM, 12–1 PM, 5–9 PM
@@ -194,6 +188,6 @@ A 15-minute floor applies to every placement (`MIN_SLOT_MINUTES` in `find_focus_
 
 **Color:** all PFC-scheduled events use banana (`colorId: "5"`). One color is the visual signature that an event came from the PFC system — never vary by tier. The title prefix (`⭐ ` for critical, `Bonus: ` for bonus) carries the tier distinction.
 
-**Event IDs** are persisted in `6-actions/_data/daily-focus.ndjson` under `calendar_events`, so carry-forwards can move the same event rather than duplicate it.
+**Event IDs** are persisted in `6-tasks/_data/daily-focus.ndjson` under `calendar_events`, so carry-forwards can move the same event rather than duplicate it.
 
 When in doubt, re-run `pfc-schedule-focus` — it's idempotent: updates existing events, creates missing ones, deletes orphans of swapped-out tasks.

@@ -43,13 +43,13 @@ For each active project with `total_parts > 0`:
   - 🟡 within 7 days late
   - 🔴 >7 days late
 
-Surface this in `pfc-summarize-project`, `pfc-status`, `pfc-daily-summary`, `pfc-evening-checkin`. Do NOT pre-schedule a project's parts as calendar events to "lock in" the pace — life intervenes and the calendar churn is wasted work. Velocity is the steering wheel, not the cement.
+Surface this in `pfc-summarize-project`, `pfc-status`, `pfc-daily-summary`, and the web page's Projects band (velocity and days idle come from one Python function, `automations/scripts/project_gauges.py`). Do NOT pre-schedule a project's parts as calendar events to "lock in" the pace — life intervenes and the calendar churn is wasted work. Velocity is the steering wheel, not the cement.
 
 ## Daily project status
 
-`pfc-evening-checkin` must show, for each active project: name, completion %, today's project task (if any), estimated completion date based on observed velocity, and an OK/WARN flag if velocity slipped past the project deadline. Goal: keep multiple active projects in view daily so the user can shift effort instead of rediscovering drift at the next review pass.
+The home page's Projects band (`http://127.0.0.1:4323/`) and `pfc-daily-summary` show, for each active project: name, completion %, today's project task (if any), estimated completion date based on observed velocity, and an OK/WARN flag if velocity slipped past the project deadline. Goal: keep multiple active projects in view daily so the user can shift effort instead of rediscovering drift at the next review pass.
 
-The optional 4th daily-focus slot is reserved for a pre-planned active-project task — see `../6-actions/AGENTS.md` § Daily focus.
+The optional 4th daily-focus slot is reserved for a pre-planned active-project task — see `../6-tasks/AGENTS.md` § Daily focus.
 
 ## Slippage intervention — pfc-revive
 

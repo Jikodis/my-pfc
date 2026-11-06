@@ -5,7 +5,7 @@ description: View, add, park, or retire Current Focus items — the capped, traf
 
 # Current Focus
 
-Manage `4-focus/_data/focus.ndjson` — the **Focus** altitude of VAVFPAH. Four altitudes stack under each Area (Area → Vision → Focus → Habit); this skill owns Focus: the scarce, capped, traffic-lit set of what's actively being pursued **this quarter**. Human-facing intro: [`../../../4-focus/README.md`](../../../4-focus/README.md).
+Manage `4-focus/_data/focus.ndjson` — the **Focus** altitude of VAVFPTH. Four altitudes stack under each Area (Area → Vision → Focus → Habit); this skill owns Focus: the scarce, capped, traffic-lit set of what's actively being pursued **this quarter**. Human-facing intro: [`../../../4-focus/README.md`](../../../4-focus/README.md).
 
 ## Model (hold this exactly)
 
@@ -81,7 +81,7 @@ Verify the append landed (`tail -1 4-focus/_data/focus.ndjson | jq .`) before re
 
 ## PARK / UNPARK ("pause X", "X is going again")
 
-`status` is derived and cannot be hand-set — `focus_status.py --write` overwrites it every check-in. To deliberately stop a focus, park it:
+`status` is derived and cannot be hand-set — `focus_status.py --write` overwrites it whenever `/pfc-review` runs the `focus-accuracy` review, and readers compute it live. To deliberately stop a focus, park it:
 
 ```bash
 tmp=data/.jq_update.tmp

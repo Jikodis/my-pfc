@@ -4,6 +4,8 @@ Canonical reference for data files and their schemas. Keep this in sync with `co
 
 **All NDJSON writes must go through `jq`.** Never use `echo >>`, `sed`, or string concatenation. See [conventions.md](conventions.md) for the exact patterns.
 
+Two scripts rewrite NDJSON in Python instead: the web UI's writer (`automations/scripts/web_write.py`) and the Trello sync (`trello_writeback.py`). Both make their record changes in `automations/scripts/pfc_writes.py` and write files through `automations/scripts/ndjson_file.py`, which keeps untouched lines byte for byte, writes changed lines the way `jq -c` does, and replaces the file atomically.
+
 ## Formats
 
 | Format | Use case |
@@ -15,7 +17,7 @@ Canonical reference for data files and their schemas. Keep this in sync with `co
 
 ## NDJSON files
 
-### `6-actions/_data/tasks.ndjson` — canonical task storage
+### `6-tasks/_data/tasks.ndjson` — canonical task storage
 
 ```json
 {"id":"task-20250101-001","status":"open","description":"…","size":"S","location":"PC","impact":"high","urgency":"medium","project":"proj-20250101-002","deadline":"2025-02-01","created":"2025-01-01","source":"daily-planning","notes":"optional free text"}
@@ -34,17 +36,17 @@ Required: `id`, `status`, `description`, `created`. Canonical schema: [`config/t
 - `notes` — optional free text
 - `area` — optional; lowercase, must match a folder in `2-areas/`. Used for standalone strategic tasks with no project (see the values-alignment section of `AGENTS.md`).
 - `depends_on` — optional array of task IDs (`["task-20250101-004", ...]`). The task is considered "blocked" until every listed task has `status == "done"`. `pfc-pick-tasks` hides blocked tasks from suggestions; `scripts/validate.sh` checks each ID resolves and rejects self-references.
-- `deferred` — optional boolean, default `false`. **Parked by the user: still open work, just deliberately out of rotation until they ask for it back.** Not a status — a deferred task is neither done nor abandoned. Set it when the user says "take it off the rotation", "park it", "stop offering it". Deferred tasks are hidden from `pfc-pick-tasks`, the evening check-in's 2+1 pool, the Trello `✅ Actions` list, and `pfc-revive`'s slippage signals (so the system stops nagging about something the user consciously set down). They stay visible in `/pfc-list-tasks` under `⏸️ Parked (not in rotation)` — that is the only surface they appear on. Un-park by setting it to `false`. Why this exists: without it, the only ways to stop a task recurring in picks were to delete it or fake-complete it, both of which lose real work.
+- `deferred` — optional boolean, default `false`. **Parked by the user: still open work, just deliberately out of rotation until they ask for it back.** Not a status — a deferred task is neither done nor abandoned. Set it when the user says "take it off the rotation", "park it", "stop offering it". Deferred tasks are hidden from `pfc-pick-tasks`, the home page's 2+1 suggestions, the Trello `✅ Tasks` list, and `pfc-revive`'s slippage signals (so the system stops nagging about something the user consciously set down). They stay visible in `/pfc-list-tasks` under `⏸️ Parked (not in rotation)` — that is the only surface they appear on. Un-park by setting it to `false`. Why this exists: without it, the only ways to stop a task recurring in picks were to delete it or fake-complete it, both of which lose real work.
 - `deferred_reason` — optional string, nullable. Why it was parked, in the user's own words. Shown alongside the task in `/pfc-list-tasks` so the reason is in view at un-park time.
-- `sequence` — optional 1-based integer. Used on project tasks where order matters (course curricula, ordered method books). `pfc-pick-tasks` and the evening check-in's 2+1 pick only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (`project: "none"`) leave this null.
-- `source_email_thread_id` — optional Gmail thread ID. Set when `source: "email-triage"`. Primary dedup key for the email-surfacing skills (`pfc-email-triage`, evening check-in): before creating a task from an email, those skills query `tasks.ndjson` + `tasks-archive.ndjson` by this field. Encodes the "labeled email = at least one linked task" principle.
+- `sequence` — optional 1-based integer. Used on project tasks where order matters (course curricula, ordered method books). `pfc-pick-tasks` and the home page's 2+1 suggestions only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (`project: "none"`) leave this null.
+- `source_email_thread_id` — optional Gmail thread ID. Set when `source: "email-triage"`. Primary dedup key for the email-surfacing skills (`pfc-email-triage`, run every morning by the daily sync job): before creating a task from an email, those skills query `tasks.ndjson` + `tasks-archive.ndjson` by this field. Encodes the "labeled email = at least one linked task" principle.
 - `source_email_subject` — optional raw subject line (including any `Re:` / `Fwd:` prefix). Fallback dedup key when the thread ID is missing or no match is found; also surfaced to the user during dedup confirmation.
 
-### `6-actions/_data/tasks-archive.ndjson`
+### `6-tasks/_data/tasks-archive.ndjson`
 
 Same shape as `tasks.ndjson`. Done tasks are moved here during the `stale-task-triage` review pass (or when the live file exceeds ~200 lines).
 
-### `6-actions/_data/task_events.ndjson` — append-only audit log
+### `6-tasks/_data/task_events.ndjson` — append-only audit log
 
 ```json
 {"task_id":"task-20250101-001","event":"created","timestamp":"2025-01-01","source":"daily-planning"}
@@ -72,7 +74,7 @@ Fields:
 - `id` — `proj-YYYYMMDD-NNN`
 - `name`, `description`, `goal` — human-readable project context
 - `active` — boolean; backstop of 12 active at a time
-- `status` — optional lifecycle tag (e.g. `"planned"`, `"in-progress"`, `"paused"`)
+- `status` — optional lifecycle tag: `"active"`, `"on-deck"` (wanted next, not started; `active: false`), `"parked"` (deliberately stopped for now; `active: false`), `"done"`, or `"dropped"`. A row with no `status` reads as `active` when `active` is true and `on-deck` otherwise.
 - `excitement`, `impact`, `urgency` — `"low"` | `"medium"` | `"high"` (per schema)
 - `estimated_months` — optional, 1–3 typical
 - `area` — lowercase, must match a folder in `2-areas/`
@@ -82,29 +84,32 @@ Fields:
 - `priority_order` — optional ordered array of sub-parts
 - `created`, `deadline`, `completed` — `YYYY-MM-DD`
 
-### `6-actions/_data/daily-focus.ndjson` — the 2+1 picks
+### `6-tasks/_data/daily-focus.ndjson` — the 2+1 picks
 
 ```json
 {"date":"2025-01-16","critical":["task-20250101-002","task-20250115-003"],"bonus":"task-20250101-017","completed":[],"bonus_completed":false}
 ```
 
-- `date` — `YYYY-MM-DD`. The evening check-in pre-stages **tomorrow's** record, so a date up to 1 day in the future is valid (the validator allows the +1-day ceiling).
-- `critical` — array of exactly 2 task ids (strings; must exist in `tasks.ndjson` or `tasks-archive.ndjson`)
+- `date` — `YYYY-MM-DD`. After about 6 PM the tour's picks step pre-stages **tomorrow's** record, so a date up to 1 day in the future is valid (the validator allows the +1-day ceiling).
+- `critical` — array of task ids (strings; must exist in `tasks.ndjson` or `tasks-archive.ndjson`). At most 2 of them are undone; the rest are picks already done that day, kept when more work is pulled in after the first ones were finished (`web_write.py set-picks`). A record may carry `critical: []` when it holds only skips.
 - `bonus` — optional task id string (same existence rule)
 - `completed` — array of task ids from `critical` that were finished
+- `skipped` — optional array of task ids (same existence rule) the home page stops suggesting for that date (`web_write.py skip-suggestion`, read by `home_data.suggest`). A task named here moves to the archive when dropped, like a pick.
 - `bonus_completed` — boolean
+- `project` — optional task id for the 4th slot, a pre-planned active-project task (see `6-tasks/AGENTS.md` § Daily focus)
+- `project_completed` — boolean, present only when `project` is set
 - `calendar_events` — optional object written by `pfc-schedule-focus` for manually-placed per-task events; keyed by task id, each value has `event_id`, `start`, `end` (ISO timestamps).
 
 ### `7-habits/_data/habits-daily.ndjson`
 
 ```json
 {"habit_id":"morning-cardio-20min","date":"2025-01-24","completed":true,"source":"manual","logged_at":"2025-01-24T07:30:00Z"}
-{"habit_id":"family-reading","date":"2025-01-21","completed":false,"skipped":true,"skip_reason":"travel","source":"evening-checkin"}
+{"habit_id":"family-reading","date":"2025-01-21","completed":false,"skipped":true,"skip_reason":"travel","source":"chat"}
 ```
 
 - `habit_id` — must match an `id` in `config/habit_schema.yaml` (active) or `deprecated_habits` (historical only)
 - `completed` — boolean; did the habit happen that day
-- `source` — `"google_health_auto"` | `"manual"` | `"fitbit"` | `"evening-checkin"` | `"chat"` | `"trello"`
+- `source` — `"google_health_auto"` | `"manual"` | `"fitbit"` | `"chat"` | `"trello"` | `"web"` (legacy read value on older rows, not written anew: `"evening-checkin"`)
 - `value` — optional measurement (e.g. active-minutes count, bedtime)
 - `skipped` — optional boolean; `true` means the day was structurally unavailable (e.g. travel, illness, a family-time habit on a night the family is away). A skipped day is **not a miss** — habit-rate math excludes it from both numerator and denominator: `rate = completed / max(1, target_frequency - skipped_count)`.
 - `skip_reason` — optional free-text string; required when `skipped: true`. Short, human-readable.
@@ -127,15 +132,15 @@ Same shape as daily; `date` may be the first of the month.
 {"date":"2025-01-21","rating":4,"energy":3,"focus":4,"mood":4,"sick":false,"exercised":null,"hyperfocused":true,"notes":null,"evening_notes":"…","health":{"sleep_minutes":423,"sleep_hours":7.0,"awake_minutes":14,"sleep_deep_minutes":87,"sleep_rem_minutes":99,"sleep_light_minutes":236,"sleep_bedtime":"2025-01-20T22:30:00-07:00","sleep_wake_time":"2025-01-21T06:23:00-07:00","resting_hr_bpm":70,"active_zone_minutes":null,"awakenings":[{"start":"2025-01-21T04:59:00-07:00","minutes":12}],"awakenings_count":1}}
 ```
 
-Written by `pfc-log-day` (minimal entry) or updated in place by the evening check-in (full entry; the `health` object is populated by `automations/scripts/auto_fetch_health.py` on a schedule). Used by `pfc-analyze-trends`.
+Written by `pfc-log-day` (minimal entry) or updated in place by the tour's rating step (`web_write.py rate-day`: energy, mood, focus, and the optional yes/no taps; the `health` object is populated by `automations/scripts/auto_fetch_health.py` on a schedule). Used by `pfc-analyze-trends`.
 
 - `date` — `YYYY-MM-DD`
 - `energy`, `focus`, `mood` — 1–5. **These three are the PRIMARY capture** — discrete component readouts beat an integrative "rate your day" guess. `mood` reads the **general sense of well-being across the day as a whole**, not the peak moment; it tends to run higher than the other two, so it's kept but not given outsized weight. It is a real reading, never something to discount.
 - `rating` — 1–5, **DERIVED, not asked**: `round(mean(energy, mood, focus))`, computed and stored at write time (so readers like the Trello render and `grep '"rating":5'` keep working). Equal weight across the three.
 - **Physiology composite (`mean(energy, focus)`, mood excluded)** — NOT a stored field; computed in `analyze_day_trends.py` as the clean "physiological best self" target for sleep/physiology analysis, since mood measures well-being rather than the body's sleep response. Use the 3-way `rating` for a general headline; use energy+focus for physiology.
 - `sick` — boolean variable tracking; add your own boolean/numeric variable fields as needed (they flow into trend analysis).
-- `exercised` — `true` | `false` | `null`. Whether the anchor exercise habit happened that day, any time. **Derived** from that habit's completion log — the evening check-in mirrors the habit log into this field; it is not a separate question. `null` if no signal for the day. (Readers also accept a legacy `morning_movement` boolean.)
-- `hyperfocused` — `true` | `false` | `null`. Self-report from the evening check-in.
+- `exercised` — `true` | `false` | `null`. Whether the anchor exercise habit happened that day, any time. **Derived** from that habit's completion log — `rate-day` (`pfc_writes.rate_day`) mirrors the habit log into this field; it is not a separate question. `null` if no signal for the day. (Readers also accept a legacy `morning_movement` boolean.)
+- `hyperfocused` — `true` | `false` | `null`. Self-report, an optional one-tap in the tour's rating step.
 - **No event tagging.** There is no `life_event` field. Events (a great evening, a concert, a milestone) are a normal, frequent part of a life, so excluding those days biases every analysis toward uneventful ones — and since `mood` already reads the day as a whole, a good number on an event day is a real reading. **No day is ever dropped for what happened in it.** What happened goes in `evening_notes`, as description, not as a discount.
 - `qqrt` — nested object | `null`. The QQRT sleep composite for the night (Quantity + Quality + Regularity + Timing). **Derived** from `health`, not entered. `null` when the day has no sleep data. Fields:
   - `score` (0–3) — **Quantity + Quality + Timing only** by default.
@@ -150,13 +155,14 @@ Written by `pfc-log-day` (minimal entry) or updated in place by the evening chec
   - `awake_intrasession_minutes` — the awake portion recorded *inside* sleep sessions
   - `sleep_awake_gap_minutes` — awake minutes in the gaps *between* the night's sessions; `0` on a single-session night
   - `sleep_sessions` — how many separate sleep logs the device recorded for the night (after nap de-clustering); `1` = continuous
-  - `sleep_continuity` — `"fragmented"` if `sleep_awake_gap_minutes ≥ 20`, else `"continuous"`. Read during the evening check-in's day-rating feedback — a fragmented night is named as a low-rating driver regardless of total hours.
+  - `sleep_continuity` — `"fragmented"` if `sleep_awake_gap_minutes ≥ 20`, else `"continuous"`. A fragmented night is a low-rating driver regardless of total hours; the tour's body step reads awake minutes for its broken-night branch.
   - `sleep_deep_minutes`, `sleep_rem_minutes`, `sleep_light_minutes` — stage architecture (all `0` on an unstaged night that reports only `ASLEEP`)
   - `sleep_bedtime`, `sleep_wake_time` — ISO 8601 with timezone offset. Span endpoints of the **primary overnight sleep period**: bedtime = earliest session start, wake_time = latest session end, after dropping any daytime-nap cluster (> 180 min gap). Both `null` if no sleep was recorded.
   - `resting_hr_bpm` — daily resting heart rate, integer BPM
   - `active_zone_minutes` — passive active-zone minutes + logged-exercise minutes combined. Both endpoints paginate: they are read with `api_get_all` (follows `nextPageToken`), because a single unpaginated page silently truncates a busy day's total.
   - `workouts` — array of tracked exercise sessions, ordered by start: `{"type": "ROWING_MACHINE", "name": "Rowing machine", "start": ISO-8601-local, "minutes": int, "azm": int, "avg_hr_bpm": int, "vigorous_minutes": int, "calories": int}`. `vigorous_minutes` = vigorous + peak heart-rate zone time. Reduction lives once in `automations/scripts/exercise_reduce.py`, imported by both fetch and backfill. `[]` on a day with no tracked session; `null` only if the fetch failed.
   - `workout_count`, `workout_minutes`, `workout_azm`, `workout_vigorous_minutes` — day sums over `workouts`
+  - **`minutes` / `workout_minutes`, `calories`, and `avg_hr_bpm` come from the watch's session timer and can be unreliable.** A session started on the watch and not stopped runs long, and the inflated duration drags `calories` up and `avg_hr_bpm` down (idle minutes dilute the average). `analyze_day_trends.py` does not use `workout_minutes` as a predictor for this reason; prefer `workout_azm` and `workout_vigorous_minutes`, which only count elevated heart rate.
   - `first_workout_time` — start of the day's first tracked session, ISO 8601 local. The timing variable `active_zone_minutes` cannot express: a 6:30 AM workout and a 12:30 PM workout are otherwise identical in the data.
   - `azm_outside_workouts` — `active_zone_minutes` minus `workout_azm`. **This is not a stress measure.** It holds untracked workouts, walking, yard work, and chores as well as elevated resting heart rate — a day with no tracked session is not evidence of a day with no exercise. Only the `workouts` fields describe deliberate exercise.
   - `awakenings` — array of `{"start": ISO-8601-local, "minutes": int}`, one per real awakening (an AWAKE stage ≥ 4 minutes; shorter ones are micro-arousals and excluded). The **full-night** list is stored unwindowed so analysis can re-window it (e.g. "after 2 AM") without re-fetching. Sleep reduction (awakenings, stage totals, awake-gap accounting) lives once in `automations/scripts/sleep_reduce.py`, imported by both fetch and backfill — single source of truth, no drift. `null` until fetched; `[]` if the night had no qualifying awakening.
@@ -196,7 +202,7 @@ For `life-wheel`, area keys come from `2-areas/` folder names. For `household-st
 
 ### `3-visions/_data/vision-brainstorm.ndjson` — the brainstorm that feeds visions
 
-One record per brainstormed idea — the generative dump upstream of the whole VAVFPAH chain. Each idea carries a lifecycle and a lineage so it can be triaged and promoted. Written via `/pfc-vision-brainstorm` (never hand-authored).
+One record per brainstormed idea — the generative dump upstream of the whole VAVFPTH chain. Each idea carries a lifecycle and a lineage so it can be triaged and promoted. Written via `/pfc-vision-brainstorm` (never hand-authored).
 
 ```json
 {"id":"vb-20250101-001","text":"Run a marathon","created":"2025-01-01","area":"health","status":"promoted","became":{"type":"vision","ref":"run-a-marathon"},"note":null}
@@ -269,12 +275,12 @@ For `source: "experience"` findings, no statistical test applies — the bar is 
 Personal observations, revelations, and noticings captured throughout the week. Lower bar than a finding (no statistical threshold). May graduate into a Project, Action (task), or Habit.
 
 ```json
-{"id":"insight-20250120-001","status":"active","insight":"Afternoon caffeine correlates with my restless nights — cut off at noon.","area":"health","category":"sleep","source":"evening-checkin","created":"2025-01-20","graduated_to":null,"graduated_date":null,"notes":null}
+{"id":"insight-20250120-001","status":"active","insight":"Afternoon caffeine correlates with my restless nights — cut off at noon.","area":"health","category":"sleep","source":"chat","created":"2025-01-20","graduated_to":null,"graduated_date":null,"notes":null}
 ```
 
 Schema enforced by `scripts/validate.sh` against [`config/insight_schema.yaml`](../config/insight_schema.yaml).
 
-**Required fields:** `id` (`insight-YYYYMMDD-NNN`), `status` (`active` | `archived` | `graduated`), `insight` (text), `source` (`chat` | `evening-checkin` | `journal` | `experience` | `rolling-review`), `created` (YYYY-MM-DD).
+**Required fields:** `id` (`insight-YYYYMMDD-NNN`), `status` (`active` | `archived` | `graduated`), `insight` (text), `source` (`chat` | `evening-checkin` | `journal` | `experience` | `rolling-review`; `evening-checkin` is a historical value), `created` (YYYY-MM-DD).
 
 **Conditional fields:**
 - `graduated_to` — required when `status == "graduated"`. The id of the resulting task, project, or habit.
@@ -318,11 +324,11 @@ Fields: `id` (`focus-YYYYMMDD-NNN`), `tier` (`foundation`|`pursuit`|`consuming`)
 
 ### `data/review-ledger.ndjson` — Rolling Reviews ledger
 
-One record per review item — the weekly/monthly/quarterly review work that used to live in separate batch check-in rituals, now drip-fed through the evening check-in instead of batched into standalone events. Managed by the evening check-in's rolling-review step (nightly, ≤2 items) and `/pfc-review` (catch up on everything due at once).
+One record per review item — the weekly/monthly/quarterly review work that used to live in separate batch check-in rituals, now surfaced one at a time instead of batched into standalone events. Managed by the home page tour (at most 1 due item, stamped on tap through `web_write.py stamp-review`) and `/pfc-review` (catch up on everything due at once).
 
-Fields: `id` (stable slug mapped to a gate in `pfc-evening-checkin`, e.g. `stale-task-triage`), `label` (human-readable name), `tier` (`weekly`|`monthly`|`quarterly`), `cadence_days` (minimum days between surfacings — 7/30/90 respectively), `weekday_hint` (optional `0`=Mon..`6`=Sun soft ordering preference, or `null`), `last_done` (`YYYY-MM-DD` it was last surfaced-and-engaged; seeded with a far-past sentinel like `2000-01-01` meaning "never").
+Fields: `id` (stable slug mapped to a gate in `pfc-review`, e.g. `stale-task-triage`), `label` (human-readable name), `tier` (`weekly`|`monthly`|`quarterly`), `cadence_days` (minimum days between surfacings — 7/30/90 respectively), `weekday_hint` (optional `0`=Mon..`6`=Sun soft ordering preference, or `null`), `last_done` (`YYYY-MM-DD` it was last surfaced-and-engaged; seeded with a far-past sentinel like `2000-01-01` meaning "never").
 
-**Due/gate/cap model:** an item is a *candidate* once `today − last_done ≥ cadence_days`. Candidates are then filtered through a per-id **gate** — a small check (in `pfc-evening-checkin`) that returns a reason string only if there's genuinely something to act on (e.g. `tasks-missing-area` gates on an open task with no area); a due-but-empty-gate item silently passes without stamping and re-checks the next night. Gated candidates are sorted most-overdue-first and **capped at 2 surfaced per evening check-in** (`/pfc-review` has no cap — it surfaces everything due at once for a catch-up pass). Only items the user actually engages get `last_done` stamped to today; ignored items are left alone and re-surface on cadence. Seeded with items spanning all three tiers (stale-task triage, missing-area/values checks, focus accuracy, vision relevance, habit rates, day-trend peek, hypotheses review, life wheel, household status, project progress, vision activation, monthly habits, insights review, findings alignment, trend analysis, revive outcomes, usage audit, quarterly focus re-pick, vision brainstorm, strengths refresh).
+**Due/gate/cap model:** an item is a *candidate* once `today − last_done ≥ cadence_days`. Candidates are then filtered through a per-id **gate** — a small check (in `pfc-review` Step 1) that returns a reason string only if there's genuinely something to act on (e.g. `tasks-missing-area` gates on an open task with no area); a due-but-empty-gate item silently passes without stamping and re-checks next time. `/pfc-review` surfaces every gated candidate at once, tier-ordered. The tour shows at most 1 due item and uses cadence only, no gate (`_due_review` in `home_data.py`). Only items the user actually engages get `last_done` stamped to today; ignored items are left alone and re-surface on cadence. Seeded with items spanning all three tiers (stale-task triage, missing-area/values checks, focus accuracy, vision relevance, habit rates, day-trend peek, hypotheses review, life wheel, household status, project progress, vision activation, monthly habits, insights review, findings alignment, trend analysis, revive outcomes, usage audit, quarterly focus re-pick, vision brainstorm, strengths refresh).
 
 Canonical schema: [`config/review_ledger_schema.yaml`](../config/review_ledger_schema.yaml). Validated by `scripts/validate.sh` (schema conformance, unique ids, no future `last_done`).
 
@@ -364,7 +370,7 @@ Canonical schema: [`config/revive_event_schema.yaml`](../config/revive_event_sch
 
 ### `data/calendar-cache.json` — durable Calendar snapshot for TRMNL
 
-A single JSON object, overwritten in place by the two Calendar-fetching render paths (the evening check-in's render step and `pfc-render-trello`) right after they fetch events via MCP:
+A single JSON object, overwritten in place by `pfc-render-trello` Step 1 right after it fetches events via MCP. The daily sync job (`scripts/daily-sync.sh`) runs that step every morning and commits only this file (`track: refresh calendar cache`); any full `/pfc-render-trello` writes it too:
 
 ```json
 {"fetched_at": "2025-01-26T20:15:00-07:00", "events": [{"summary": "…", "start": {"dateTime": "…"}, "recurringEventId": "…"}]}
@@ -398,13 +404,13 @@ Read by `build_pfc_week` in `automations/scripts/trmnl_push.py` — the TRMNL `p
 
 ```bash
 # Open tasks
-jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson
 
 # Tasks by project
-jq -c 'select(.project == "proj-20250101-002" and .status == "open")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.project == "proj-20250101-002" and .status == "open")' 6-tasks/_data/tasks.ndjson
 
 # Count open tasks
-jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l
+jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson | wc -l
 ```
 
 ## Write patterns (always jq, never echo/sed)
@@ -413,13 +419,13 @@ jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l
 # Append
 jq -cn --arg id "task-YYYYMMDD-NNN" --arg desc "…" \
   '{id:$id, status:"open", description:$desc, created:"YYYY-MM-DD"}' \
-  >> 6-actions/_data/tasks.ndjson
+  >> 6-tasks/_data/tasks.ndjson
 
 # Update in place
 jq -c 'if .id == "task-YYYYMMDD-NNN" then . + {status:"done", completed:"YYYY-MM-DD"} else . end' \
-  6-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-actions/_data/tasks.ndjson
+  6-tasks/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-tasks/_data/tasks.ndjson
 
 # Archive done tasks
-jq -c 'select(.status == "done")' 6-actions/_data/tasks.ndjson >> 6-actions/_data/tasks-archive.ndjson
-jq -c 'select(.status != "done")' 6-actions/_data/tasks.ndjson > data/.tasks.tmp && mv data/.tasks.tmp 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "done")' 6-tasks/_data/tasks.ndjson >> 6-tasks/_data/tasks-archive.ndjson
+jq -c 'select(.status != "done")' 6-tasks/_data/tasks.ndjson > data/.tasks.tmp && mv data/.tasks.tmp 6-tasks/_data/tasks.ndjson
 ```

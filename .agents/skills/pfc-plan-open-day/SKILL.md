@@ -1,6 +1,6 @@
 ---
 name: pfc-plan-open-day
-description: Plan a wide-open day (Saturday, holiday, PTO) as a chained sequence of calendar blocks. Use when the user says "plan my Saturday", "plan my day", "open day", "wide open day", "I have a whole day free", "help me plan tomorrow", or when the evening check-in detects a wide-open day tomorrow.
+description: Plan a wide-open day (Saturday, holiday, PTO) as a chained sequence of calendar blocks. Use when the user says "plan my Saturday", "plan my day", "open day", "wide open day", "I have a whole day free", "help me plan tomorrow", or when the tour's `Plan tomorrow as an open day` button opens it.
 ---
 
 # Plan Open Day
@@ -103,7 +103,7 @@ recently-completed tasks in the matching area.
 ### 3c — Tasks
 
 ```bash
-jq -c 'select(.status=="open" and (.deferred // false | not)) | {id, description, impact, urgency, size, area, project, deadline}' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status=="open" and (.deferred // false | not)) | {id, description, impact, urgency, size, area, project, deadline}' 6-tasks/_data/tasks.ndjson
 ```
 
 Surface: top items by impact/urgency, anything with a near deadline, and **anything carried in
@@ -174,15 +174,11 @@ Show the full chain as a table. **Get a yes before any write.**
 
 Then:
 
-1. **Move the day's `PFC - 🎯 2+1 anchor` instance into the chain — never delete it.** The 2+1 still
-   exists on an open day; it just stops being a separate 30-minute container off to one side. Update the
-   instance (`<seriesId>_<YYYYMMDD>T…`) so it *becomes* the block where critical 1 actually happens:
-   retime it to that block, title it `PFC - 🎯 2+1: <critical 1 gist>`, and list all three picks in the
-   description with a note of where each one lands in the day. Then build every other block around it.
-
-   Criticals that land inside an existing commitment get their **own** block at that time, and the
-   anchor description points at it. Never `delete_event` an anchor instance, and never let an open day
-   end up with no `daily-focus` record.
+1. **Put the day's 2+1 into the chain.** The 2+1 still exists on an open day (the `daily-focus` record
+   on the page); it just gets real blocks. Each critical gets the block where it actually happens, titled
+   `PFC - 🎯 2+1: <critical gist>`. Criticals that land inside an existing commitment (e.g. a call
+   during a long errand) get their **own** block at that time. Never let an open day end up
+   with no `daily-focus` record.
 2. `create_event` per block on the **primary** calendar:
    - Title: `PFC - {emoji} {activity}` — the literal `PFC - ` prefix first, always.
    - `colorId: "5"` (banana) — the PFC visual signature.
@@ -198,7 +194,7 @@ Fail-safe per call: log `🟡 Calendar write failed for <block> (non-blocking): 
 
 **The calendar is the plan. No new NDJSON file.**
 
-- Tasks created in Step 4 → append to `6-actions/_data/tasks.ndjson` via `jq`.
+- Tasks created in Step 4 → append to `6-tasks/_data/tasks.ndjson` via `jq`.
 - Leave `daily-focus.ndjson` alone.
 
 ```bash
@@ -217,8 +213,9 @@ python3 automations/scripts/trello_render.py
 ## Triggering
 
 1. **Manual** — `/pfc-plan-open-day [date]`.
-2. **The evening check-in the night before** — `pfc-evening-checkin` detects a wide-open tomorrow and
-   offers to build the plan then. This is the real fix: a morning intention to run this skill goes
+2. **The tour, Friday or Saturday after about 6 PM** — the picks step shows a `Plan tomorrow as an open
+   day` button that opens this skill in the chat drawer. The page cannot read the calendar, so it offers
+   rather than detects. This is the real fix: a weekend-morning intention to run this skill goes
    invisible overnight, while a plan built the evening before already exists at wake-up.
 
 ## What this skill does NOT reuse

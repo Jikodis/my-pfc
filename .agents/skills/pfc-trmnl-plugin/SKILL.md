@@ -60,8 +60,13 @@ has ~20 lists because tapping is cheap; a screen has one.
 TRMNL's own agent rules make this non-negotiable: never write markup against data you
 have not seen. In this repo that means the payload builder comes first.
 
-1. Add a builder function to `BUILDERS` in `automations/scripts/trmnl_push.py`. Read
-   canonical NDJSON from the repo; return a flat dict.
+1. Write the builder and register it in `BUILDERS` in
+   `automations/scripts/trmnl_push.py`. The screens mirror the web home page's bands one
+   for one, so a screen for a band goes in `automations/scripts/trmnl_home.py` and reads
+   `home_data.build_home` — the same data the page shows. If the number is not on the
+   page yet, add it to `home_data.py` first so both surfaces get it. Only a screen with
+   no band of its own (like Front of mind or Week) reads NDJSON directly in
+   `trmnl_push.py`. Either way, return a flat dict.
 2. Pre-digest everything — clip strings, pre-compute counts and formatted values, drop
    fields the view will not render. Nothing deeper than two levels.
 3. Run it and read the output:
@@ -200,9 +205,9 @@ Diagnose in order:
 4. Check the device refreshed — `refresh_interval` in `src/settings.yml` and the
    device's own refresh-rate setting govern how often it pulls.
 
-## Tuning the pulse screens
+## Tuning the pulse screen
 
-`pfc-pulse` and `pfc-pulse-trend` hold no thresholds — they render what
+`pfc-pulse` holds no thresholds — it renders what
 `automations/scripts/pulse.py` computes. If the user asks to change what the pulse
 tracks or what "good" means, change the bands under `health.pulse` in
 `config/automation_config.yaml`, or the levers in `pulse.py` — never the Liquid, and
@@ -211,16 +216,16 @@ never a second copy in the builder. Ground the change in their own data: run
 average ones.
 
 The exception is the exercise row on `pfc-pulse`, which is a today-action rather than a
-sleep lever: it reads `EXERCISE_HABIT_ID` / `EXERCISE_LABEL` at the top of
-`trmnl_push.py`. Point those at the user's own movement habit id.
+sleep lever: it reads `EXERCISE_HABIT_ID` / `EXERCISE_LABEL` in
+`automations/scripts/pfc_writes.py`, the one setting the web page shares. Point it at
+the user's own movement habit id.
 
 ## Push cadence
 
-`trmnl_push.py` is called from the evening check-in and on demand. **Do not add either
-transport to the git post-commit hook.** Trello's render is wired there because Trello
-has no meaningful rate limit; polling doesn't need the hook at all, and a webhook push
-there would burn the 12/hour quota in minutes during an editing session, leaving the
-screen stale behind a 429.
+`trmnl_push.py` is run on demand. **Do not add either transport to the git post-commit
+hook.** Trello's render is wired there because Trello has no meaningful rate limit;
+polling doesn't need the hook at all, and a webhook push there would burn the 12/hour
+quota in minutes during an editing session, leaving the screen stale behind a 429.
 
 ## Related
 

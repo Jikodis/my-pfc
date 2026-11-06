@@ -1,19 +1,19 @@
 <div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="1">
-    <div class="column">
-      {% for item in pursuits %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
+  <div class="col gap--xsmall stretch-x">
+    {% for tier in tiers %}
+      {% if tier.label == "Active Pursuits" %}
+        <span class="title title--small">{{ tier.label }} ({{ tier.count }})</span>
+        {% for row in tier.rows limit: 6 %}
+          <span class="label" data-clamp="1">{{ row.status }} - {{ row.title }}{% if row.progress != "" %} ({{ row.progress }}){% endif %}</span>
+        {% else %}
+          <span class="label label--small">No active pursuits.</span>
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Focus</span>
-  <span class="instance">{{ quarter }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

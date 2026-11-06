@@ -79,15 +79,15 @@ Skills that call into Calendar or Gmail will silently skip those blocks. Nothing
 
 | Skill | What you lose |
 |---|---|
-| `pfc-evening-checkin` | Tomorrow's schedule context; anchor-slot annotation for the 2+1 |
-| `pfc-schedule-focus` | Entire skill is calendar-only — schedules 2+1 onto primary calendar |
-| `pfc-evening-checkin` | Tomorrow's schedule preview block |
+| `pfc-plan-open-day` | Entire skill is calendar-only — lays a wide-open day out as calendar blocks |
+| `pfc-render-trello` and the daily sync job | The `🗓️ Week at a Glance` list and `data/calendar-cache.json` (the TRMNL `pfc-week` screen) |
+| `pfc-schedule-focus` | Entire skill is calendar-only — places 2+1 tasks onto the primary calendar on request |
 
 **Email-dependent skills** (skip email block when integration is absent):
 
 | Skill | What you lose |
 |---|---|
 | `pfc-email-triage` | Entire skill is email-only — triage inbox by priority label |
-| `pfc-email-triage` | Email→task pipeline (Step 0 reconciliation) |
+| Daily sync job (`scripts/daily-sync.sh`) | Its inbox-to-task reconcile step (it runs `pfc-email-triage` Step 0) — creating tasks from labeled emails and marking tasks done when their source email was archived externally |
 
-**Skills unaffected.** Everything in `pfc-*` that does not touch Calendar or Gmail — task management, habit tracking, daily focus, project summaries, day ratings, weekly/monthly/yearly check-ins, insights, hypotheses, supplement tracking, Trello sync — continues to work exactly as documented.
+**Skills unaffected.** Everything in `pfc-*` that does not touch Calendar or Gmail — task management, habit tracking, daily focus, project summaries, day ratings, the rolling reviews, the yearly check-in, insights, hypotheses, supplement tracking, Trello sync — continues to work exactly as documented.

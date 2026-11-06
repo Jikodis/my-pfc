@@ -5,12 +5,12 @@ description: Show all open tasks. Use when the user says "show my tasks", "task 
 
 # List Open Tasks
 
-Show every open task in `6-actions/_data/tasks.ndjson`, nothing else. No life wheel, no habits, no hypotheses, no trend tables. Just the task list.
+Show every open task in `6-tasks/_data/tasks.ndjson`, nothing else. No life wheel, no habits, no hypotheses, no trend tables. Just the task list.
 
 ## Step 1: Pull open tasks
 
 ```bash
-jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson
 ```
 
 ## Step 2: Render — two subsections, never duplicate a task across them
@@ -70,13 +70,13 @@ One line: total open count. Example: `105 open tasks.`
 
 ## Parked tasks (`deferred: true`)
 
-`/pfc-list-tasks` is the ONE place a parked task stays visible — it's hidden from pick pools, the Trello `✅ Actions` list, and `pfc-revive`'s slippage signals, so without this section it would vanish from the system entirely.
+`/pfc-list-tasks` is the ONE place a parked task stays visible — it's hidden from pick pools, the Trello `✅ Tasks` list, and `pfc-revive`'s slippage signals, so without this section it would vanish from the system entirely.
 
 List them in a separate section **after** the live tasks, headed `⏸️ Parked (not in rotation)`, showing the description and `deferred_reason` so the why is visible at un-park time:
 
 ```bash
 jq -c 'select(.status == "open" and .deferred == true) | {id, description, deferred_reason, area}' \
-  6-actions/_data/tasks.ndjson
+  6-tasks/_data/tasks.ndjson
 ```
 
 Never mix parked tasks into the main list or the counts — they are not on deck. Don't nudge about them; the user parked them deliberately. To un-park, set `deferred` to `false`.

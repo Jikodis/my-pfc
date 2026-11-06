@@ -17,6 +17,11 @@ Two layers, both written here:
 Then it recomputes the QQRT sleep composite (`backfill_qqrt`) so `qqrt` never
 lags the health data, and commits + pushes.
 
+The repo may be shared with another clone (a laptop and a VPS, say), so the run
+levels with origin before it reads the files and again before it pushes
+(`repo_sync.py`). A conflict keeps the commit local and exits non-zero so the
+journal shows it; nothing piles up silently.
+
 Idempotent: with unchanged data it writes nothing, commits nothing, and pushes
 nothing — which is what makes it safe to run on a retry loop (see the
 `pfc-health-fetch-morning` timer).
@@ -38,6 +43,7 @@ from zoneinfo import ZoneInfo
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
+import repo_sync  # noqa: E402
 from google_health_backfill import fetch_health, get_access_token  # noqa: E402
 import google_health_raw  # noqa: E402
 
@@ -89,24 +95,53 @@ def recompute_qqrt():
         print(f"  qqrt recompute failed (non-blocking): {e}", file=sys.stderr)
 
 
+def _git(*args):
+    return subprocess.run(["git", "-C", str(REPO_ROOT), *args], capture_output=True, text=True,
+                          timeout=120, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+
+
+def sync_before_write():
+    """Level with origin so this run edits the newest day-tracking file.
+    Returns False when the repo cannot be written at all (a rebase in progress)."""
+    if repo_sync.rebase_in_progress(_git, REPO_ROOT):
+        print("  a git rebase is in progress in the repo; skipping this run (the next one fetches again).",
+              file=sys.stderr)
+        return False
+    ok, detail = repo_sync.sync_with_upstream(_git, REPO_ROOT)
+    if not ok:
+        print(f"  repo sync before write failed; continuing on the local copy: {detail}", file=sys.stderr)
+    return True
+
+
 def git_commit_and_push(date_str, raw_path=None):
-    add = ["git", "-C", str(REPO_ROOT), "add", "data/day-tracking.ndjson"]
+    add = ["add", "data/day-tracking.ndjson"]
     if raw_path is not None:
         add.append(str(raw_path.relative_to(REPO_ROOT)))
-    for args in (
-        add,
-        ["git", "-C", str(REPO_ROOT), "commit", "-m", f"track: auto-fetch health {date_str}"],
-        ["git", "-C", str(REPO_ROOT), "push"],
-    ):
-        r = subprocess.run(args, capture_output=True, text=True)
+    for args in (add, ["commit", "-m", f"track: auto-fetch health {date_str}"]):
+        r = _git(*args)
         if r.returncode != 0:
-            print(f"{' '.join(args)} failed: {r.stderr}", file=sys.stderr)
+            print(f"git {' '.join(args)} failed: {r.stderr}", file=sys.stderr)
+            sys.exit(1)
+    # Level with origin, then push. Another clone may push between the two; one more
+    # pass covers that. A conflict keeps the commit local and ends the run non-zero.
+    for attempt in (1, 2):
+        ok, detail = repo_sync.sync_with_upstream(_git, REPO_ROOT)
+        if not ok:
+            print(f"REPO SYNC FAILED — commit kept locally, not pushed: {detail}", file=sys.stderr)
+            sys.exit(1)
+        r = _git("push")
+        if r.returncode == 0:
+            return
+        if attempt == 2:
+            print(f"git push failed: {r.stderr}", file=sys.stderr)
             sys.exit(1)
 
 
 def main():
     date_str = target_date()
     print(f"Fetching health for {date_str}")
+    if not sync_before_write():
+        return
 
     access_token = get_access_token()
     health = fetch_health(access_token, date_str)

@@ -144,8 +144,7 @@ The fetch runs on **three** cadences, because the data lands at three different 
 | When | Unit | Why |
 |---|---|---|
 | Every 30 min, 6:00–10:30 AM local | `pfc-health-fetch-morning` | Last night's sleep lands whenever your watch syncs to your phone, not on a clock — it can vary by hours from one morning to the next. A single fixed hour either fires too early (no data) or too late (you spend the morning looking at yesterday's numbers). Retrying catches the sync within 30 minutes of whenever it happens. |
-| Noon local, two passes | `pfc-health-fetch` | Pass 1 fetches **today** (fresh sleep for the same-day evening check-in); pass 2 fetches **yesterday**, finalizing its complete full-day activity totals now that the day is over. |
-| On demand | — | The evening check-in fetches before it reads health data, so a check-in never runs on stale numbers. |
+| Noon local, two passes | `pfc-health-fetch` | Pass 1 fetches **today** (fresh sleep for a same-day rating in the tour); pass 2 fetches **yesterday**, finalizing its complete full-day activity totals now that the day is over. |
 
 Retries are nearly free: `auto_fetch_health.py` writes nothing, commits nothing, and pushes nothing when the health block is unchanged. Providers also sometimes revise a night's numbers an hour later, so retrying picks up the correction.
 

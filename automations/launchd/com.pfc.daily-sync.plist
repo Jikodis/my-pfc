@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Replace /Users/YOUR_USER/path/to/your-pfc and YOUR_USER as in com.pfc.web.plist
+     (docs/install/daily-sync.md). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.pfc.daily-sync</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>/Users/YOUR_USER/path/to/your-pfc/scripts/daily-sync.sh</string></array>
+  <key>WorkingDirectory</key><string>/Users/YOUR_USER/path/to/your-pfc</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>LOCAL_TZ</key><string>America/Denver</string>
+    <!-- Same PATH as com.pfc.web: claude, then Homebrew (git, gh, python3). jq comes from /usr/bin. -->
+    <key>PATH</key><string>/Users/YOUR_USER/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <!-- claude finds its login in the keychain under this account name. -->
+    <key>USER</key><string>YOUR_USER</string>
+    <!-- The interpreter that has PyYAML. /usr/bin/python3 does not. -->
+    <key>PFC_PYTHON</key><string>/opt/homebrew/bin/python3</string>
+    <!-- Optional, same as com.pfc.web.plist.
+    <key>PFC_PUSH_GH_USER</key><string>your-github-user</string>
+    -->
+  </dict>
+  <!-- Daily at 5:00 AM local. If the Mac is asleep then, launchd runs it on wake. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>5</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/pfc-daily-sync.log</string>
+  <key>StandardErrorPath</key><string>/tmp/pfc-daily-sync.log</string>
+</dict>
+</plist>

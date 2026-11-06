@@ -7,13 +7,14 @@ Cross-cutting system documentation. If you're trying to understand how the PFC s
 | File | What it covers |
 |---|---|
 | [`system-map.md`](system-map.md) | The one-page picture of the whole system — how the layers nest and when you touch each one. Start here. |
-| [`architecture.md`](architecture.md) | System architecture — how the pieces fit together (repo, Claude Code, automations, VPS, Trello) |
+| [`architecture.md`](architecture.md) | System architecture — how the pieces fit together (repo, Claude Code, automations, VPS, Trello, TRMNL, web UI) |
 | [`data-model.md`](data-model.md) | Canonical schemas for every typed record — tasks, habits, projects, day-tracking, insights, hypotheses, findings, supplements |
 | [`calendar-scheduling.md`](calendar-scheduling.md) | Hard rules for any agent creating/moving calendar events. Read this before doing any batch scheduling. |
-| [`cadences.md`](cadences.md) | The evening spine, rolling reviews, quarterly + yearly rhythms |
+| [`cadences.md`](cadences.md) | The daily tour, the rolling reviews, and the quarterly and yearly rhythms |
 | [`conventions.md`](conventions.md) | File-format conventions — NDJSON, schemas, ID formats |
 | [`automation-policy.md`](automation-policy.md) | Commit policy and safety rules for automation scripts |
-| [`workflows.md`](workflows.md) | End-to-end workflow examples (the evening spine, rolling reviews, project lifecycle) |
+| [`workflows.md`](workflows.md) | End-to-end workflow examples (the daily tour, rolling reviews, project lifecycle) |
+| [`trello-dashboard.md`](trello-dashboard.md) | Trello board reference — every list, the render triggers, and the card conventions |
 | [`trmnl-plugins.md`](trmnl-plugins.md) | TRMNL e-ink dashboard — which repo data feeds which screen, transports, deploy loop |
 
 ## Install guides
@@ -26,6 +27,8 @@ The `install/` subfolder holds tier-by-tier setup guides:
 | [`install/google-health.md`](install/google-health.md) | 2 | Google Health API for sleep / activity auto-fetch |
 | [`install/local-automations.md`](install/local-automations.md) | 2 | Cron-based local automation scripts |
 | [`install/trello.md`](install/trello.md) | 2 | Trello dashboard board + widgets + completion sync |
+| [`install/web-ui.md`](install/web-ui.md) | 2 | Local web UI: the one-page home, the daily tour, the chat drawer |
+| [`install/daily-sync.md`](install/daily-sync.md) | 2 | Morning job: Trello completions, inbox-to-task reconcile, calendar cache |
 | [`install/vps.md`](install/vps.md) | 3 | VPS with systemd timers for 24/7 automation |
 | [`install/trmnl-endpoint.md`](install/trmnl-endpoint.md) | 3 | TRMNL polling endpoint on the VPS (optional e-ink dashboard) |
 | [`install/remote-access.md`](install/remote-access.md) | 3 | Termius + tmux + Claude Code Remote Control for phone access |

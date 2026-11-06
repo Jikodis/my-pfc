@@ -1,0 +1,19 @@
+---
+/**
+ * One band of the home page, or one tour-only panel. `band` is the `data-band` the
+ * tour shows one at a time (`src/lib/tour.ts`). `tourOnly` panels are hidden unless
+ * the tour is running. `error` is a failed Python call's message: the band then
+ * says it could not load, and every other band still renders.
+ */
+interface Props { band: string; title: string; tourOnly?: boolean; error?: string }
+const { band, title, tourOnly = false, error } = Astro.props
+---
+<section class="band panel" data-band={band} data-tour-only={tourOnly ? '1' : undefined}>
+  <h2>{title}</h2>
+  {error !== undefined ? (
+    <>
+      <p class="muted">Could not load this panel.</p>
+      <details><summary>Why</summary><p class="prose mono">{error}</p></details>
+    </>
+  ) : <slot />}
+</section>

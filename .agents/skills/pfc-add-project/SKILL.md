@@ -41,7 +41,7 @@ If the user's input sounds like a single task (one action, no parts), route to `
    ```bash
    ACTIVE=$(jq -c 'select(.active == true and (.status // "active") != "done")' 5-projects/_data/projects.ndjson | wc -l)
    ```
-   Only if `ACTIVE >= 12` (the runaway backstop) ask whether to add as inactive or pause an existing one. Below that, just add it active — do NOT ask the user to choose between projects, and do NOT flag the count.
+   Only if `ACTIVE >= 12` (the runaway backstop) ask whether to add it with status `on-deck` (`active: false`) or park an existing one. Below that, just add it active — do NOT ask the user to choose between projects, and do NOT flag the count.
 3. Ask for required fields one at a time per CLAUDE.md "one question at a time" rule. Order: excitement → impact → urgency → area → values → total_parts → (optionals if natural).
 4. Validate area against `2-areas/` folders. If no match, list options and re-ask.
 5. Validate values against `1-values/values.md`. If a user-supplied value isn't in the list, ask whether to map to an existing value or add a new value to `values.md` (out of scope — refer them to do that separately).

@@ -30,7 +30,7 @@ canonical_paths=(
   "2-areas"
   "3-visions"
   "5-projects"
-  "6-actions"
+  "6-tasks"
   "7-habits"
   "data"
   "0-me"

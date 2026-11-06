@@ -61,7 +61,7 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
 
 6. **Commit each batch:**
    ```bash
-   git add data/insights.ndjson 6-actions/_data/tasks.ndjson 5-projects/_data/projects.ndjson config/habit_schema.yaml
+   git add data/insights.ndjson 6-tasks/_data/tasks.ndjson 5-projects/_data/projects.ndjson config/habit_schema.yaml
    git commit -m "insight: triage YYYY-MM-DD"
    git push
    ```
@@ -74,7 +74,7 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
 
 ## Inside the rolling reviews
 
-This skill owns the `insights-review` item in the rolling-review ledger (`data/review-ledger.ndjson`, monthly cadence). When it comes up — surfaced by `pfc-evening-checkin` Step 3c or by `/pfc-review` — run **Monthly** mode:
+The `insights-review` rolling-review item (monthly cadence — see `data/review-ledger.ndjson`) surfaces as the tour's one due review or in a `/pfc-review` catch-up and points here. When invoked that way, run **Monthly** mode:
 
 1. Show active insights from the last 30 days, plus any older ones still active.
 2. Ask: "any to archive or graduate?"

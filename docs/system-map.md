@@ -66,7 +66,7 @@ Everything you *commit to doing* (as opposed to direction or criteria) lives in 
 
 Above these sit Values, Areas, and Visions — criteria and direction, deliberately *ungauged* (a vision has no deadline and cannot "slip"). Below them sit tasks — execution detail, gauged only through the 2+1.
 
-Two recovery surfaces read all three gauges together, so an off-track intention can't hide in a layer nobody is watching: the **`pfc-back-on-track` TRMNL screen** (the whole off-track set, ambient) and the **evening check-in's back-on-track step** (one re-entry step per night, from the item's landing anchor).
+The web UI's **Focuses, Projects and Habits bands** on the home page (`/`) read all three gauges together, so an off-track intention can't hide in a layer nobody is watching, and the TRMNL screens of the same names mirror them on the wall.
 
 **The don't-multiply-concepts guard:** when adding any new commitment type, gauge, or surface, first name which of the three layers it belongs to. If it fits none, it is probably a new concept the system doesn't need.
 
@@ -74,15 +74,15 @@ Two recovery surfaces read all three gauges together, so an off-track intention 
 
 ```mermaid
 flowchart LR
-    subgraph DAY["☀️ DAILY — the evening spine"]
+    subgraph DAY["☀️ DAILY — the tour, any time"]
       direction TB
-      D1["Evening check-in → rate + log today"]
-      D2["Log daily habits"]
-      D3["Rolling reviews (≤2 due items)<br/>from the review ledger"]
-      D4["Trickle Current Focus → set tomorrow's 2+1"]
+      D1["Walk me through → rate a day"]
+      D2["Body check · log daily habits"]
+      D3["What needs you (≤1 due review)<br/>from the review ledger"]
+      D4["Set the 2+1 → one focus and its vision"]
     end
-    subgraph REV["🔁 ROLLING REVIEWS — folded into the evening"]
-      R1["Ledger drips ≤2/night · /pfc-review clears the backlog<br/>weekly · monthly · quarterly items"]
+    subgraph REV["🔁 ROLLING REVIEWS"]
+      R1["Tour shows ≤1 · /pfc-review clears the backlog<br/>weekly · monthly · quarterly items"]
     end
     subgraph YEAR["🎆 YEARLY — Visions + Values"]
       Y1["Yearly check-in · big direction"]
@@ -94,8 +94,8 @@ flowchart LR
 
 | Cadence | What happens | Which layer it touches |
 |---|---|---|
-| **Daily (the evening spine)** | Evening check-in: rate + log today · log habits · rolling reviews (≤2 due) · trickle Focus · set tomorrow's 2+1 | Habits + today's Focus |
-| **Rolling reviews** | Ledger (`data/review-ledger.ndjson`) drips ≤2 due items per evening; `/pfc-review` clears the backlog. Weekly items (stale-task triage, focus accuracy…), monthly (life wheel, project progress, vision activation…), quarterly (re-pick Focuses, vision brainstorm, strengths). | Focus · Visions · monthly Habits |
+| **Daily (the tour, any time)** | `Walk me through` on the home page: rate a day · log habits · at most 1 due review · set the 2+1 (tomorrow's after 6 PM) · one focus and its vision | Habits + today's Focus |
+| **Rolling reviews** | Ledger (`data/review-ledger.ndjson`): the tour shows at most 1 due item; `/pfc-review` clears the backlog. Weekly items (stale-task triage, focus accuracy…), monthly (life wheel, project progress, vision activation…), quarterly (re-pick Focuses, vision brainstorm, strengths). | Focus · Visions · monthly Habits |
 | **Yearly** | Yearly check-in · big direction | Visions + Values |
 
 Daily *reminds*; the quarterly Focus re-pick (a rolling-review item) *decides*.

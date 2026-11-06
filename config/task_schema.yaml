@@ -1,4 +1,4 @@
-# Task schema for 6-actions/_data/tasks.ndjson.
+# Task schema for 6-tasks/_data/tasks.ndjson.
 # All tasks — strategic and operational — live in one list.
 
 task:
@@ -13,7 +13,7 @@ task:
   deferred:
     type: boolean
     default: false
-    description: "Parked by the user — still open, but deliberately out of the daily-pick rotation until they say otherwise. Hidden from pick pools, the Trello Actions list, and pfc-revive slippage signals. NOT a status: a deferred task is still open work, just not being offered right now. Clear it (set false / remove) when the user asks for it back."
+    description: "Parked by the user — still open, but deliberately out of the daily-pick rotation until they say otherwise. Hidden from pick pools, the Trello Tasks list, and pfc-revive slippage signals. NOT a status: a deferred task is still open work, just not being offered right now. Clear it (set false / remove) when the user asks for it back."
   deferred_reason:
     type: string
     nullable: true
@@ -41,13 +41,27 @@ task:
     type: string
     enum: ["high", "medium", "low"]
     required: true
+  agent_doable:
+    type: string
+    enum: ["yes", "partly", "no"]
+    nullable: true
+    description: >
+      Who can actually execute this. "yes" — an agent with a browser can drive it
+      start to finish (research, forms, purchases, portal paperwork, drafting a
+      reply); the user only approves the result. "partly" — an agent does the setup
+      and the user does one irreducibly human step (a phone call, a signature, being
+      physically somewhere, a conversation with a person). "no" — only the user can
+      do it: their learning, their body, their relationships, their creative voice.
+      Null means unclassified. Why it exists: starting is often the hard part, so
+      the cheapest way through a stalled task is often to not be the one doing it.
+      See 6-tasks/AGENTS.md § Agent delegation.
   project:
     type: string
     default: "none"
   sequence:
     type: integer
     nullable: true
-    description: "Order of this task within its project (1-based). Set on project tasks where order matters (e.g. course curricula). pfc-pick-tasks and the evening check-in only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (project='none') leave this null."
+    description: "Order of this task within its project (1-based). Set on project tasks where order matters (e.g. course curricula). pfc-pick-tasks and the home page's 2+1 suggestions only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (project='none') leave this null."
   area:
     type: string
     nullable: true
@@ -69,6 +83,11 @@ task:
     type: string
     format: "YYYY-MM-DD"
     description: "Added when status changes to done"
+  dropped:
+    type: string
+    format: "YYYY-MM-DD"
+    nullable: true
+    description: "Archive only. The day the user decided not to do the task (web UI Drop). A dropped task is normally removed outright; it is kept in tasks-archive.ndjson, still status open, only when a daily-focus record names it, so that 2+1 history keeps resolving."
   source:
     type: string
     enum: ["phone", "laptop", "automation", "chat", "morning-planning", "email-triage"]

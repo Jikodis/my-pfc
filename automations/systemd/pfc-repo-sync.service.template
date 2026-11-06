@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=__REPO_ROOT__
 # The TRMNL endpoint serves whatever is in this working tree, so the tree has to
-# track the remote or the wall shows stale data after a check-in made elsewhere.
+# track the remote or the wall shows stale data after a change made elsewhere.
 # The other automations pull before they run; this closes the gap between them.
 #
 # --ff-only on purpose: if this clone has unpushed local commits the sync fails

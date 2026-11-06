@@ -3,23 +3,25 @@
 Source for the TRMNL e-ink display plugins that mirror PFC state to a screen on the
 wall — the always-visible counterpart to the Trello dashboard on the phone.
 
-| Plugin | Shows |
-|---|---|
-| [`pfc-today/`](pfc-today/) | Today's 2+1 and last day rating |
-| [`pfc-front-of-mind/`](pfc-front-of-mind/) | Active grounding anchors, rotating on smaller views |
-| [`pfc-habits/`](pfc-habits/) | Daily habits (today + 7-day counts), monthly habits vs target |
-| [`pfc-pulse/`](pfc-pulse/) | Daily Pulse levers vs target, verdict, tonight's one move |
-| [`pfc-focus/`](pfc-focus/) | Current Focus: pursuits with landings, foundations, consuming |
-| [`pfc-projects/`](pfc-projects/) | Active projects: percent complete + next 1-2 open tasks each |
-| [`pfc-trends/`](pfc-trends/) | 30-day rating chart with 7-day rolling mean + tiles (sleep, exercise, sleep debt) |
-| [`pfc-week/`](pfc-week/) | Week at a Glance from the committed calendar cache |
-| [`pfc-compass/`](pfc-compass/) | One value, area statement, vision, or life question per refresh |
-| [`pfc-back-on-track/`](pfc-back-on-track/) | Off-track intentions (focus, projects, habits) + the smallest step back in |
-| [`pfc-pulse-trend/`](pfc-pulse-trend/) | 30-day pulse: per-lever days-on-target, days primed, the standing fix |
-| [`pfc-areas/`](pfc-areas/) | Life-wheel status per area: red/yellow with notes, greens holding |
+Each screen mirrors one band of the web home page, in the page's order.
 
-You do not need all thirteen. Start with one or two that answer a question you ask
-every day, and add screens as the data behind them becomes real.
+| Plugin | Web band | Shows |
+|---|---|---|
+| [`pfc-values/`](pfc-values/) | Values | Your values in rank order and the question of the day |
+| [`pfc-areas/`](pfc-areas/) | Areas | Life wheel and household lights, worst first, with notes |
+| [`pfc-visions/`](pfc-visions/) | Visions | Active visions, today's vision and the value it serves |
+| [`pfc-focus/`](pfc-focus/) | Focuses | Foundations, Active Pursuits, Currently Consuming: light and progress |
+| [`pfc-projects/`](pfc-projects/) | Projects | Active projects: percent done and the next task |
+| [`pfc-pulse/`](pfc-pulse/) | Body first | Last night's sleep, the exercise habit today, the verdict and tonight's move, each lever with last night and nights on target over 30 |
+| [`pfc-today/`](pfc-today/) | Tasks | Today's 2+1 (tomorrow's too after about 6 PM), what needs you, hand-offs |
+| [`pfc-habits/`](pfc-habits/) | Habits | Daily and monthly habits: logged today, yesterday, or not |
+| [`pfc-trends/`](pfc-trends/) | Trends | How the last 30 days turned out: day rating, energy, mood, focus, picks done |
+| [`pfc-front-of-mind/`](pfc-front-of-mind/) | Front of mind | Active anchors, smaller views rotating by the clock |
+| [`pfc-week/`](pfc-week/) | Week | The next seven days from `data/calendar-cache.json` |
+
+You do not need all eleven. Start with one or two that answer a question you ask
+every day, and add screens as the data behind them becomes real. To add or remove a
+screen, see [`docs/trmnl-plugins.md`](../docs/trmnl-plugins.md) § "Changing what the wall shows".
 
 ## Quick start
 

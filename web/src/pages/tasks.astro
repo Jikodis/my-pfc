@@ -1,0 +1,234 @@
+---
+import ActionButton from '../components/ActionButton.astro'
+import Base from '../layouts/Base.astro'
+import { getSlipping } from '../lib/computed'
+import { daysBetween, deadlineLabel, formatDateLong, todayLocal } from '../lib/dates'
+import { PROMPTS, chatPrompt } from '../lib/chat/prompts'
+import { idTooltip } from '../lib/format'
+import { NO_PRIORITY, byPriority, code } from '../lib/priority'
+import { getArchivedTasks, getDailyFocus, getProjects, getTasks } from '../lib/repo'
+import { safe } from '../lib/safe'
+import { TASK_SORTS } from '../lib/sort'
+import { areaLabel } from '../lib/text'
+
+const q = Astro.url.searchParams
+const pick = (k: string) => q.get(k) ?? ''
+const archive = pick('archive') === '1'
+const today = todayLocal()
+
+// One call per script per render: this starts a Python process. When it fails the
+// slipping filter is simply not offered, and the rest of the page is unaffected.
+const slipping = safe(getSlipping)
+const slippingIds = new Set(
+  slipping.ok ? slipping.value.filter((s) => s.item_type === 'task').map((s) => s.item_id) : [],
+)
+const slippingOnly = slipping.ok && pick('slipping') === '1'
+
+const projectName = new Map(getProjects().map((p) => [p.id, p.name]))
+const all = archive ? getArchivedTasks() : getTasks().filter((t) => t.status === 'open')
+const words = pick('text').toLowerCase()
+const rows = byPriority(all.filter((t) =>
+  (!pick('area') || t.area === pick('area')) &&
+  (!pick('agent') || t.agent_doable === pick('agent')) &&
+  (!pick('size') || t.size === pick('size')) &&
+  (!pick('project') || t.project === pick('project')) &&
+  (!pick('priority') || code(t) === pick('priority')) &&
+  (!slippingOnly || slippingIds.has(t.id)) &&
+  (!words || t.description.toLowerCase().includes(words)),
+))
+
+const uniq = (vals: (string | undefined | null)[]) =>
+  [...new Set(vals.filter((v): v is string => Boolean(v) && v !== 'none'))].sort()
+const codes = [...new Set(all.map((t) => code(t)))].filter((c) => c !== NO_PRIORITY).sort()
+const selects: [string, string, readonly string[]][] = [
+  ['priority', 'Priority', codes],
+  ['area', 'Area', uniq(all.map((t) => t.area))],
+  ['agent', 'Agent can do it', ['yes', 'partly', 'no']],
+  ['size', 'Size', uniq(all.map((t) => t.size))],
+  ['project', 'Project', uniq(all.map((t) => t.project))],
+]
+
+// Handing a task to an agent is a standard way work leaves the backlog, so the
+// count of those tasks is a link, not a footnote.
+const agentCount = all.filter((t) => t.agent_doable === 'yes').length
+const projectOf = (id: string | undefined) =>
+  id && id !== 'none' ? (projectName.get(id) ?? id) : ''
+const tip = (t: { id: string; notes?: string | null }) => idTooltip(t.id, t.notes)
+// What the row buttons put in the chat box. The title is the task's description.
+const ask = (template: string, t: { id: string; description: string }) =>
+  chatPrompt(template, { title: t.description, id: t.id })
+// Today's stored 2+1, so Pull into today adds to the picks already set rather than replacing them.
+const todayRecord = getDailyFocus().find((r) => r.date === today)
+const todayPicks = JSON.stringify(todayRecord
+  ? { critical: todayRecord.critical ?? [], completed: todayRecord.completed ?? [], bonus: todayRecord.bonus ?? null }
+  : null)
+---
+<Base
+  title={archive ? 'Completed tasks' : 'Open tasks'}
+  lede={`${rows.length} of ${all.length} shown, strongest priority code first.`}
+>
+  <form method="get" class="filters">
+    <input type="search" name="text" value={pick('text')} placeholder="Filter by words" aria-label="Filter by words" />
+    {selects.map(([key, label, opts]) => (
+      <select name={key} aria-label={label}>
+        <option value="">{label}: all</option>
+        {opts.map((o) => (
+          <option value={o} selected={pick(key) === o}>
+            {key === 'project' ? (projectName.get(o) ?? o) : key === 'size' ? o : areaLabel(o)}
+          </option>
+        ))}
+      </select>
+    ))}
+    {slipping.ok && (
+      <label><input type="checkbox" name="slipping" value="1" checked={slippingOnly} /> Slipping only</label>
+    )}
+    <label><input type="checkbox" name="archive" value="1" checked={archive} /> Completed</label>
+    <button type="submit">Apply</button>
+    <a href={archive ? '/tasks?archive=1' : '/tasks'}>Clear</a>
+  </form>
+
+  {rows.length > 1 && (
+    <p class="filters">
+      <label>Sort by{' '}
+        <select id="task-sort" aria-label="Sort tasks by">
+          {TASK_SORTS.map(([key, label]) => <option value={key}>{label}</option>)}
+        </select>
+      </label>
+    </p>
+  )}
+
+  {!archive && agentCount > 0 && (
+    <p class="sub"><a href="/tasks?agent=yes">{agentCount} tasks an agent can finish for you</a></p>
+  )}
+
+  {rows.length === 0 ? <p class="muted">No tasks match those filters.</p> : (
+    <table id="task-table" data-today={today} data-today-picks={todayPicks}>
+      <thead>
+        <tr>
+          <th>Task</th><th>Priority</th><th>Size</th><th>Area</th><th>Agent can do it</th>
+          <th>Project</th><th>Deadline</th><th>{archive ? 'Completed' : 'Age'}</th>
+          {!archive && <th>Actions</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((t, i) => (
+          <tr data-id={t.id} data-priority={i} data-deadline={t.deadline ?? ''} data-area={t.area ?? ''}
+            data-size={t.size ?? ''} data-created={t.created ?? ''}>
+            <td class="wide" title={tip(t)}>
+              {t.description}
+              {!archive && slippingIds.has(t.id) && <> <span class="tag">slipping</span></>}
+            </td>
+            <td>{code(t)}</td>
+            <td>{t.size ?? ''}</td>
+            <td>{areaLabel(t.area ?? '')}</td>
+            <td>{areaLabel(t.agent_doable ?? '')}</td>
+            <td class="sub">
+              {projectOf(t.project)}
+            </td>
+            {/* The label is what a person acts on; the date itself is in the tooltip. */}
+            <td
+              class={t.deadline && daysBetween(today, t.deadline) < 0 ? 'sub overdue' : 'sub'}
+              title={t.deadline ? formatDateLong(t.deadline) : undefined}
+            >
+              {t.deadline ? deadlineLabel(today, t.deadline) : ''}
+            </td>
+            <td class="sub nowrap" title={`Created ${formatDateLong(t.created)}`}>
+              {archive ? (t.dropped ? `Dropped ${formatDateLong(t.dropped)}` : formatDateLong(t.completed ?? '')) : `${daysBetween(t.created, today)} days`}
+            </td>
+            {!archive && (
+              <td class="acts">
+                <ActionButton action="complete-task" id={t.id} label="Done" name={t.description} confirm="Mark done?">
+                  <button type="button" class="act" data-chat-prompt={ask(PROMPTS.complete, t)} aria-label={`Done in chat: ${t.description}`}>Done in chat</button>
+                  {/* Inside Done's row of buttons, so it wraps with them instead of past the cell's edge. */}
+                  <ActionButton action="drop-task" id={t.id} label="Drop" name={t.description} confirm="Drop it? (won't do)" />
+                  {t.agent_doable === 'yes' && (
+                    <button type="button" class="act" data-chat-prompt={ask(PROMPTS.handOff, t)} aria-label={`Hand to agent: ${t.description}`}>Hand to agent</button>
+                  )}
+                </ActionButton>
+                {t.agent_doable !== 'yes' && (
+                  <span class="pull">
+                    <button type="button" class="act act-write" data-pull-id={t.id} aria-label={`Pull into today: ${t.description}`}>Pull into today</button>
+                    <span class="pull-status sub" role="status" aria-live="polite"></span>
+                  </span>
+                )}
+              </td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</Base>
+
+<script>
+  /**
+   * The sort control and Pull into today. Sorting reorders the rows by the stored
+   * fields the server wrote on each one (`sortTaskRows` in src/lib/sort.ts). Pull into
+   * today posts set-picks for today with the picks already set (done ones included) plus
+   * this task, and refuses in words when two picks are still open (`pullIntoToday` in
+   * src/lib/write-ui.ts).
+   */
+  import { sortTaskRows, type TaskSort } from '../lib/sort'
+  import { PENDING, WRITE_HEADERS, outcome, pullIntoToday } from '../lib/write-ui'
+
+  const table = document.getElementById('task-table')
+  const body = table?.querySelector('tbody')
+
+  document.getElementById('task-sort')?.addEventListener('change', (event) => {
+    if (!body) return
+    const key = (event.target as HTMLSelectElement).value as TaskSort
+    const rows = [...body.querySelectorAll<HTMLTableRowElement>('tr')].map((tr) => ({
+      tr, id: tr.dataset.id ?? '', priority: Number(tr.dataset.priority ?? 0), deadline: tr.dataset.deadline ?? '',
+      area: tr.dataset.area ?? '', size: tr.dataset.size ?? '', created: tr.dataset.created ?? '',
+    }))
+    for (const r of sortTaskRows(rows, key)) body.append(r.tr)
+  })
+
+  document.addEventListener('click', async (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-pull-id]')
+    if (!button || button.disabled || !table) return
+    const status = button.parentElement?.querySelector<HTMLElement>('.pull-status')
+    const show = (text: string, tone: string) => {
+      if (!status) return
+      status.textContent = text
+      status.className = `pull-status sub write-${tone}`
+    }
+    let today: { critical: string[]; completed?: string[]; bonus?: string | null } | null = null
+    try {
+      today = JSON.parse(table.dataset.todayPicks ?? 'null')
+    } catch {
+      today = null
+    }
+    const plan = pullIntoToday(table.dataset.today ?? '', today, button.dataset.pullId ?? '')
+    if (!plan.ok) {
+      show(plan.message, 'error')
+      return
+    }
+    button.disabled = true
+    button.textContent = PENDING
+    let code: number | null = null
+    let reply: unknown = null
+    try {
+      const response = await fetch('/api/write/set-picks', { method: 'POST', headers: WRITE_HEADERS, body: plan.body })
+      code = response.status
+      reply = await response.json().catch(() => null)
+    } catch {
+      code = null
+    }
+    const result = outcome(code, reply)
+    show(result.text, result.tone)
+    if (result.reloadAfterMs !== null) {
+      button.textContent = 'Saved'
+      setTimeout(() => window.location.reload(), result.reloadAfterMs)
+      return
+    }
+    button.textContent = 'Pull into today'
+    button.disabled = false
+  })
+</script>
+
+<style>
+  .pull { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px 6px; margin-top:4px; }
+  .pull-status { flex-basis:100%; width:0; min-width:max(100%, 12em); white-space:normal; font-size:13px; }
+  .pull-status:empty { display:none; }
+</style>

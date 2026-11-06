@@ -8,7 +8,7 @@ Schemas and configuration files that define the *shape* of every typed record in
 
 | File | Defines the shape of |
 |---|---|
-| `task_schema.yaml` | Tasks in `6-actions/_data/tasks.ndjson` |
+| `task_schema.yaml` | Tasks in `6-tasks/_data/tasks.ndjson` |
 | `habit_schema.yaml` | Habit definitions (referenced by daily/monthly habit logs) |
 | `project_schema.yaml` | Projects in `5-projects/_data/projects.ndjson` |
 | `supplement_schema.yaml` | Supplements in `data/supplements.ndjson` |

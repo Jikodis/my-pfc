@@ -2,28 +2,27 @@
 
 How and when the productivity system is used. These cadences keep you grounded, focused, and moving forward.
 
-## Daily — the evening spine
+## Daily — the tour, any time
 
-The daily loop is one ritual: the evening check-in. It closes out today and pre-commits tomorrow, so there's no separate morning ritual to remember.
+The daily loop is one guided tour on the web page (`http://127.0.0.1:4323/`, the `Walk me through` button). It runs whenever you open it; there's no fixed morning or evening ritual. Each step can be skipped.
 
 | Activity | When | What happens |
 |---|---|---|
-| Evening check-in | End of day | Run `/pfc-evening-checkin`: rate/log today (energy, focus, mood → derived rating), log supplements, walk the habit tracker, run the rolling reviews (≤2 due items), trickle Current Focus into view, then pick tomorrow's 2+1 and annotate tomorrow's anchor slot. |
-| Rolling reviews | → part of evening check-in | At most 2 due-and-actionable items from `data/review-ledger.ndjson` surface per night, most-overdue first. Each is a one-line pointer at its owning skill. See "Rolling Reviews" below. |
-| Current Focus trickle | → part of evening check-in | Read-only display of Foundations + 🟢 Pursuits with landings — keeps long-running interests (e.g. an instrument, a language) in perception before picking tomorrow's 2+1. Manage via `/pfc-focus`. |
-| Set tomorrow's 2+1 | → part of evening check-in | Pick 2 critical + 1 bonus (+ optional project slot) for tomorrow and annotate tomorrow's anchor-slot calendar instance. |
-| Habit logging | Throughout day | Log daily habit completions as they happen. |
+| The tour | Any time | Rate a day (yesterday before about 6 PM, today after; energy, mood, focus → derived rating), a body check (sleep, exercise, habit ticks), what needs you (the top 1–2 urgent items, else at most 1 due rolling review), the 2+1 picks (the rest of today, tomorrow's after 6 PM), and one focus with its vision and value, rotating daily — keeps long-running interests (e.g. an instrument, a language) in perception. |
+| Rolling reviews | → part of the tour, or `/pfc-review` | At most 1 due item from `data/review-ledger.ndjson` shows in the tour, only when nothing urgent is listed; tapping it opens its owning skill and stamps it. See "Rolling Reviews" below. |
+| Daily sync job | Early morning (`scripts/daily-sync.sh`) | Pulls Trello completions into the repo, runs the Gmail inbox-to-task reconcile, and refreshes `data/calendar-cache.json`. See [`install/daily-sync.md`](install/daily-sync.md). |
+| Habit logging | Throughout day | Log daily habit completions as they happen (the page's `Log today` buttons, the Trello widget, or `/pfc-log-habit`). |
 | Insight capture | Throughout day | Capture observations / noticings via `/pfc-add-insight`. Lower bar than findings. |
-| Open-day plan | The evening before, or on demand | When tomorrow is a weekend / holiday / PTO day with under ~2 h of hard commitments, the evening check-in offers `/pfc-plan-open-day`. It lays the whole day out as a chain of calendar blocks — each anchored to the one before it — sized against real free hours, and replaces that day's 2+1 rather than sitting beside it. |
+| Open-day plan | Friday or Saturday after 6 PM, or on demand | When tomorrow is a weekend / holiday / PTO day with under ~2 h of hard commitments, the tour's picks step offers `Plan tomorrow as an open day`, which runs `/pfc-plan-open-day`. It lays the whole day out as a chain of calendar blocks — each anchored to the one before it — sized against real free hours, with the 2+1 placed inside the chain. |
 
-## Rolling Reviews (folded into the evening)
+## Rolling Reviews
 
 The old weekly, monthly, and quarterly ritual check-ins are gone. Their review work is now a **rolling ledger** (`data/review-ledger.ndjson`). Each item carries a `cadence_days` and a `last_done`; it becomes due once `today − last_done ≥ cadence_days`.
 
-- **The evening drip.** The evening check-in surfaces at most **2** due items per night — only ones that both are due AND have something to act on — pointing at each item's owning skill (`/pfc-revive`, `/pfc-focus`, `/pfc-insights`, `/pfc-analyze-trends`, life-wheel rating, etc.). A no-review night stays fast. Engaging with an item stamps its `last_done` to today; ignoring it lets it re-surface on cadence.
+- **One a day in the tour.** The tour's What needs you step shows at most **1** due item (never-done first, then most overdue; `automations/scripts/home_data.py`), and only when nothing urgent is listed. It is a button that opens the item's owning skill (`/pfc-revive`, `/pfc-focus`, `/pfc-insights`, `/pfc-analyze-trends`, life-wheel rating, etc.) in the chat drawer; tapping it stamps `last_done` to today. Ignoring it lets it re-surface on cadence.
 - **The catch-up.** `/pfc-review` runs the **same** ledger with **no cap** — every currently-due, actionable item in one deliberate sitting, tier-ordered (weekly → monthly → quarterly). Use it when reviews have piled up.
 
-The former weekly items (stale-task triage, tasks-missing-area, focus accuracy, vision relevance, habit rates, values alignment, day-trend peek), monthly items (life wheel, project progress, vision activation, monthly habits, insights review, trend analysis, revive outcomes, usage audit — the "is the system being used" check: data freshness, possibly-unused surfaces, logging gaps), and quarterly items (Focus re-pick, vision brainstorm, strengths refresh) all live in the ledger. The gate logic and owning-skill map are canonical in the `pfc-evening-checkin` skill.
+The former weekly items (stale-task triage, tasks-missing-area, focus accuracy, vision relevance, habit rates, values alignment, day-trend peek), monthly items (life wheel, project progress, vision activation, monthly habits, insights review, trend analysis, revive outcomes, usage audit — the "is the system being used" check: data freshness, possibly-unused surfaces, logging gaps), and quarterly items (Focus re-pick, vision brainstorm, strengths refresh) all live in the ledger. The gate logic and owning-skill map are canonical in the `pfc-review` skill.
 
 ## Quarterly
 
@@ -52,4 +51,4 @@ The former weekly items (stale-task triage, tasks-missing-area, focus accuracy, 
 - **Project breakdown reduces overwhelm.** When a project feels too big, break it into the smallest possible next actions.
 - **Task breakdown on request.** Any time a task feels daunting, ask Claude to break it into 15-minute chunks.
 - **Daily focus limits scope.** Only 3 tasks per day keeps the system from becoming a source of stress.
-- **Flexible cadences.** These are guidelines, not obligations. Skipping an evening check-in or letting a review sit is fine — the ledger just re-surfaces it on cadence, and the system is here to help, not to judge.
+- **Flexible cadences.** These are guidelines, not obligations. Skipping the tour or letting a review sit is fine — the ledger just re-surfaces it on cadence, and the system is here to help, not to judge.

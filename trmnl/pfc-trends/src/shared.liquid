@@ -1,13 +1,9 @@
 {%- comment -%}
-PFC Trends — thirty days of day ratings with a 7-day rolling-mean line, plus
-7-day tiles (avg rating, avg sleep, exercise days, rolling sleep debt) and an
-exercise-gap line. The rolling mean is the trendline: seven points is a week,
-thirty with a smoothed line is a direction. Retrospective only — actions and
-fixes live on pfc-pulse, never here.
+PFC Trends: mirrors the web home page's Trends band. Payload (trmnl_home.trends_payload):
+title, date, horizon, rows[] {name, status, why}. `status` is the light word
+(RED / YELLOW / GREEN / NO DATA), printed as text, never as a symbol. RED gets a
+filled label so it reads first; the rest are outlined.
 
-Chart rules (e-ink): ALL animation disabled (chart, plotOptions.series, and
-per-series) — the screenshot captures one frame and an animating chart renders
-blank. Columns mid-gray (#999), mean line solid black, markers off — black on
-black is unreadable at 4-bit. Missing days are null, never 0. Transparent
-background, no legend, no tooltips.
+Sparse by nature (5 rows), so the full view is poster-sized.
+E-ink rules: no emoji, no inline styles; framework classes only.
 {%- endcomment -%}

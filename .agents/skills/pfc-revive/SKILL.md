@@ -1,6 +1,6 @@
 ---
 name: pfc-revive
-description: Revive a slipped project or task. Use when the user says "revive", "what's stuck", "what's slipping", "stalled projects", or when surfacing the watchlist from the evening check-in or a review pass. NOT the same as /pfc-stuck (body-state).
+description: Revive a slipped project or task. Use when the user says "revive", "what's stuck", "what's slipping", "stalled projects", or when surfacing the watchlist from a review pass. NOT the same as /pfc-stuck (body-state).
 ---
 
 # Revive Slipped Work
@@ -70,7 +70,7 @@ Fetch the canonical record:
 
 ```bash
 # Tasks
-jq -c --arg id "<item_id>" 'select(.id == $id)' 6-actions/_data/tasks.ndjson
+jq -c --arg id "<item_id>" 'select(.id == $id)' 6-tasks/_data/tasks.ndjson
 # Projects
 jq -c --arg id "<item_id>" 'select(.id == $id)' 5-projects/_data/projects.ndjson
 ```
@@ -144,7 +144,7 @@ Apply the chosen palette items:
 - **`adjacent_input`** — for dormant interests only: something you genuinely love but that never enters your attention on its own. Propose ONE source of adjacent media (podcast, video, newsletter) attached to an existing daily anchor — audio or video only, and **no practice reminder**. The adjacent input is the entire intervention; the practice is allowed to emerge or not. The mechanism: a durable interest doesn't convert into a present-tense pull by itself, and a daily trickle of related material is what does the converting. Write the chosen source into `notes`. Worth logging as a hypothesis so you learn whether it holds for you.
 - **`boost_visibility` (deprecated for diagnostic D; retained for explicit request only)** — pin to the top of today's 2+1, bump urgency. Use only if the user asks for it by name; never propose it as the default for D.
 - **`lower_scope`** — for tasks: jq update `impact` / `urgency`. For projects: jq update `total_parts`.
-- **`pause_archive`** — for tasks: jq update `status` to `cancelled`; do NOT set `completed`. For projects: jq update `active` to `false`.
+- **`pause_archive`** — for tasks: jq update `status` to `cancelled`; do NOT set `completed`. For projects: jq update `active` to `false` and `status` to `parked`.
 - **`walk_aversion`** — ask the sub-questions inline; the conversation produces a different intervention from the menu (record both `walk_aversion` AND the final action in `intervention[]`).
 - **`restore_state`** — no structural edits to the task or project at all. Queue the item to be retried after the next state change: movement now (if it's accessible), or a session scheduled tomorrow morning with this item pinned to the post-movement window, or a movement burst now and retry. Optionally write `"trigger: retry after movement"` into `notes`. Do NOT combine with `break_down` or `lower_scope` — the diagnosis is "right shape, wrong state," and changing the shape muddies the signal about which one it actually was. See `/pfc-stuck` for the full lever menu.
 - **`skip`** — no edits.
@@ -178,7 +178,7 @@ jq -cn \
 After walking the full watchlist, batch-commit any task/project edits + the revive-events appends:
 
 ```bash
-git add 6-actions/_data/tasks.ndjson 5-projects/_data/projects.ndjson 6-actions/_data/task_events.ndjson data/revive-events.ndjson 6-actions/_data/daily-focus.ndjson 2>/dev/null
+git add 6-tasks/_data/tasks.ndjson 5-projects/_data/projects.ndjson 6-tasks/_data/task_events.ndjson data/revive-events.ndjson 6-tasks/_data/daily-focus.ndjson 2>/dev/null
 git commit -m "system: pfc-revive — walk YYYY-MM-DD (N items)"
 git push
 ```
@@ -228,7 +228,7 @@ git push
 ## Behavioral rules
 
 - **Never edit a task/project field without first showing the user the exact diff.** Even though the user has standing approval to act-first on most edits, slippage interventions touch impact/urgency/status fields where over-eagerness damages the system.
-- **`pause_archive` for projects requires confirmation.** Flipping `active: false` cascades — daily project status disappears from the check-ins and the project's Trello list is archived. Confirm explicitly.
+- **`pause_archive` for projects requires confirmation.** Parking (`active: false`, `status: parked`) cascades — the project disappears from the home page and the daily summary. Confirm explicitly.
 - **Skip cooldown is 7 days.** Don't override on the user's request; if they want to revisit a skipped item sooner, they can manually edit `data/revive-events.ndjson`.
 - **The intervention log is canonical for pattern analysis.** Don't omit the log entry even when the intervention was minimal — the absence of a row distorts future stats.
 
@@ -236,4 +236,4 @@ git push
 
 - For human body-state stuck (frozen, locked-in, foggy, tired) — use `/pfc-stuck` instead.
 - For task prioritization ("what should I work on?") — use `/pfc-pick-tasks`.
-- For routine stale-task triage — that's the `stale-task-triage` rolling review, which surfaces in the evening check-in or a `/pfc-review` catch-up and points *at* this skill to walk the flagged items.
+- For routine stale-task triage — that's the `stale-task-triage` rolling review (the tour's one due review / `/pfc-review`), which points *at* `/pfc-revive` to walk the flagged items.

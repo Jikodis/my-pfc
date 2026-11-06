@@ -174,7 +174,7 @@ waiting for the device's next cycle.
 The endpoint serves every builder registered in `BUILDERS`, so a new screen needs no
 server change:
 
-1. Add the builder to `automations/scripts/trmnl_push.py`
+1. Add the builder (`automations/scripts/trmnl_home.py` for a web band) and register it in `BUILDERS` in `automations/scripts/trmnl_push.py`
 2. Commit and push; `pfc-repo-sync.timer` picks it up within 5 minutes
 3. `systemctl --user restart pfc-trmnl-serve` on the server to load the new code
 4. Point the new plugin at `https://trmnl.example.com/p/<plugin>`

@@ -9,22 +9,11 @@ Places each of today's 2+1 focus tasks into a free slot on the primary calendar,
 
 ## When this skill runs — it is NOT the daily path
 
-**The daily calendar surface for the 2+1 is a single recurring anchor slot, annotated — not one event per task.** The evening check-in stages tomorrow's 2+1 and then writes those picks into the *description* of tomorrow's instance of one recurring 30-minute event. It creates nothing. This skill exists for **manual, on-demand placement**: "put today's focus on the calendar," a mid-day reschedule, or a `pfc-revive` `reschedule` intervention. Do not invoke it from the daily loop.
+**The daily surface for the 2+1 is the web page, not the calendar.** The tour's picks step (`Walk me through` on `http://127.0.0.1:4323/`) or `/pfc-pick-tasks` sets the day's picks in `6-tasks/_data/daily-focus.ndjson`, and the page shows them all day with their Done buttons. Nothing is written to the calendar. This skill exists for **manual, on-demand placement**: "put today's focus on the calendar," a mid-day reschedule, or a `pfc-revive` `reschedule` intervention. Do not invoke it from the daily loop.
 
-### Why one annotated anchor beats per-task events
+Why not a calendar event per pick every day: three new events a day is three new things to dismiss, and notifications you decline every day stop being signal. Placing a task on the calendar is worth it when a specific task needs a specific slot — so it's done on request, one task at a time.
 
-- **A recurring block anchored to a running state fires; a fresh event at a clock time doesn't.** The slot is defined by what it follows — end of the workday, after the morning session, after the weekly service — not by the number on the clock. When the preceding thing runs late, the anchor moves with it. Pin the recurrence to a clock instead, and it lands mid-meeting often enough that you start ignoring it, and once you're ignoring one calendar event you're ignoring all of them.
-- **Three new events a day is three new things to dismiss.** A slot that's always there, in the same place, carrying today's contents, stays a slot. Notifications you decline every day stop being signal.
-- **The anchor's contents can change without the anchor moving.** A same-day re-pick rewrites a description; it doesn't create, move, and delete events.
-
-### Rules that come with the anchor model
-
-- **Set up one recurring event per day-shape**, each anchored to whatever running state that day actually has (a workday and a weekend day usually need different anchors). Record the schedule somewhere durable — `0-me/schedule-patterns.md` is the natural home.
-- **Re-annotate on every change.** Any time a date's 2+1 is set, re-picked, or has one slot swapped — the night-before flow or an ad-hoc same-day change — update *that date's* anchor instance so its description matches `daily-focus.ndjson`. Update the specific instance (`<seriesId>_<YYYYMMDD>T…`), never the whole series. A 2+1 write that leaves the calendar showing stale picks is a bug.
-- **A lost slot is lost.** If a real conflict eats the anchor on some day, cancel that instance and skip it — no make-up, no dragging the recurring event. Otherwise you spend the slot rescheduling the slot.
-- **A one-off conflict cancels the instance; a recurring conflict is fixed structurally.** For a repeating collision, build alternating recurring events (`INTERVAL=2` offset by phase) so every instance lands free — never "just drag it every other week."
-
-The rest of this skill covers the manual per-task path.
+The rest of this skill covers that manual per-task path.
 
 ## Allowed personal-task windows (local time)
 
@@ -57,7 +46,7 @@ This skill requires the Google Calendar MCP server. If the `mcp__claude_ai_Googl
 
 > 🟡 Calendar not configured — focus scheduling skipped. See `docs/install/connectors.md` to enable.
 
-Then exit cleanly. Any calling skill treats this as a non-blocking skip, same as the Trello sync step.
+Then exit cleanly. A calling skill (e.g. `pfc-revive`) treats this as a non-blocking skip.
 
 If the tools ARE available, proceed.
 
@@ -66,10 +55,10 @@ If the tools ARE available, proceed.
 ## Step 1 — Read today's focus record
 
 ```bash
-jq -c --arg d "$DATE" 'select(.date == $d)' 6-actions/_data/daily-focus.ndjson
+jq -c --arg d "$DATE" 'select(.date == $d)' 6-tasks/_data/daily-focus.ndjson
 ```
 
-If no record exists, stop and tell the user the day has no 2+1 yet — it gets picked at the evening check-in (`pfc-evening-checkin` Step 4d).
+If no record exists, stop and tell the user to set today's picks first, in the tour (`Walk me through` on http://127.0.0.1:4323/) or with `/pfc-pick-tasks`.
 
 Capture:
 - `critical` — array of 2 task IDs
@@ -83,7 +72,7 @@ Capture:
 For each of the 3 task IDs, pull the full task record:
 
 ```bash
-jq -c --arg id "$TASK_ID" 'select(.id == $id)' 6-actions/_data/tasks.ndjson
+jq -c --arg id "$TASK_ID" 'select(.id == $id)' 6-tasks/_data/tasks.ndjson
 ```
 
 Collect per task: `id`, `description`, `notes`, `size`, `impact`, `urgency`, `project`.
@@ -108,7 +97,7 @@ Normalize the result: drop events that are all-day (no `start.dateTime`), drop `
 Always pass the current local time as `now` so the scheduler never picks slots in the past. Derive it with the same TZ as `$DATE`:
 
 ```bash
-NOW=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%dT%H:%M:%S%:z')
+NOW=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%dT%H:%M:%S%z')
 ```
 
 Build the payload:
@@ -226,7 +215,7 @@ Build the new `calendar_events` map: one entry per scheduled task, dropping any 
 ```bash
 jq -c --arg d "$DATE" --argjson evs "$NEW_MAP" \
   'if .date == $d then .calendar_events = $evs else . end' \
-  6-actions/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-actions/_data/daily-focus.ndjson
+  6-tasks/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-tasks/_data/daily-focus.ndjson
 ```
 
 Where `$NEW_MAP` is the JSON object:
@@ -242,7 +231,7 @@ Where `$NEW_MAP` is the JSON object:
 ## Step 10 — Commit
 
 ```bash
-git add 6-actions/_data/daily-focus.ndjson
+git add 6-tasks/_data/daily-focus.ndjson
 git commit -m "focus: schedule $DATE"
 git push
 ```

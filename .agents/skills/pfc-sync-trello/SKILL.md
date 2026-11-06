@@ -10,7 +10,7 @@ Detects cards marked complete (`dueComplete: true`) in the dashboard's interacti
 ## When this skill triggers
 
 - Explicit: "sync trello", "process completed", "/pfc-sync-trello"
-- Invoked at the start of the evening check-in (Step 0b) to pull widget completions into the repo, and again at the end (Step 4b) to move back uncompleted 2+1 cards and re-render
+- Run daily at 5:00 AM by the daily sync job (`scripts/daily-sync.sh`, which calls `trello_writeback.py sync` directly)
 
 ## Pre-flight
 
@@ -35,10 +35,10 @@ Verify `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`. If unset, this skill is a n
    YDAY=$(TZ="${LOCAL_TZ:-America/Denver}" date -d 'yesterday' '+%Y-%m-%d')
    jq -r --arg d "$TODAY" --arg y "$YDAY" \
      'select(.event == "completed" and (.timestamp == $d or .timestamp == $y) and .source == "trello") | .task_id' \
-     6-actions/_data/task_events.ndjson | sort -u | while read -r tid; do
+     6-tasks/_data/task_events.ndjson | sort -u | while read -r tid; do
      [ -z "$tid" ] && continue
      jq -r --arg id "$tid" 'select(.id == $id) | .source_email_thread_id // empty' \
-       6-actions/_data/tasks.ndjson
+       6-tasks/_data/tasks.ndjson
    done
    ```
 

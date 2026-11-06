@@ -23,7 +23,7 @@ ramp:
   two_minute: "Open the course and watch one video"
 ```
 
-- `frequency` is always the **live, ramped value**. Rate math, the evening check-in, and `focus_status.py` all read `frequency`, never `ramp.target`.
+- `frequency` is always the **live, ramped value**. Rate math, the web page, and `focus_status.py` all read `frequency`, never `ramp.target`.
 - **Two consecutive green weeks** → propose stepping `frequency` up by 1 toward `target`. This needs an explicit yes.
 - **One red week** → step `frequency` down by 1, **automatically, no permission**. Never below `starter`.
 - A habit with no `ramp` block never steps. Habits that are already stable don't need one; if a stable habit starts failing, that is a signal to re-land it, not to lower the bar.
@@ -33,9 +33,9 @@ ramp:
 ## Never miss twice
 
 - **One miss is noise.** Say nothing.
-- **Two consecutive misses on the same habit** → the check-in offers that habit's `ramp.two_minute` version for *today*, as a single line.
+- **Two consecutive misses on the same habit** → `pfc-log-habit` offers that habit's `ramp.two_minute` version for *today*, as a single line, when it logs the second miss.
 
-No lecture, no streak talk, no repeat within the same check-in. The rule exists because the second miss, not the first, is where a habit dies.
+No lecture, no streak talk, no repeat. This lives only in `pfc-log-habit`; the tour does not offer it. The rule exists because the second miss, not the first, is where a habit dies.
 
 Skipped days (`{completed: false, skipped: true}`) do not count toward the two — a structurally unavailable day is not a miss.
 
@@ -72,7 +72,7 @@ Why two weeks rather than nightly: a nightly red nag becomes wallpaper within da
 
 **The visible habit tracker — the wall chart, the streak counter, "don't break the chain."** Clear treats it as a core mechanism. For a brain where object-based reminders go invisible within a couple of days — sticky notes, sand timers, progress bars, calendar squares — it is inert.
 
-The tracker that works here is **the evening check-in asking you**. That is a person-shaped prompt at a fixed time, not an object waiting to be noticed.
+The tracker that works here is **the tour asking you**: its habit step puts each habit in front of you with a one-tap tick, inside a walk-through you started. That is a prompt, not an object waiting to be noticed.
 
 Do not add a streak display, a progress bar, a chain grid, or a "days since" counter to Trello, TRMNL, or any skill output. It will feel like an improvement and it will stop being seen within the week.
 
@@ -83,10 +83,10 @@ Do not add a streak display, a progress bar, a chain grid, or a "days since" cou
 | Implementation intention — "I will X at TIME in PLACE" | the `landing` field on focuses | `landing` should carry a place, not only an anchor |
 | Habit stacking — "after X, I will Y" | anchor to a running state — the same mechanism | `landing` names the *preceding activity*, not a clock |
 | Two-Minute Rule | — | `ramp.two_minute` + `ramp.starter`; the two-minute first step in task breakdown |
-| Never miss twice | — | the check-in and `pfc-log-habit` |
+| Never miss twice | — | `pfc-log-habit` |
 | Make it easy / cut friction | lower the effort side, don't raise willpower | environment prep folded into `landing` |
 | Make it satisfying — immediate reward | the habit log + the Trello checkbox | unchanged |
-| Identity-based habits | the Visions layer already is this ("become a musician," not "practice guitar") | the nightly Focus trickle prints the linked vision beside each focus |
+| Identity-based habits | the Visions layer already is this ("become a musician," not "practice guitar") | the tour's Why step shows one focus beside its linked vision each day |
 | Goldilocks — difficulty just past ability | — | the ramp's step-up rule |
 | Visible chain tracker | — | **deliberately not built** — see above |
 

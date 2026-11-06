@@ -64,16 +64,16 @@ class TestCardDataclass(unittest.TestCase):
     def test_card_holds_all_fields(self):
         c = Card(
             pfc_id="task-001", pfc_type="task",
-            list_name="✅ Actions", name="Do thing", body="impact:high",
+            list_name="✅ Tasks", name="Do thing", body="impact:high",
             label_names=["AA"], due="2026-05-10T12:00:00.000Z", due_complete=False,
         )
         self.assertEqual(c.pfc_id, "task-001")
-        self.assertEqual(c.list_name, "✅ Actions")
+        self.assertEqual(c.list_name, "✅ Tasks")
         self.assertEqual(c.label_names, ["AA"])
 
     def test_card_equality(self):
-        a = Card("t1", "task", "Actions", "X", "", [], None, False)
-        b = Card("t1", "task", "Actions", "X", "", [], None, False)
+        a = Card("t1", "task", "Tasks", "X", "", [], None, False)
+        b = Card("t1", "task", "Tasks", "X", "", [], None, False)
         self.assertEqual(a, b)
 
 
@@ -128,7 +128,7 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(len(ops["updates"]), 1)
 
     def test_update_on_list_change(self):
-        old = _card("t1", list_name="✅ Actions")
+        old = _card("t1", list_name="✅ Tasks")
         new = _card("t1", list_name="✅ 2+1")
         ops = compute_diff(desired=[new], current=[(old, "tcid")])
         self.assertEqual(len(ops["updates"]), 1)
@@ -211,10 +211,10 @@ class TestTierPriorityMapping(unittest.TestCase):
 class TestRenderers(unittest.TestCase):
     def test_render_values_parses_numbered_list(self):
         from trello_render import render_values
-        state = {"values": "# Top Values\n\n1. Love\n2. Faith\n3. Family\n"}
+        state = {"values": "# Top Values\n\n1. Curiosity\n2. Kindness\n3. Craft\n"}
         cards = render_values(state)
         self.assertEqual(len(cards), 3)
-        self.assertEqual(cards[0].name, "1. Love")
+        self.assertEqual(cards[0].name, "1. Curiosity")
         self.assertEqual(cards[0].pfc_id, "value-1")
 
     def test_render_areas(self):
@@ -242,23 +242,23 @@ class TestRenderers(unittest.TestCase):
         self.assertEqual(cards[0].checklist[0], ("Part 1", True))
         self.assertEqual(cards[0].checklist[1], ("Part 2", False))
 
-    def test_render_actions_excludes_done_and_2plus1(self):
-        from trello_render import render_actions
+    def test_render_tasks_excludes_done_and_2plus1(self):
+        from trello_render import render_tasks
         state = {"tasks": [
             {"id": "t1", "status": "open", "description": "X", "impact": "high", "urgency": "high", "size": "S", "area": "career"},
             {"id": "t2", "status": "done", "description": "Y", "impact": "high", "urgency": "high", "size": "S", "area": "career"},
             {"id": "t3", "status": "open", "description": "Z", "impact": "high", "urgency": "high", "size": "S", "area": "career"},
         ]}
         # AA tier → red plain-color label.
-        cards = render_actions(state, plain_color_labels={"red": "lab_red"}, exclude_2plus1_ids={"t3"})
+        cards = render_tasks(state, plain_color_labels={"red": "lab_red"}, exclude_2plus1_ids={"t3"})
         ids = [c.pfc_id for c in cards]
         self.assertEqual(ids, ["t1"])
         self.assertEqual(cards[0].label_names, ["_plain:red"])
         # Title format: "<emoji> <TIER> (<SIZE>) - <description>"
         self.assertEqual(cards[0].name, "🔴 AA (S) - X")
 
-    def test_render_actions_excludes_project_tasks(self):
-        from trello_render import render_actions
+    def test_render_tasks_excludes_project_tasks(self):
+        from trello_render import render_tasks
         state = {
             "projects": [{"id": "p1", "name": "P1", "active": True}],
             "tasks": [
@@ -266,12 +266,12 @@ class TestRenderers(unittest.TestCase):
                 {"id": "t2", "status": "open", "description": "linked", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
             ],
         }
-        cards = render_actions(state, plain_color_labels={"red": "lab_red"})
+        cards = render_tasks(state, plain_color_labels={"red": "lab_red"})
         self.assertEqual([c.pfc_id for c in cards], ["t1"])
-        self.assertEqual(cards[0].list_name, "✅ Actions")
+        self.assertEqual(cards[0].list_name, "✅ Tasks")
 
-    def test_render_project_actions_groups_by_active_project(self):
-        from trello_render import render_project_actions
+    def test_render_project_tasks_groups_by_active_project(self):
+        from trello_render import render_project_tasks
         state = {
             "projects": [
                 {"id": "p1", "name": "Sample Course", "active": True},
@@ -285,12 +285,12 @@ class TestRenderers(unittest.TestCase):
                 {"id": "t5", "status": "done", "description": "done active", "impact": "high", "urgency": "high", "size": "S", "area": "career", "project": "p1"},
             ],
         }
-        cards = render_project_actions(state, plain_color_labels={"red": "lab_red"})
+        cards = render_project_tasks(state, plain_color_labels={"red": "lab_red"})
         # Only t1 + t2 should render (active project, open status).
         self.assertEqual(sorted(c.pfc_id for c in cards), ["t1", "t2"])
         self.assertEqual(cards[0].list_name, "🎯 Sample Course")
         # Excludes 2+1 ids
-        cards2 = render_project_actions(state, exclude_2plus1_ids={"t1"})
+        cards2 = render_project_tasks(state, exclude_2plus1_ids={"t1"})
         self.assertEqual(sorted(c.pfc_id for c in cards2), ["t2"])
 
     def test_project_list_name_truncates(self):
@@ -298,7 +298,7 @@ class TestRenderers(unittest.TestCase):
         short = _project_list_name("My Project")
         self.assertEqual(short, "🎯 My Project")
         self.assertTrue(_is_project_list_name(short))
-        self.assertFalse(_is_project_list_name("✅ Actions"))
+        self.assertFalse(_is_project_list_name("✅ Tasks"))
         long_name = "A" * 100
         truncated = _project_list_name(long_name)
         self.assertLessEqual(len(truncated), PROJECT_LIST_NAME_MAX)
@@ -321,6 +321,17 @@ class TestRenderers(unittest.TestCase):
         names = {c.pfc_id: c.name for c in cards}
         self.assertEqual(names["t1"], "🔴 AA (S) - Crit")
         self.assertEqual(names["t2"], "🟣 CC (M) - Bonus")
+
+    def test_render_2plus1_one_pick_day_with_null_bonus(self):
+        from trello_render import render_2plus1, _today_mt
+        state = {
+            "daily_focus": [{"date": _today_mt(), "critical": ["t1"], "bonus": None,
+                             "completed": [], "bonus_completed": False}],
+            "tasks": [{"id": "t1", "status": "open", "description": "Only", "impact": "high",
+                       "urgency": "high", "size": "S", "area": "career"}],
+        }
+        cards = render_2plus1(state, plain_color_labels={"red": "x", "purple": "y"})
+        self.assertEqual([c.pfc_id for c in cards], ["t1"])
 
     def test_render_supplements_active_filter(self):
         from trello_render import render_supplements, _today_mt
@@ -820,7 +831,7 @@ class TestRebuildMode(unittest.TestCase):
             ll.return_value = [
                 {"id": "L_inbox", "name": "📥 Inbox", "closed": False},
                 {"id": "L1", "name": "💎 Values", "closed": False},
-                {"id": "L2", "name": "✅ Actions", "closed": False},
+                {"id": "L2", "name": "✅ Tasks", "closed": False},
             ]
             # 4 cards on Inbox, 3 cards on dashboard lists
             lc.return_value = [
@@ -889,3 +900,84 @@ class TestResetListMode(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from trello_render import load_calendar_cache
+
+
+class TestCalendarCacheFallback(unittest.TestCase):
+    """The nightly systemd timer has no MCP access, so it cannot fetch Calendar
+    and was skipping 🗓️ Week at a Glance entirely — the list only refreshed when
+    a live session ran. The cache /pfc-render-trello already writes for TRMNL
+    is a usable second source: a slightly older week beats a blank one.
+    """
+
+    def _cache(self, tmpdir, fetched_at, events):
+        import json
+        p = Path(tmpdir) / "calendar-cache.json"
+        p.write_text(json.dumps({"fetched_at": fetched_at, "events": events}))
+        return p
+
+    def _evt(self, eid, start_date):
+        return {"id": eid, "summary": f"Event {eid}",
+                "start": {"dateTime": f"{start_date}T10:00:00-06:00"},
+                "end": {"dateTime": f"{start_date}T11:00:00-06:00"}}
+
+    def test_missing_file_returns_none(self):
+        events, note = load_calendar_cache(Path("/nonexistent/cache.json"),
+                                           today="2025-06-28")
+        self.assertIsNone(events)
+        self.assertIn("no calendar cache", note.lower())
+
+    def test_malformed_file_returns_none(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "calendar-cache.json"
+            p.write_text("{not json")
+            events, note = load_calendar_cache(p, today="2025-06-28")
+            self.assertIsNone(events)
+            self.assertIn("unreadable", note.lower())
+
+    def test_stale_cache_returns_none(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = self._cache(td, "2025-06-10T22:00:00-06:00",
+                            [self._evt("a", "2025-06-12")])
+            events, note = load_calendar_cache(p, today="2025-06-28")
+            self.assertIsNone(events)
+            self.assertIn("stale", note.lower())
+
+    def test_fresh_cache_returns_future_events_only(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = self._cache(td, "2025-06-26T22:00:00-06:00", [
+                self._evt("past", "2025-06-26"),
+                self._evt("today", "2025-06-28"),
+                self._evt("future", "2025-06-30"),
+            ])
+            events, note = load_calendar_cache(p, today="2025-06-28")
+            self.assertIsNotNone(events)
+            ids = sorted(e["id"] for e in events)
+            self.assertEqual(ids, ["future", "today"])
+            self.assertIn("2025-06-26", note)
+
+    def test_all_day_events_use_start_date(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = self._cache(td, "2025-06-27T22:00:00-06:00", [
+                {"id": "allday-past", "summary": "Past",
+                 "start": {"date": "2025-06-27"}, "end": {"date": "2025-06-28"}},
+                {"id": "allday-future", "summary": "Future",
+                 "start": {"date": "2025-06-29"}, "end": {"date": "2025-06-30"}},
+            ])
+            events, note = load_calendar_cache(p, today="2025-06-28")
+            self.assertEqual([e["id"] for e in events], ["allday-future"])
+
+    def test_cache_with_no_future_events_returns_none(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = self._cache(td, "2025-06-27T22:00:00-06:00",
+                            [self._evt("old", "2025-06-20")])
+            events, note = load_calendar_cache(p, today="2025-06-28")
+            self.assertIsNone(events)
+            self.assertIn("no upcoming", note.lower())

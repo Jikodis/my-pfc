@@ -18,7 +18,7 @@ If the user's statement is clearly a task, project, or habit, route to the right
 ## Required fields
 
 - **insight** (string) — the observation itself, one to a few sentences. Capture the user's words; only lightly clean for clarity.
-- **source** — usually `"chat"`. Use `"evening-checkin"` or `"rolling-review"` if invoked from inside one of those flows.
+- **source** — usually `"chat"`. Use `"journal"` or `"experience"` when that fits better.
 
 ## Optional fields (ask if not obvious)
 

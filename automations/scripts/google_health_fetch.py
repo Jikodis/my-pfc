@@ -4,7 +4,7 @@ Fetch one day of health data from the Google Health API (v4).
 
 Prints the canonical **flat** `health` schema — the same shape
 `google_health_backfill.fetch_health()` writes onto a `day-tracking.ndjson`
-record, and the same field names the `pfc-evening-checkin` / `pfc-analyze-trends`
+record, and the same field names the `pfc-log-day` / `pfc-analyze-trends`
 skills read. Sleep, resting heart rate, Active Zone Minutes, tracked workouts,
 and the daily recovery metrics (heart-rate variability, blood oxygen, breathing
 rate, skin temperature, VO2 max).

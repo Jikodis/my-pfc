@@ -1,0 +1,3 @@
+{"task_id":"task-7","event":"completed","timestamp":"2026-08-20","source":"checkin","note":"Dropped the lamp at the store"}
+{"task_id":"task-20260711-001","event":"revived","timestamp":"2026-09-02","source":"revive","note":"Rescheduled after a long silence"}
+{"task_id":"proj-20260412-003","event":"linked","timestamp":"2026-09-03","source":"revive","note":"Named a registry entry that is gone"}

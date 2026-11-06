@@ -1,6 +1,6 @@
 # Projects
 
-Short-term efforts (1–3 months) that move you toward a vision or area outcome. The "deliberate work" layer of VAVFPAH — bigger than a single task, smaller than a life direction.
+Short-term efforts (1–3 months) that move you toward a vision or area outcome. The "deliberate work" layer of VAVFPTH — bigger than a single task, smaller than a life direction.
 
 ## What lives here
 
@@ -29,7 +29,7 @@ A project may declare a `vision:` field pointing to a vision slug under `3-visio
 
 ## Velocity tracking
 
-Projects with `total_parts` and `completed_parts` get an automatically computed completion velocity surfaced in the morning and evening check-ins. The system compares the projected completion date against the project's `deadline` and flags any slippage.
+Projects with `total_parts` and `completed_parts` get an automatically computed completion velocity surfaced on the web page's Projects band and in the daily summary. The system compares the projected completion date against the project's `deadline` and flags any slippage.
 
 ## Key skills
 
@@ -38,8 +38,7 @@ Projects with `total_parts` and `completed_parts` get an automatically computed 
 | `/pfc-add-project` | Register a new project |
 | `/pfc-summarize-project` | Status, completion %, velocity, next actions |
 | `/pfc-pick-tasks` | Surface project-aligned tasks |
-| `/pfc-evening-checkin` | Daily project status block |
-| `/pfc-evening-checkin` | End-of-day project velocity update |
+| `/pfc-daily-summary` | Daily project status block |
 
 ## Agent operations
 

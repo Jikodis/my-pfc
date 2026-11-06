@@ -1,6 +1,6 @@
 # Agents — focus folder
 
-Folder-scoped operational rules for the **Focus** layer (VAVFPAH position 4, between Visions and Projects). Cross-cutting rules live in the repo-root `AGENTS.md`.
+Folder-scoped operational rules for the **Focus** layer (VAVFPTH position 4, between Visions and Projects). Cross-cutting rules live in the repo-root `AGENTS.md`.
 
 ## File summary
 
@@ -25,7 +25,7 @@ Schema: `config/focus_schema.yaml`. Tier caps: `config/focus.yaml`. Validated by
 
 1. **All structured writes go through `jq`** with the atomic temp pattern: `… > data/.jq_update.tmp && mv data/.jq_update.tmp 4-focus/_data/focus.ndjson`. Never a raw append or a `sed` edit.
 2. **The pursuit cap is enforced on add, soft-enforced at render.** Before adding a `pursuit`, count active (non-parked, non-retired) pursuits; at 6, surface the conflict and make the user retire, park, or graduate one. The Trello render shows everything and warns 🟡 when over cap — never silent-truncate.
-2b. **Never hand-edit `status`.** It is derived; `focus_status.py --write` overwrites it on every check-in. To stop a focus deliberately, set `parked: true`.
+2b. **Never hand-edit `status`.** It is derived; Readers (the web page, Trello, TRMNL) compute it live, and `/pfc-review` stamps it back into the file (`focus_status.py --write`, the `focus-accuracy` review). To stop a focus deliberately, set `parked: true`.
 3. **Date stamps use the local timezone**: `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` for `created` and `retired_date`, and the same clock for deriving `quarter`.
 4. **Retired records stay in the file.** Set `retired_date`; do not delete lines. History is what makes the quarterly re-pick honest.
 

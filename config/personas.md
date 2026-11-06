@@ -262,5 +262,5 @@ Reward: Relationship XP
 ─ <follow-up reply> ✓
 ─ Lantern festival lookup (skipped)
 
-[REWARD AVAILABLE: open evening check-in to claim]
+[REWARD AVAILABLE: walk through today's tour to claim]
 ```

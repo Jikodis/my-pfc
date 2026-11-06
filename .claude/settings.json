@@ -5,11 +5,16 @@
   },
   "extraKnownMarketplaces": {
     "trmnl-agent-skills": {
-      "source": { "source": "github", "repo": "usetrmnl/trmnl-agent-skills" },
+      "source": {
+        "source": "github",
+        "repo": "usetrmnl/trmnl-agent-skills"
+      },
       "autoUpdate": true
     }
   },
-  "enabledPlugins": { "trmnl@trmnl-agent-skills": true },
+  "enabledPlugins": {
+    "trmnl@trmnl-agent-skills": true
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -17,6 +22,14 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/scripts/hook-session-date.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/scripts/hook-missing-checkin.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/scripts/hook-session-sync.sh"
           }
         ]
       }
@@ -27,6 +40,17 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/scripts/hook-user-prompt-date.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/scripts/hook-allow-known-commands.py"
           }
         ]
       }

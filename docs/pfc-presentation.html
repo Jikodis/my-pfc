@@ -199,7 +199,7 @@
   </ul>
 </section>
 
-<!-- 4 · VAVFPAH -->
+<!-- 4 · VAVFPTH -->
 <section class="slide">
   <div class="kicker accent-blue">The mental model</div>
   <h2>Seven layers, from enduring to daily</h2>
@@ -209,7 +209,7 @@
     <div class="layer"><span class="name accent-blue">Visions</span><span>Long-term direction per area — no deadlines, direction over dates</span><span class="horizon">years</span></div>
     <div class="layer"><span class="name accent-blue">Focus</span><span>What's actively pursued now — scarce, capped, traffic-lit 🟢🟡🔴</span><span class="horizon">a quarter</span></div>
     <div class="layer"><span class="name accent-cyan">Projects</span><span>Short-term outcomes, max 3 active at a time</span><span class="horizon">1–3 months</span></div>
-    <div class="layer"><span class="name accent-cyan">Actions</span><span>Tasks, scored by impact × urgency × size</span><span class="horizon">days</span></div>
+    <div class="layer"><span class="name accent-cyan">Tasks</span><span>Scored by impact × urgency × size</span><span class="horizon">days</span></div>
     <div class="layer"><span class="name accent-green">Habits</span><span>Daily and monthly reps, binary log</span><span class="horizon">today</span></div>
   </div>
   <p style="margin-top:1.1rem; color:var(--base1); font-size:0.95rem;">Every object names exactly one Area — nothing floats. Vertical links are optional and only recorded when real.</p>
@@ -226,7 +226,7 @@
 3-visions/     one markdown file per vision
 4-focus/       _data/focus.ndjson
 5-projects/    _data/projects.ndjson
-6-actions/     _data/tasks.ndjson
+6-tasks/     _data/tasks.ndjson
 7-habits/      _data/habits-daily.ndjson
 
 0-me/          profile, schedule patterns
@@ -268,11 +268,11 @@ jq -c 'select(.id != "…") …' tasks.ndjson > .jq_update.tmp \
   <div class="kicker accent-cyan">The operator</div>
   <h2>Claude Code is the runtime</h2>
   <div class="cols3">
-    <div class="card"><h3><span class="accent-cyan">◆</span> Skills</h3>38 slash-command workflows (<code>/pfc-*</code>) — each a Markdown file of instructions the agent follows verbatim. Versioned prompts, reviewed like code.</div>
+    <div class="card"><h3><span class="accent-cyan">◆</span> Skills</h3>Over 30 slash-command workflows (<code>/pfc-*</code>) — each a Markdown file of instructions the agent follows verbatim. Versioned prompts, reviewed like code.</div>
     <div class="card"><h3><span class="accent-cyan">◆</span> Hooks</h3>Shell scripts the harness runs at session start, on every prompt, after every file edit, and at end of turn — injecting context and enforcing rules the model can't skip.</div>
     <div class="card"><h3><span class="accent-cyan">◆</span> Connectors (MCP)</h3>Google Calendar, Gmail, and Drive via Model Context Protocol — schedule awareness, email-to-task triage, spreadsheet output.</div>
   </div>
-  <p class="lede" style="margin-top:1.6rem;">Chat is the primary UI — from a laptop terminal or a phone via remote control. "Add a task", "what should I work on", "run my evening check-in" are all just conversation.</p>
+  <p class="lede" style="margin-top:1.6rem;">Chat is the primary UI — from a laptop terminal or a phone via remote control. "Add a task", "what should I work on", "catch up on my reviews" are all just conversation. The daily spine is a guided tour on a local web page.</p>
 </section>
 
 <!-- 8 · Skills -->
@@ -281,7 +281,7 @@ jq -c 'select(.id != "…") …' tasks.ndjson > .jq_update.tmp \
   <h2>Workflows as version-controlled prompts</h2>
   <table style="max-width:950px;">
     <tr><th>Skill</th><th>What it does</th></tr>
-    <tr><td><code>/pfc-evening-checkin</code></td><td>The daily spine — rate the day, log habits, drip due reviews, set tomorrow's focus</td></tr>
+    <tr><td><code>/pfc-daily-summary</code></td><td>The day at a glance — calendar, habits, projects, focus, and the levers behind a good day</td></tr>
     <tr><td><code>/pfc-pick-tasks</code></td><td>Suggests what to work on, ranked by impact × urgency × size</td></tr>
     <tr><td><code>/pfc-stuck</code></td><td>State-based unstick protocol — diagnoses the block type, prescribes one physical action</td></tr>
     <tr><td><code>/pfc-review</code></td><td>Clears the whole rolling-review backlog at once</td></tr>
@@ -302,9 +302,9 @@ jq -c 'select(.id != "…") …' tasks.ndjson > .jq_update.tmp \
     <tr><td><b>All day</b></td><td>Quick captures dictated into a phone widget → Inbox list; done items checked off from the same widget</td><td>Trello + phone</td></tr>
     <tr><td><b>Every 2 hours</b></td><td>Check-offs sync back to the repo; dashboard re-renders</td><td>systemd timer</td></tr>
     <tr><td><b>Ambient</b></td><td>E-ink wall display polls for a fresh screen before each refresh</td><td>TRMNL + VPS endpoint</td></tr>
-    <tr><td><b>Evening</b></td><td>Check-in conversation: rate the day → log habits → ≤2 rolling reviews → pick tomorrow's <b>2+1</b> focus tasks → annotate tomorrow's calendar anchor</td><td>Claude Code skill</td></tr>
+    <tr><td><b>Any time</b></td><td>Guided tour on the home page: rate the day → log habits → at most 1 rolling review → set the <b>2+1</b> focus tasks → one focus and its vision</td><td>Local web page</td></tr>
   </table>
-  <p style="margin-top:1.2rem; color:var(--base01);">One ritual per day, in the evening. No morning routine to fail at.</p>
+  <p style="margin-top:1.2rem; color:var(--base01);">One walk-through per day, whenever the page is open. No fixed ritual to fail at.</p>
 </section>
 
 <!-- 10 · Rolling reviews -->
@@ -319,8 +319,8 @@ jq -c 'select(.id != "…") …' tasks.ndjson > .jq_update.tmp \
       <p style="line-height:1.6;">Every review type lives in a <b>ledger</b> with its own cadence — stale-task triage, life wheel, project progress, focus accuracy, trend analysis, quarterly re-picks…</p>
     </div>
     <ul class="big">
-      <li>The evening check-in serves <b>at most 2 due items</b> per night</li>
-      <li>Each takes a minute or two inside a ritual that already happens</li>
+      <li>The daily tour serves <b>at most 1 due item</b>, and only when nothing urgent is listed</li>
+      <li>Each takes a minute or two inside a walk-through that already happens</li>
       <li>A catch-up command clears the whole backlog when wanted</li>
       <li>Nothing is ever "overdue by six weeks" — just next in line</li>
     </ul>
@@ -372,7 +372,7 @@ jq -c 'select(.id != "…") …' tasks.ndjson > .jq_update.tmp \
     <div class="card" style="align-self:center;">
       <h3>Board lists (a sample)</h3>
       <p style="line-height:1.9;">
-        <span class="pill">📥 Inbox</span> <span class="pill">✅ Today's focus</span> <span class="pill">✅ Actions</span>
+        <span class="pill">📥 Inbox</span> <span class="pill">✅ Today's focus</span> <span class="pill">✅ Tasks</span>
         <span class="pill">☀️ Daily Habits</span> <span class="pill">🗓️ Week at a Glance</span>
         <span class="pill">🛠️ Projects</span> <span class="pill">💡 Insights</span> <span class="pill">🧪 Hypotheses</span>
       </p>

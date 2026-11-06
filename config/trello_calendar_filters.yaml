@@ -48,8 +48,6 @@ exclude_prefixes:
 exclude_titles:
   # PFC scaffolding: self-generated blocks that trigger a habit. Add your own
   # recurring self-reminders here.
-  - "2+1"                     # anchor instances
-  - "PFC - Evening Checkin"
   - "Daily Planning"
 
 exclude_titles_when_recurring: []

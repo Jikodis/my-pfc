@@ -1,0 +1,25 @@
+<div class="layout layout--col gap--space-between">
+  <span class="label label--small lg:label--base label--gray 1bit:text--black">{{ horizon }}</span>
+
+  <div class="flex flex--row flex--wrap flex--center gap">
+    {% for value in values %}
+      <span class="label label--xlarge lg:label--xxlarge label--outline">{{ forloop.index }}. {{ value }}</span>
+    {% endfor %}
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="flex flex--col flex--center-x gap--small text--center">
+    <span class="label label--small lg:label--base label--gray 1bit:text--black">Question of the day</span>
+    {% if question != "" %}
+      <span class="description description--xxlarge" data-clamp="3">{{ question }}</span>
+    {% else %}
+      <span class="description description--large label--gray 1bit:text--black">No open questions.</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
+</div>

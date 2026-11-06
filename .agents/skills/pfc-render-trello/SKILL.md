@@ -5,7 +5,7 @@ description: Render the PFC system to the Trello dashboard board. Use when the u
 
 # Render Trello Dashboard
 
-Mirror PFC repo state onto the Trello dashboard board. The render is idempotent: running it twice produces no changes the second time. Run on demand when you want the dashboard fresh, or it's invoked automatically by the evening check-in (Step 4b) and `/pfc-review`.
+Mirror PFC repo state onto the Trello dashboard board. The render is idempotent: running it twice produces no changes the second time. Run on demand when you want the dashboard fresh, or `/pfc-review` (Step 3) runs it; the post-commit hook and the timers run the same script without Calendar. Its Step 1 is also the only writer of `data/calendar-cache.json` (the Week at a Glance list and the TRMNL `pfc-week` screen), because the Calendar connector exists only in a live session: the daily sync job (`scripts/daily-sync.sh`) runs Step 1 alone every morning, and any full run of this skill refreshes it too.
 
 ## When this skill triggers
 
@@ -42,9 +42,18 @@ Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this sh
 
 If Calendar MCP is not available, skip this step. The render will skip the Calendar list with a 🟡 note.
 
+After a successful fetch, also write the durable TRMNL cache — the `pfc-week` builder has no MCP access, so this committed file is its only data source (it must be committed + pushed to reach the VPS):
+
+```bash
+jq --arg ts "$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%dT%H:%M:%S%z')" \
+  '{fetched_at: $ts, events: .}' /tmp/pfc-calendar-events.json > data/calendar-cache.json
+```
+
+Commit it (`track: refresh calendar cache`) if it changed.
+
 ### Step 2 — Run the render
 
-Email is NOT rendered to a dashboard list. Labeled inbox emails become tasks via `pfc-email-triage` Step 0 (run daily by the evening check-in), and those show up as ordinary Action cards. To refresh them, run `/pfc-email-triage`, not this skill.
+Email is NOT rendered to a dashboard list. Labeled emails become tasks via `pfc-email-triage` Step 0 (run daily by the daily sync job, `scripts/daily-sync.sh`) — to refresh those, run `/pfc-email-triage`, not this skill.
 
 ```bash
 python3 automations/scripts/trello_render.py \
@@ -104,7 +113,7 @@ Same confirmation prompt as `--rebuild`.
 
 ## Local-only mode — pulse trend
 
-`--pulse-history [n]` needs no Trello credentials and touches no board. It prints the last `n` days (default 7) of Superman Pulse lever statuses as 🟢/🟡/🔴 sparklines plus chronic-miss flags, for the evening check-in to read.
+`--pulse-history [n]` needs no Trello credentials and touches no board. It prints the last `n` days (default 7) of Superman Pulse lever statuses as 🟢/🟡/🔴 sparklines plus chronic-miss flags, for `pfc-daily-summary` § Daily Pulse to read.
 
 ```bash
 python3 automations/scripts/trello_render.py --pulse-history 7

@@ -1,18 +1,22 @@
 {% if poster %}
-  <div class="layout layout--col layout--center gap">
-    {% for anchor in anchors %}
-      <span class="value value--{{ anchor.text_size }} lg:value--{{ anchor.text_size_lg }}" data-clamp="4">{{ anchor.title }}</span>
-      {% if anchor.area != "" %}
-        <span class="label label--small label--gray">{{ anchor.area }}</span>
-      {% endif %}
-    {% else %}
-      <span class="value value--large lg:value--xlarge">No anchors captured yet.</span>
-      <span class="label label--small label--gray">Add one to data/grounding.ndjson</span>
-    {% endfor %}
+  <div class="layout layout--col layout--stretch">
+    <div class="flex flex--col gap stretch-y w--full">
+      <span class="label label--small lg:label--base label--gray 1bit:text--black w--full">{{ horizon }}</span>
+      <div class="flex flex--col flex--center gap grow">
+        {% for anchor in anchors %}
+          {% assign ts = anchor.text_size %}{% assign ts_lg = anchor.text_size_lg %}
+          <span class="value value--{{ ts }} lg:value--{{ ts_lg }} text--center" data-clamp="4">{{ anchor.title }}</span>
+          {% if anchor.area != "" %}
+            <span class="label label--small lg:label--base label--gray 1bit:text--black">{{ anchor.area }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
   </div>
 {% else %}
   <div class="layout layout--col gap">
     <div class="col gap--small">
+      <span class="label label--small lg:label--base label--gray 1bit:text--black">{{ horizon }}</span>
       <div class="columns" data-overflow-max-cols="2">
         <div class="column">
           {% for anchor in anchors %}
@@ -23,7 +27,7 @@
               <div class="content">
                 <span class="title title--small lg:title--base" data-clamp="2">{{ anchor.title }}</span>
                 {% if anchor.area != "" %}
-                  <span class="label label--small label--gray">{{ anchor.area }}</span>
+                  <span class="label label--small lg:label--base label--gray 1bit:text--black">{{ anchor.area }}</span>
                 {% endif %}
               </div>
             </div>
@@ -35,6 +39,6 @@
 {% endif %}
 
 <div class="title_bar">
-  <span class="title">Front of Mind</span>
+  <span class="title">{{ title }}</span>
   <span class="instance">{{ count }} anchor{% if count != 1 %}s{% endif %}</span>
 </div>

@@ -2,8 +2,8 @@
 # UserPromptSubmit hook: re-inject authoritative local-timezone date on every prompt.
 #
 # Why: SessionStart only fires once. For long-lived sessions that cross local
-# midnight (common when evening check-ins run past 11 PM or morning planning
-# picks up a conversation started the night before), the SessionStart-injected
+# midnight (common when a late session runs past 11 PM, or a conversation
+# started the night before picks back up the next day), the SessionStart-injected
 # date goes stale. Without re-injection, the model keeps referring to
 # "yesterday" relative to the SessionStart moment, not the current wall clock.
 #

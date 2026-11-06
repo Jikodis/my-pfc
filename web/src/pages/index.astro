@@ -1,0 +1,602 @@
+---
+/**
+ * The one page, in VAVFPTH order: Values, Areas, Visions, Focuses, Projects, Body
+ * first, Tasks, Habits, then Trends, Front of mind and Week, each band with a
+ * one-line note on its horizon, and the guided tour that walks them one step at a
+ * time.
+ *
+ * Every branch comes from `getHome()` (`automations/scripts/home_data.py`): the
+ * evening switch, the broken-night one-pick day, the welcome back, which review is
+ * due, the one thing the tour asks you to look at. The page only shows what it is
+ * handed. Panels marked `tourOnly` appear only while the tour runs
+ * (`src/scripts/tour-client.ts`). One-tap changes with fixed values write directly
+ * (`ActionButton`, the area and room lights in `src/scripts/home-client.ts`);
+ * anything that needs wording opens the chat with a prepared prompt.
+ */
+import ActionButton from '../components/ActionButton.astro'
+import Band from '../components/Band.astro'
+import Light from '../components/Light.astro'
+import PickList from '../components/PickList.astro'
+import WhyLine from '../components/WhyLine.astro'
+import Base from '../layouts/Base.astro'
+import { COMMANDS, PROMPTS, QUICK_ADD, chatPrompt } from '../lib/chat/prompts'
+import { getHome, type Home, type HomeTask, type LightSnapshot } from '../lib/computed'
+import { addDays, formatDate, formatTime12, formatWhen } from '../lib/dates'
+import { safe } from '../lib/safe'
+import { STEP_LABELS, reviewHint, tourSteps } from '../lib/tour'
+
+// One call per script per render: it starts a Python process.
+const home = safe(getHome)
+
+const h: Home | null = home.ok ? home.value : null
+const failed = home.ok ? undefined : home.error
+
+const steps = h ? tourSteps(h).map((s) => ({ ...s, label: STEP_LABELS[s.id] })) : []
+const yesterday = h ? addDays(h.date, -1) : ''
+// Suggestions are for `pick_date` (tomorrow from about 6 PM, Python's switch); they
+// show while that day has no picks set, and before 6 PM also once every pick for
+// today is done (Python's `all_picks_done`), when Set adds to today's picks.
+const pickDayPicks = h ? (h.evening ? h.tomorrow_picks : h.picks) : null
+const addingToToday = !!h && !h.evening && h.all_picks_done && !!h.picks
+const keepPicks = addingToToday && h?.picks ? JSON.stringify({ critical: h.picks.critical_ids, bonus: h.picks.bonus_id }) : undefined
+const suggestMax = h?.single_pick ? 1 : addingToToday ? 2 : 3
+
+const focusTiers: ['foundation' | 'pursuit' | 'consuming', string][] = [
+  ['foundation', 'Foundations'], ['pursuit', 'Active Pursuits'], ['consuming', 'Currently Consuming'],
+]
+const LIGHT_BUTTONS: [string, string][] = [['green', 'G'], ['yellow', 'Y'], ['red', 'R']]
+const lightWord = (l: string) => l.charAt(0).toUpperCase() + l.slice(1)
+// The registry's status words, as a person reads them.
+const statusLabel = (s: string) => (s === 'on-deck' ? 'On deck' : lightWord(s))
+
+const handOffPrompt = (t: HomeTask) => chatPrompt(PROMPTS.handOff, { title: t.title, id: t.id })
+const ratingRows: [string, string][] = [['energy', 'Energy'], ['mood', 'Mood'], ['focus', 'Focus']]
+const firstPick = h?.picks?.critical[0] ?? null
+const dailyHabits = h ? h.habits.filter((r) => r.cadence === 'daily') : []
+const monthlyHabits = h ? h.habits.filter((r) => r.cadence === 'monthly') : []
+const rateLabel = h && h.rate_target.date === h.date ? 'today' : 'yesterday'
+const lookPrompt = h?.tour_look
+  ? h.tour_look.kind === 'stale_areas' ? PROMPTS.rateAreas
+    : h.tour_look.kind === 'stalled_project' ? chatPrompt(PROMPTS.revive, { name: h.tour_look.title })
+    : COMMANDS.focus
+  : null
+---
+<Base title="PFC" lede={h ? formatDate(h.date) : undefined}>
+  <div id="tour-bar" class="tour-bar" hidden data-steps={JSON.stringify(steps)}>
+    <span id="tour-where" class="tour-where"></span>
+    <span class="tour-buttons">
+      <button type="button" id="tour-skip">Skip</button>
+      <button type="button" id="tour-next" class="tour-next">Next</button>
+      <button type="button" id="tour-close">Close</button>
+    </span>
+  </div>
+
+  <div class="bands">
+    <Band band="tour-welcome" title="Welcome back" tourOnly error={failed}>
+      <p>Welcome back. Starting from today.</p>
+    </Band>
+
+    {/* Tour step: rate the day Python names; the evening asks about today, before it yesterday. */}
+    <Band band="tour-rate" title={`How was ${rateLabel}?`} tourOnly error={failed}>
+      {h && (
+        <div class="rate" data-rate-date={h.rate_target.date}>
+          <p class="sub">{formatDate(h.rate_target.date)}. One tap each, 5 is best. Skip leaves the day unrated.</p>
+          {ratingRows.map(([key, label]) => (
+            <div class="tap-row" role="group" aria-label={label}>
+              <span class="tap-label">{label}</span>
+              {[1, 2, 3, 4, 5].map((n) => <button type="button" class="tap" data-rate={key} data-value={n} aria-pressed="false">{n}</button>)}
+            </div>
+          ))}
+          <div class="tap-row" role="group" aria-label="Hyperfocused (optional)">
+            <span class="tap-label">Hyperfocused? <span class="sub">optional</span></span>
+            <button type="button" class="tap" data-rate="hyperfocused" data-value="yes" aria-pressed="false">Yes</button>
+            <button type="button" class="tap" data-rate="hyperfocused" data-value="no" aria-pressed="false">No</button>
+          </div>
+          <div class="actions">
+            <button type="button" class="act-write save rate-save" disabled>Save rating</button>
+            <span class="tour-status sub" role="status" aria-live="polite"></span>
+          </div>
+        </div>
+      )}
+    </Band>
+
+    <Band band="values" title="Values" error={failed}>
+      <p class="horizon">Always: what everything else is judged against.</p>
+      {h && (
+        <>
+          {h.values.length === 0 ? <p class="muted">No values listed.</p> : <p class="values">{h.values.join(' · ')}</p>}
+          {h.question_of_day && (
+            <p class="question"><span class="panel-label">Question of the day:</span> {h.question_of_day.text}</p>
+          )}
+          <div class="actions">
+            <button type="button" class="act" data-chat-prompt={PROMPTS.editQuestions}>Edit questions</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="areas" title="Areas" error={failed}>
+      <p class="horizon">Always: the parts of life that are never done.</p>
+      {h && (
+        <>
+          {([['area', 'Life wheel', h.areas], ['room', 'Household', h.household]] as ['area' | 'room', string, LightSnapshot][]).map(([kind, label, snap]) => (
+            <div class="light-group">
+              <p class="panel-label">
+                {label}
+                <span class="sub"> · {snap.date ? `rated ${formatDate(snap.date)}` : 'never rated'}</span>
+                {snap.stale && <span class="tag flag">Stale</span>}
+              </p>
+              {kind === 'area' && snap.stale && (
+                <div class="actions"><button type="button" class="act" data-chat-prompt={PROMPTS.rateAreas}>Rate my areas</button></div>
+              )}
+              <ul class="plain light-rows">
+                {snap.rows.map((r) => (
+                  <li class="light-edit" data-light-kind={kind} data-key={r.key} data-light={r.light} title={r.key}>
+                    <span class="light-name"><Light status={r.light} /> <strong>{r.label}</strong></span>
+                    <span class="light-buttons" role="group" aria-label={`${r.label} color`}>
+                      {LIGHT_BUTTONS.map(([light, letter]) => (
+                        <button type="button" class={`tap light-tap light-tap-${light}`} data-set-light={light}
+                          aria-pressed={r.light === light ? "true" : "false"} aria-label={`${lightWord(light)}: ${r.label}`}>{letter}</button>
+                      ))}
+                    </span>
+                    <input type="text" class="light-note" value={r.note ?? ''} maxlength={300}
+                      placeholder="Note" aria-label={`Note for ${r.label}`} />
+                    <button type="button" class="act act-write light-save">Save</button>
+                    <span class="light-status sub" role="status" aria-live="polite"></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </>
+      )}
+    </Band>
+
+    <Band band="visions" title="Visions" error={failed}>
+      <p class="horizon">Years: where I'm headed, no deadlines.</p>
+      {h && (
+        <>
+          <div class="chips">
+            {h.visions.map((v) => (
+              <span class={`tag chip${h.vision_of_day?.id === v.id ? ' chip-on' : ''}`} title={v.id}>{v.title}</span>
+            ))}
+          </div>
+          {h.vision_of_day && (
+            <p class="vision-day"><strong>{h.vision_of_day.title}</strong>{h.vision_of_day.value && <span class="sub"> serves {h.vision_of_day.value}</span>}</p>
+          )}
+          {h.visions.length === 0 && <p class="muted">No active visions.</p>}
+          <div class="actions">
+            <button type="button" class="act" data-chat-prompt={PROMPTS.updateVision}>Update a vision</button>
+            <button type="button" class="act" data-chat-prompt={COMMANDS.visionBrainstorm} data-chat-send="1">Brainstorm</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="focuses" title="Focuses" error={failed}>
+      <p class="horizon">A quarter: what I'm actually on now.</p>
+      {h && (
+        <>
+          {h.repick_nudge && (
+            <p class="lower-bar">All six pursuit slots are full and one has been red four weeks or more. Time to re-pick.</p>
+          )}
+          <div class="tiers">
+            {focusTiers.map(([tier, label]) => {
+              const rows = h.focuses[tier] ?? []
+              return (
+                <div>
+                  <p class="panel-label">{label}</p>
+                  {rows.length === 0 ? <p class="muted">None.</p> : (
+                    <ul class="plain">
+                      {rows.map((f) => (
+                        <li title={f.focus_id}>
+                          {f.parked ? <span class="tag">Parked</span> : <Light status={f.light} />} {f.title}
+                          {f.primary && <span class="sub"> · {f.primary.completed} of {f.primary.target}</span>}
+                          {' '}
+                          <ActionButton action="park-focus" id={f.focus_id} label={f.parked ? 'Unpark' : 'Park'} name={f.title} extra={f.parked ? 'off' : 'on'} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div class="actions">
+            <button type="button" class="act" data-chat-prompt={PROMPTS.addFocus}>Add a focus</button>
+            <button type="button" class="act" data-chat-prompt={PROMPTS.repickFocus}>Re-pick focuses</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="projects" title="Projects" error={failed}>
+      <p class="horizon">One to three months: short projects with a finish line.</p>
+      {h && (
+        <>
+          {h.projects.active.length === 0 ? <p class="muted">No active projects.</p> : (
+            <ul class="plain">
+              {h.projects.active.map((p) => (
+                <li title={p.id}>
+                  <strong>{p.name}</strong>{' '}
+                  <progress max="100" value={p.pct} aria-label={`${p.name}: ${p.pct}% done`}></progress>
+                  <span class="sub"> {p.pct}% done</span>
+                  {' '}
+                  <ActionButton action="set-project" id={p.id} label="Park" name={p.name} extra="parked" />
+                  {p.next_task && <span class="sub why">&#8627; Next: {p.next_task.title}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {h.projects.other.length > 0 && (
+            <details class="more-projects">
+              <summary>Parked and on deck ({h.projects.other.length})</summary>
+              <ul class="plain">
+                {h.projects.other.map((p) => (
+                  <li title={p.id}>
+                    <span class="tag">{statusLabel(p.status)}</span> {p.name}{' '}
+                    <ActionButton action="set-project" id={p.id} label="Activate" name={p.name} extra="active" />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+    </Band>
+
+    <Band band="body" title="Body first" error={failed}>
+      <p class="horizon">Today: sleep and exercise decide what today can hold.</p>
+      {h && (
+        <>
+          <ul class="plain">
+            <li>
+              <strong>Sleep:</strong>{' '}
+              {h.body.sleep_hours === null ? <span class="sub">no sleep data yet</span> : (
+                <span class="sub">{h.body.sleep_hours} hours{h.body.awake_minutes !== null && `, ${h.body.awake_minutes} minutes awake`}</span>
+              )}
+              {h.body.broken_night && <span class="tag flag">Broken night</span>}
+            </li>
+            <li><strong>{h.body.exercise_label} yet?</strong> <span class="sub">{h.body.exercised ? 'Yes, done today.' : 'Not yet.'}</span>
+              {' '}<Light status={h.body.exercise_light} /> <span class="sub">done {h.body.exercised_days} of the last {h.body.window} days</span></li>
+          </ul>
+          {h.pulse && (
+            <>
+              <p class="pulse-verdict"><Light status={h.pulse.verdict_mark} /> {h.pulse.verdict}</p>
+              {h.pulse.move && <p class="lower-bar">Tonight: {h.pulse.move}</p>}
+              {h.pulse.levers.length > 0 && (
+                <ul class="plain levers">
+                  {h.pulse.levers.map((l) => (
+                    <li><Light status={l.mark} /> {l.label} <span class="sub">{l.value} (target {l.target}){l.on !== null && ` · on target ${l.on} of ${l.n} nights`}</span></li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+          {h.single_pick && <p class="lower-bar">Lower the bar today: one pick, not 2+1.</p>}
+          <p class="sub">Upbeat, high-energy music on before choosing what to work on.</p>
+          {h.rate_target.unrated && (
+            <details class="rate-optional">
+              <summary>Rate {rateLabel}</summary>
+              <div class="rate" data-rate-date={h.rate_target.date}>
+                {ratingRows.map(([key, label]) => (
+                  <div class="tap-row" role="group" aria-label={label}>
+                    <span class="tap-label">{label}</span>
+                    {[1, 2, 3, 4, 5].map((n) => <button type="button" class="tap" data-rate={key} data-value={n} aria-pressed="false">{n}</button>)}
+                  </div>
+                ))}
+                <div class="actions">
+                  <button type="button" class="act-write save rate-save" disabled>Save rating</button>
+                  <span class="tour-status sub" role="status" aria-live="polite"></span>
+                </div>
+              </div>
+            </details>
+          )}
+        </>
+      )}
+    </Band>
+
+    {/* Tour step: put music on in whatever player you use, then move on. */}
+    <Band band="tour-music" title="Music on?" tourOnly>
+      <p class="sub">Put on upbeat, high-energy music now, before choosing what to work on, and keep it on until the task is done.</p>
+      <div class="actions">
+        <button type="button" class="music-on" id="music-on">&#9654; Music is on</button>
+      </div>
+    </Band>
+
+    {/* Tour step: at most two items; a due review only when nothing else is listed. */}
+    <Band band="tour-needs" title="What needs you" tourOnly error={failed}>
+      {h && (
+        <>
+          {h.needs_you.length > 0 && (
+            <ul class="plain">
+              {h.needs_you.map((n) => (
+                <li title={n.id}>
+                  {n.title} <span class="sub">({n.date ? `${n.why} ${formatDate(n.date)}` : n.why})</span>
+                  {n.kind !== 'focus' && <ActionButton action="complete-task" id={n.id} label="Done" name={n.title} confirm="Mark done?" />}
+                </li>
+              ))}
+            </ul>
+          )}
+          {h.due_review && (
+            <div class="review" title={h.due_review.id}>
+              <p><strong>Review due:</strong> {h.due_review.label}</p>
+              {reviewHint(h.due_review.skill) && <p class="sub">{reviewHint(h.due_review.skill)}</p>}
+              <div class="actions">
+                <button type="button" data-chat-prompt={chatPrompt(PROMPTS.review, { label: h.due_review.label, id: h.due_review.id })} data-review-stamp={h.due_review.id}>Start this review</button>
+                <span class="tour-status sub" role="status" aria-live="polite"></span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Band>
+
+    <Band band="tasks" title="Tasks" error={failed}>
+      <p class="horizon">A day: today's 2+1.</p>
+      {h && (
+        <>
+          {/* Today's picks all day, Done buttons included; tomorrow's below from about 6 PM. */}
+          {h.picks ? <PickList picks={h.picks} doneButtons /> : h.evening && <p class="sub">No picks were set today.</p>}
+          {h.evening && (
+            <>
+              <p class="panel-label">Tomorrow, {formatDate(h.pick_date)}</p>
+              {h.tomorrow_picks && <PickList picks={h.tomorrow_picks} doneButtons={false} />}
+            </>
+          )}
+          {(!pickDayPicks || addingToToday) && (h.suggested.length === 0 ? (
+            <p class="sub">Nothing to pick; add a task in chat</p>
+          ) : (
+            <div class="suggest" data-pick-date={h.pick_date} data-pick-max={suggestMax} data-keep-picks={keepPicks}>
+              <p class="sub">{addingToToday
+                ? (suggestMax === 1 ? "Today's picks are done. Tap Set on one more to add it to today." : "Today's picks are done. Tap Set on one or two more to add them to today.")
+                : h.single_pick ? 'One pick. Tap Set on it, then save.' : 'Tap Set on up to three: the first two are the picks, a third is the bonus.'}</p>
+              <ul class="plain">
+                {h.suggested.map((t) => (
+                  <li title={t.id}>
+                    <span class="pick-title">{t.title}</span>
+                    <span class="suggest-buttons">
+                      <button type="button" class="act pick-choice" data-pick-choice={t.id} aria-pressed="false" aria-label={`Set: ${t.title}`}>Set</button>
+                      <ActionButton action="complete-task" id={t.id} label="Already done" name={t.title} confirm="Mark done?" />
+                      <ActionButton action="skip-suggestion" id={t.id} label="Pick another" name={t.title} extra={h.pick_date} />
+                    </span>
+                    <WhyLine why={t.why} />
+                  </li>
+                ))}
+              </ul>
+              <div class="actions">
+                <button type="button" class="act-write save" id="picks-save" disabled>{addingToToday ? 'Add to today' : h.single_pick ? 'Set this pick' : 'Set these picks'}</button>
+                <span class="tour-status sub" role="status" aria-live="polite"></span>
+              </div>
+            </div>
+          ))}
+          {h.handoffs.length > 0 && (
+            <>
+              <p class="panel-label">Hand to an agent</p>
+              <ul class="plain">
+                {h.handoffs.map((t) => (
+                  <li title={t.id}>
+                    {t.title}{' '}
+                    <button type="button" class="act" data-chat-prompt={handOffPrompt(t)} aria-label={`Hand off: ${t.title}`}>Hand off</button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {/* The tour shows these in its own step, so they hide while it runs. */}
+          {h.needs_you.length > 0 && (
+            <div class="tour-hide">
+              <p class="panel-label">What needs you</p>
+              <ul class="plain">
+                {h.needs_you.map((n) => (
+                  <li title={n.id}>
+                    {n.title} <span class="sub">({n.date ? `${n.why} ${formatDate(n.date)}` : n.why})</span>
+                    {n.kind !== 'focus' && <ActionButton action="complete-task" id={n.id} label="Done" name={n.title} confirm="Mark done?" />}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {h.offer_open_day && (
+            <div class="actions" data-tour-only="1">
+              <button type="button" data-chat-prompt={COMMANDS.planOpenDay} data-chat-send="1">Plan tomorrow as an open day</button>
+            </div>
+          )}
+        </>
+      )}
+    </Band>
+
+    <Band band="habits" title="Habits" error={failed}>
+      <p class="horizon">A day or a month: today's reps.</p>
+      {h && ([['Daily', dailyHabits], ['Monthly', monthlyHabits]] as [string, typeof dailyHabits][]).map(([label, rows]) => rows.length > 0 && (
+        <>
+          <p class="panel-label">{label}</p>
+          <ul class="plain">
+            {rows.map((r) => (
+              <li title={`${r.id}: ${r.description}`}>
+                {r.title}{' '}
+                {r.auto_derived ? <span class="sub">Automatic</span> : (
+                  <>
+                    {r.logged_today ? <span class="sub">Logged today</span> : <ActionButton action="log-habit" id={r.id} label="Log today" name={r.title} />}
+                    {' '}
+                    {r.logged_yesterday ? <span class="sub">Logged yesterday</span> : <ActionButton action="log-habit" id={r.id} label="Log yesterday" name={r.title} extra={yesterday} />}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ))}
+      {h && h.habits.length === 0 && <p class="muted">No habits.</p>}
+    </Band>
+
+    {/* Tour step: the one thing Python asks you to look at, or no step at all. */}
+    {h?.tour_look && (
+      <Band band="tour-look" title="Look at this" tourOnly>
+        <p><strong>{h.tour_look.title}</strong> <span class="sub">{h.tour_look.detail}{h.tour_look.date && ` ${formatDate(h.tour_look.date)}`}</span></p>
+        {lookPrompt && (
+          <div class="actions">
+            <button type="button" data-chat-prompt={lookPrompt}>
+              {h.tour_look.kind === 'stale_areas' ? 'Rate my areas' : h.tour_look.kind === 'stalled_project' ? 'Revive it' : 'Look at my focuses'}
+            </button>
+          </div>
+        )}
+      </Band>
+    )}
+
+    {/* Tour step: the focus of the day, its vision and value, then the first pick. */}
+    <Band band="tour-why" title="Why it matters" tourOnly error={failed}>
+      {h && (
+        <>
+          {h.focus_of_day ? (
+            <p>
+              <strong>{h.focus_of_day.title}</strong>
+              {h.focus_of_day.vision && <span class="sub"> &#8594; {h.focus_of_day.vision}</span>}
+              {h.focus_of_day.value && <span class="sub"> &#8594; {h.focus_of_day.value}</span>}
+            </p>
+          ) : <p class="muted">No focus is live this quarter.</p>}
+          {firstPick && <p>Pick 1: {firstPick.title} <WhyLine why={firstPick.why} /></p>}
+          <div class="actions">
+            <button type="button" class="tour-next" id="start-pick" disabled={!firstPick}>Start pick 1</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="trends" title="Trends" error={failed}>
+      <p class="horizon">The last 30 days: how the days turned out, worst first. Sleep and exercise are in Body first.</p>
+      {h && (h.trends.length === 0 ? <p class="muted">No trend data yet.</p> : (
+        <ul class="plain">
+          {h.trends.map((t) => <li><Light status={t.light} /> {t.name} <span class="sub">{t.why}</span></li>)}
+        </ul>
+      ))}
+    </Band>
+
+    <Band band="front-of-mind" title="Front of mind" error={failed}>
+      <p class="horizon">Always: the anchors to keep in view.</p>
+      {h && (
+        <>
+          {h.anchors.length === 0 ? <p class="muted">No active anchors.</p> : (
+            <ul class="plain">
+              {h.anchors.map((a) => (
+                <li title={a.id}>
+                  {a.title}{' '}
+                  <button type="button" class="act" data-chat-prompt={chatPrompt(PROMPTS.editAnchor, { title: a.title, id: a.id })} aria-label={`Edit: ${a.title}`}>Edit</button>
+                  {' '}
+                  <ActionButton action="retire-anchor" id={a.id} label="Retire" name={a.title} confirm="Retire it?" />
+                </li>
+              ))}
+            </ul>
+          )}
+          <div class="actions"><button type="button" class="act" data-chat-prompt={PROMPTS.addAnchor}>Add</button></div>
+        </>
+      )}
+    </Band>
+
+    <Band band="week" title="Week" error={failed}>
+      <p class="horizon">The next seven days, from the calendar.</p>
+      {h && (h.week.length === 0 ? <p class="muted">No calendar data yet.</p> : (
+        <div class="week">
+          {h.week.map((d) => (
+            <div class="week-day">
+              <p class="panel-label">{formatDate(d.date)}</p>
+              {d.events.length === 0 ? <p class="muted">Nothing scheduled.</p> : (
+                <ul class="plain">
+                  {d.events.map((e) => <li><span class="sub">{e.start ? formatTime12(e.start) : 'All day'}</span> {e.title}</li>)}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </Band>
+
+    {h && (
+      <div class="footer-tools tour-hide">
+        {/* Quick add: what is typed goes into the chat box after the words add task,
+            and waits there for Send. */}
+        <div class="quick-add">
+          <input type="text" id="quick-add" aria-label="Quick add a task" placeholder="Quick add a task" data-chat-enter="quick-add-go" />
+          <button type="button" id="quick-add-go" data-chat-prompt={QUICK_ADD} data-chat-input="quick-add">Add</button>
+        </div>
+        {/* Python decides ok and stale; the page words them. Red whenever the 5:00 AM sync needs a look. */}
+        <p class={`sub sync${h.daily_sync.ok && !h.daily_sync.stale ? ' sync-ok' : ' sync-bad'}`}>
+          {h.daily_sync.last_run === null
+            ? 'Daily sync has not run'
+            : h.daily_sync.ok && !h.daily_sync.stale
+              ? `Daily sync ran ${formatWhen(h.daily_sync.last_run)}`
+              : h.daily_sync.ok
+                ? `Daily sync last OK ${formatWhen(h.daily_sync.last_run)}`
+                : `Daily sync failed ${formatWhen(h.daily_sync.last_run)}`}
+        </p>
+      </div>
+    )}
+  </div>
+</Base>
+
+<script>
+  import '../scripts/tour-client'
+  import '../scripts/home-client'
+</script>
+
+<style is:global>
+  .bands { display:flex; flex-direction:column; gap:14px; }
+  .band h2 { margin:0; }
+  .horizon { margin:0 0 10px; color:var(--text); font-size:14px; font-style:italic; }
+  html:not(.touring) [data-tour-only] { display:none; }
+  html.touring .band.tour-off { display:none; }
+  html.touring .tour-hide, html.touring .rate-optional { display:none; }
+  .panel ul.plain { list-style:none; padding-left:0; }
+  .values { color:var(--strong); font-size:18px; font-weight:600; margin:0; }
+  .question { margin:10px 0 0; }
+  .question .panel-label { margin:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { white-space:normal; }
+  .chip-on { border-color:var(--blue); color:var(--blue); }
+  .vision-day { margin:10px 0 0; }
+  .tiers { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:4px 18px; }
+  .tiers .panel-label { margin-top:0; }
+  .tag.flag { border-color:var(--red); color:var(--red); margin-left:6px; }
+  .lower-bar { color:var(--strong); font-weight:600; border-left:3px solid var(--yellow); padding-left:8px; }
+  .pulse-verdict { margin:10px 0 4px; color:var(--strong); }
+  .levers { font-size:14px; }
+  button.music-on { background:var(--magenta); color:var(--bg); border:0; border-radius:999px; padding:6px 16px; font-weight:700; }
+  .why { display:block; margin-top:2px; }
+  .pick-title { color:var(--strong); }
+  .picks li, .suggest li { margin-bottom:10px; }
+  .suggest-buttons { display:inline-flex; flex-wrap:wrap; gap:4px 6px; margin-left:6px; vertical-align:top; }
+  button.pick-choice[aria-pressed="true"], button.tap[aria-pressed="true"] { border-color:var(--blue); background:var(--blue); color:var(--bg); }
+  .tap-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:8px 0; }
+  .tap-label { min-width:9em; color:var(--strong); }
+  button.tap { min-width:2.4em; }
+  button.save { border-color:var(--blue); color:var(--blue); font-weight:600; }
+  button.save:disabled { border-color:var(--border); color:var(--muted); cursor:default; }
+  .rate-optional { margin-top:10px; }
+  .light-group + .light-group { margin-top:14px; }
+  .light-rows li { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid var(--border); }
+  .light-name { min-width:11em; }
+  .light-buttons { display:inline-flex; gap:4px; }
+  button.light-tap { min-width:2em; padding:2px 6px; font-weight:600; }
+  button.light-tap-green { color:var(--green); } button.light-tap-yellow { color:var(--yellow); } button.light-tap-red { color:var(--red); }
+  button.light-tap-green[aria-pressed="true"] { background:var(--green); border-color:var(--green); color:var(--bg); }
+  button.light-tap-yellow[aria-pressed="true"] { background:var(--yellow); border-color:var(--yellow); color:var(--bg); }
+  button.light-tap-red[aria-pressed="true"] { background:var(--red); border-color:var(--red); color:var(--bg); }
+  input.light-note { flex:1 1 14em; min-width:0; }
+  .light-status { flex-basis:100%; }
+  .light-status:empty { display:none; }
+  .more-projects { margin-top:10px; }
+  .week { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:4px 18px; }
+  .week .panel-label { margin-top:0; }
+  .week li { font-size:14px; }
+  .footer-tools { padding:0 2px; }
+  .sync { margin:12px 0 0; }
+  .sync-ok { color:var(--green); }
+  .sync-bad { color:var(--red); }
+  .tour-bar { position:sticky; top:0; z-index:15; display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;
+    background:var(--panel); border:1px solid var(--blue); border-radius:6px; padding:8px 12px; margin-bottom:14px; }
+  .tour-bar[hidden] { display:none; }
+  .tour-where { color:var(--strong); font-weight:600; }
+  .tour-buttons { display:flex; gap:6px; }
+  button.tour-next { border-color:var(--blue); color:var(--blue); font-weight:600; }
+  button.tour-next:disabled { border-color:var(--border); color:var(--muted); cursor:default; }
+</style>

@@ -1,10 +1,9 @@
 {%- comment -%}
-PFC Habits — daily habits (today's state + 7-day counts) and monthly habits
-(progress vs frequency target). Split out of pfc-today.
+PFC Habits: mirrors the web home page's Habits band. Payload (trmnl_home.habits_payload):
+title, date, horizon, groups[] {label, logged, count, rows[] {title, state, done}}.
+`state` is one of: Logged today / Logged yesterday / Not logged / Automatic.
 
-E-ink has no emoji font, so completion is text: [x] / [ ]. Never swap these for
-check-mark emoji — they render as empty boxes on the device.
+Each list prints the "Not logged" rows first (they need action), then the rest in
+gray. "Not logged" shows as a filled label so it stands out on the wall.
+E-ink rules: no emoji, no inline styles; framework classes only.
 {%- endcomment -%}
-
-{%- capture done_mark -%}[x]{%- endcapture -%}
-{%- capture open_mark -%}[ ]{%- endcapture -%}

@@ -1,8 +1,8 @@
 """Daily Pulse — the at-a-glance "is my body set up for a good day?" readout.
 
 ONE source of truth for the pulse thresholds, verdict, and per-lever fix, shared
-by every consumer (the Trello render, an e-ink dashboard payload, the evening
-check-in). Any surface that shows the pulse imports from here; nothing re-derives
+by every consumer (the Trello render, an e-ink dashboard payload, the daily
+summary). Any surface that shows the pulse imports from here; nothing re-derives
 a threshold locally, because two copies of a band drift the moment you tune one.
 
 What it is
@@ -308,7 +308,7 @@ def chronic_misses(hist, max_items=2):
 
 
 def print_pulse_history(rows, n=7):
-    """Compact per-lever trend for a check-in: a status sparkline per lever, then
+    """Compact per-lever trend for the daily summary: a status sparkline per lever, then
     the chronic misses with their concrete fix.
 
     `rows` is the parsed `data/day-tracking.ndjson` list. Printed rather than

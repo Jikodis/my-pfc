@@ -1,41 +1,37 @@
-<div class="layout layout--col gap">
-  <div class="col gap--small">
-  <span class="title title--small">Today's 2+1</span>
-  <div class="columns" data-overflow-max-cols="1">
-    <div class="column">
-      {% for task in critical %}
-        <div class="item">
-          <div class="meta">
-            <span class="index">{{ forloop.index }}</span>
-          </div>
-          <div class="content">
-            <span class="label" data-clamp="2">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
-          </div>
-        </div>
+<div class="layout layout--col gap--small">
+  <div class="col gap--small stretch-x">
+    <span class="label label--small">{{ horizon }}</span>
+    <span class="title title--small">Today{% if total > 0 %}: {{ done }} of {{ total }} done{% endif %}</span>
+    {% for pick in picks %}
+      <span class="label" data-clamp="2">{% if pick.done %}[x]{% else %}[ ]{% endif %} {{ pick.kind }}: {{ pick.title }}</span>
+    {% else %}
+      <span class="label">{{ picks_note }}</span>
+    {% endfor %}
+    {% if evening %}
+      <span class="title title--small">{{ tomorrow_label }}</span>
+      {% for pick in tomorrow %}
+        <span class="label label--small" data-clamp="1">[ ] {{ pick.kind }}: {{ pick.title }}</span>
       {% else %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--gray">No 2+1 set for today</span>
-          </div>
-        </div>
+        <span class="label label--small">Not set yet.</span>
       {% endfor %}
-      {% if bonus %}
-        <div class="item">
-          <div class="meta">
-            <span class="index">+</span>
-          </div>
-          <div class="content">
-            <span class="label" data-clamp="2">{% if bonus.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ bonus.title }}</span>
-          </div>
-        </div>
-      {% endif %}
-    </div>
-  </div>
+    {% endif %}
+    {%- if evening -%}{%- assign room = 2 -%}{%- else -%}{%- assign room = 3 -%}{%- endif -%}
+    <span class="title title--small">What needs you</span>
+    {% for n in needs_you limit: room %}
+      <span class="label label--small" data-clamp="2">{{ n.title }} ({{ n.why }})</span>
+    {% else %}
+      <span class="label label--small">Nothing due.</span>
+    {% endfor %}
+    {% if handoffs.size > 0 %}
+      <span class="title title--small">Hand to an agent</span>
+      {% for h in handoffs limit: room %}
+        <span class="label label--small" data-clamp="1">{{ h }}</span>
+      {% endfor %}
+    {% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">{{ weekday }}</span>
-  <span class="instance">PFC Today</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

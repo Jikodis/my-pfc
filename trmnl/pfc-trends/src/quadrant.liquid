@@ -1,26 +1,15 @@
-<div class="layout layout--col gap--small">
-  <div class="grid">
-    <div class="col col--span-6">
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          <span class="value value--large">{{ avg_rating }}</span>
-          <span class="label label--small">avg rating 7d</span>
-        </div>
-      </div>
+<div class="layout layout--col layout--stretch gap--space-between">
+  {% for row in rows %}
+    <div class="flex flex--row flex--between">
+      <span class="label" data-clamp="1">{{ row.name }}</span>
+      <span class="label label--small {% if row.status == 'RED' %}label--filled{% else %}label--outline{% endif %} no-shrink">{{ row.status }}</span>
     </div>
-    <div class="col col--span-6">
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          <span class="value value--large">{{ sleep_debt }}</span>
-          <span class="label label--small">sleep debt now</span>
-        </div>
-      </div>
-    </div>
-  </div>
+  {% else %}
+    <span class="label">No trend data yet.</span>
+  {% endfor %}
 </div>
 
 <div class="title_bar">
-  <span class="title">Trends</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

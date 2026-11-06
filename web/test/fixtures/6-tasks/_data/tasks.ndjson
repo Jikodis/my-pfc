@@ -1,0 +1,3 @@
+{"id":"task-1","status":"open","description":"Fix the porch light","size":"S","impact":"high","urgency":"high","agent_doable":"no","area":"household","project":"none","deadline":null,"created":"2026-09-01","completed":null}
+
+{"id":"task-2","status":"open","description":"Register the new kettle","size":"S","impact":"low","urgency":"low","agent_doable":"yes","area":"household","project":"proj-1","deadline":"2026-09-25","created":"2026-09-02","completed":null}
