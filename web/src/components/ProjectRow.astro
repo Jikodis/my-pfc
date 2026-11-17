@@ -1,0 +1,24 @@
+---
+/**
+ * One active project on the home page's Projects band: name, days idle (red once
+ * Python calls it stalled), percent done, the next task, and Park. A component because
+ * the page shows it in the list and inside the folded line of projects stalled a long
+ * time (`chronic` from `home_data.py`).
+ */
+import type { HomeProject } from '../lib/computed'
+import ActionButton from './ActionButton.astro'
+
+interface Props { p: HomeProject }
+const { p } = Astro.props
+---
+<li title={p.id}>
+  <span class="project-top">
+    <strong>{p.name}</strong>
+    {p.days_idle !== null && p.days_idle !== undefined && <span class={p.stalled ? 'overdue' : 'sub'}>{p.stalled ? 'stalled, ' : ''}idle {p.days_idle} days</span>}
+  </span>
+  <progress max="100" value={p.pct} aria-label={`${p.name}: ${p.pct}% done`}></progress>
+  <span class="project-bottom">
+    <span class="sub">{p.pct}% done{p.next_task && ` · Next: ${p.next_task.title}`}</span>
+    <ActionButton action="set-project" id={p.id} label="Park" name={p.name} extra="parked" />
+  </span>
+</li>

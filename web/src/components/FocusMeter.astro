@@ -1,0 +1,28 @@
+---
+/**
+ * One focus on the home page's Focuses band: its light (or Parked), title, how long it
+ * has been red, its habit meter, and Park / Unpark. A component because the page shows
+ * the same row in two places: in the tier list, and inside the folded line of
+ * long-running reds (`chronic` from `home_data.py`).
+ */
+import type { HomeFocus } from '../lib/computed'
+import ActionButton from './ActionButton.astro'
+import Light from './Light.astro'
+
+interface Props { f: HomeFocus & { light: string } }
+const { f } = Astro.props
+const pct = (rate: number | null | undefined) => `${Math.round(Math.max(0, Math.min(1, rate ?? 0)) * 100)}%`
+---
+<li title={f.focus_id}>
+  <span class="meter-name">
+    {f.parked ? <span class="tag">Parked</span> : <Light status={f.light} />}
+    <span>{f.title}{!f.parked && f.weeks_red >= 2 && <span class="sub"> · red {f.weeks_red} weeks</span>}</span>
+  </span>
+  {f.primary ? (
+    <>
+      <span class="bar" role="img" aria-label={`${f.primary.completed} of ${f.primary.target}`}><span style={`width:${pct(f.primary.rate)}`}></span></span>
+      <span class="meter-count">{f.primary.completed} of {f.primary.target}</span>
+    </>
+  ) : <><span></span><span></span></>}
+  <ActionButton action="park-focus" id={f.focus_id} label={f.parked ? 'Unpark' : 'Park'} name={f.title} extra={f.parked ? 'off' : 'on'} />
+</li>

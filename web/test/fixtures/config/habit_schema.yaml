@@ -1,0 +1,12 @@
+daily_habits:
+  - id: morning-walk
+    description: "20+ minute walk within 90 minutes of waking"
+    frequency: 5
+    area: health
+    values: [Health]
+monthly_habits:
+  - id: system-review
+    description: "Run /pfc-review once a month"
+    frequency: 1
+    area: personal
+    values: [Learning]

@@ -1,0 +1,22 @@
+---
+/**
+ * One of last night's sleep levers in Body first: its light, name, target, value, and
+ * nights on target over the last 30. A component because the page shows it in the
+ * folded lever list and inside the line of long-running reds (`chronic`).
+ */
+import type { Home } from '../lib/computed'
+import Light from './Light.astro'
+
+type Lever = NonNullable<Home['pulse']>['levers'][number]
+interface Props { l: Lever }
+const { l } = Astro.props
+const pct = (rate: number) => `${Math.round(Math.max(0, Math.min(1, rate)) * 100)}%`
+---
+<li>
+  <Light status={l.mark} />
+  <span class="lever-name">{l.label_plain}<span class="sub"> target {l.target_words}</span></span>
+  <span class="lever-value">{l.value}</span>
+  {l.on !== null && l.n !== null && (
+    <span class="lever-bar"><span class="bar" role="img" aria-label={`On target ${l.on} of ${l.n} nights`}><span style={`width:${pct(l.on / l.n)}`}></span></span><span class="sub">on target {l.on} of {l.n} nights</span></span>
+  )}
+</li>

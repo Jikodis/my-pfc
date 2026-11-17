@@ -1,0 +1,11 @@
+# Build output and local state for the web UI. Nothing here is canonical.
+node_modules/
+dist/
+.astro/
+# The second build folder and build stamps the launcher keeps (automations/scripts/run-web.sh)
+dist-*/
+.dist*-served
+.dist*-started
+.dist*-failed
+# The conversations the chat panel started on this machine, so a resume can only reach its own
+.chat-sessions.json

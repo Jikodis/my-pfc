@@ -17,7 +17,7 @@ You (Phone/Laptop)
 Anthropic API (inference + relay)
     │
     ▼
-VPS (any Linux distro; Ubuntu 24.04 recommended). Tested with Hetzner, DigitalOcean, Vultr — any flat-rate $4–6/mo droplet handles the workload.
+VPS (any Linux distro; Ubuntu 24.04 recommended). Tested with Hetzner, DigitalOcean, Vultr — any flat-rate $4–6/mo server handles the workload.
     ├── Claude Code CLI
     ├── tmux (session persistence)
     └── UFW firewall + SSH key auth
@@ -29,11 +29,15 @@ Git Repo (this repo)
 GitHub (private, backup + sync)
 ```
 
+## Surfaces
+
+Four surfaces render the repo, and none of them owns state: **Claude Code** (where the work happens), the **Trello board** (phone, `trello_render.py`), the **TRMNL e-ink screen** (ambient, `trmnl/`), and the optional **local web UI** (`web/`, an Astro app at `http://127.0.0.1:4323` on the machine that holds a clone, with a Claude Code chat panel and buttons that complete a task, log a habit, rate the day, or set the 2+1 through `web_write.py`). Numbers with a rule behind them are computed once in Python (`home_data.py`, `project_gauges.py`, `focus_status.py`) so the surfaces cannot disagree. Record changes the web writer and the Trello sync share live in `pfc_writes.py`; both rewrite files through `ndjson_file.py`. A clone that runs the web UI pulls before every write and pushes after it (`repo_sync.py`), so a laptop clone and a VPS clone stay level. Setup: [`install/web-ui.md`](install/web-ui.md).
+
 ## Key decisions
 
 | Decision | Choice | Reasoning |
 |---|---|---|
-| VPS Provider | any VPS provider (Hetzner, DigitalOcean, Vultr, etc.) | a $4–6/mo flat-rate droplet is plenty for this workload |
+| VPS Provider | any VPS provider (Hetzner, DigitalOcean, Vultr, etc.) | a $4–6/mo flat-rate server is plenty for this workload |
 | Plan | ~$6/mo (1 vCPU, 1GB, 25GB minimum) | API-bound workload, minimal compute needed |
 | Primary Access | Claude App + Remote Control | Native phone experience, no terminal needed |
 | Git Strategy | Commit directly to main | Markdown + NDJSON operations, low merge risk |

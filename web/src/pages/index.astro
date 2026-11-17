@@ -1,0 +1,811 @@
+---
+/**
+ * The one page in three groups by how far ahead each looks: Today (Body first, Tasks,
+ * Habits, Week), This quarter (Focuses, Projects, Trends), and Always (Areas, Values,
+ * Visions, Front of mind).
+ *
+ * Every branch comes from `getHome()` (`automations/scripts/home_data.py`): the
+ * evening switch, which day to rate, which review is due, the one thing to look at.
+ * The page only shows what it is handed. One-tap changes with fixed values write directly
+ * (`ActionButton`, the area and room lights in `src/scripts/home-client.ts`, the rating,
+ * and picks in `src/scripts/day-client.ts`); a due review links to `/review`; anything that needs wording
+ * opens the chat with a prepared prompt.
+ */
+import ActionButton from '../components/ActionButton.astro'
+import Band from '../components/Band.astro'
+import FocusMeter from '../components/FocusMeter.astro'
+import LeverRow from '../components/LeverRow.astro'
+import ProjectRow from '../components/ProjectRow.astro'
+import Light from '../components/Light.astro'
+import PickList from '../components/PickList.astro'
+import WhyLine from '../components/WhyLine.astro'
+import Base from '../layouts/Base.astro'
+import { COMMANDS, PROMPTS, QUICK_ADD, chatPrompt } from '../lib/chat/prompts'
+import { getHome, type Home, type HomeTask } from '../lib/computed'
+import { addDays, formatDate, formatTime12 } from '../lib/dates'
+import { safe } from '../lib/safe'
+import { reviewHint } from '../lib/day'
+
+// One call per script per render: it starts a Python process.
+const home = safe(getHome)
+
+const h: Home | null = home.ok ? home.value : null
+const failed = home.ok ? undefined : home.error
+
+const yesterday = h ? addDays(h.date, -1) : ''
+// Suggestions are for `pick_date` (tomorrow from about 6 PM, Python's switch); they
+// show while that day has no picks set, and before 6 PM also once every pick for
+// today is done (Python's `all_picks_done`), when Set adds to today's picks.
+const pickDayPicks = h ? (h.evening ? h.tomorrow_picks : h.picks) : null
+const addingToToday = !!h && !h.evening && h.all_picks_done && !!h.picks
+const keepPicks = addingToToday && h?.picks ? JSON.stringify({ critical: h.picks.critical_ids, bonus: h.picks.bonus_id }) : undefined
+const suggestMax = addingToToday ? 2 : 3
+
+const focusTiers: ['foundation' | 'pursuit' | 'consuming', string][] = [
+  ['foundation', 'Foundations'], ['pursuit', 'Active Pursuits'], ['consuming', 'Currently Consuming'],
+]
+const LIGHT_BUTTONS: [string, string][] = [['green', 'G'], ['yellow', 'Y'], ['red', 'R']]
+const lightWord = (l: string) => l.charAt(0).toUpperCase() + l.slice(1)
+// The registry's status words, as a person reads them.
+const statusLabel = (s: string) => (s === 'on-deck' ? 'On deck' : lightWord(s))
+
+const handOffPrompt = (t: HomeTask) => chatPrompt(PROMPTS.handOff, { title: t.title, id: t.id })
+const ratingRows: [string, string][] = [['energy', 'Energy'], ['mood', 'Mood'], ['focus', 'Focus']]
+const dailyHabits = h ? h.habits.filter((r) => r.cadence === 'daily') : []
+const monthlyHabits = h ? h.habits.filter((r) => r.cadence === 'monthly') : []
+const rateLabel = h && h.rate_target.date === h.date ? 'today' : 'yesterday'
+const look = h?.tour_look ?? null
+// A needs-you row that is also one of today's picks shows on the pick card only (Python's `in_picks`).
+const needsYou = h ? h.needs_you.filter((n) => !n.in_picks) : []
+const lookPrompt = look
+  ? look.kind === 'stale_areas' ? PROMPTS.rateAreas
+    : look.kind === 'stalled_project' ? chatPrompt(PROMPTS.revive, { name: look.title })
+    : COMMANDS.focus
+  : null
+// Counts of stored fields for the card notes and the collapsed lines; no rule is decided here.
+const liveFocuses = h ? h.focus.filter((f) => !f.parked) : []
+const redFocuses = liveFocuses.filter((f) => f.status === 'red').length
+const chronicFocuses = liveFocuses.filter((f) => f.chronic).length
+const stalledProjects = h ? h.projects.active.filter((p) => p.stalled).length : 0
+const greenAreas = h ? h.areas.rows.filter((r) => r.light === 'green').length : 0
+const greenRooms = h?.household ? h.household.rows.filter((r) => r.light === 'green').length : 0
+const dailyLogged = dailyHabits.filter((r) => r.logged_today).length
+// The Habits band shows a Log today button only for a daily habit logged by hand and
+// not yet logged today; everything else folds behind a count (stored fields only).
+const dailyToLog = dailyHabits.filter((r) => !r.auto_derived && !r.logged_today)
+const dailyRest = dailyHabits.filter((r) => r.auto_derived || r.logged_today)
+const yesterdayToLog = h ? h.habits.filter((r) => !r.auto_derived && !r.logged_yesterday) : []
+// Last night's levers by light, for the folded summary line: counts of stored marks.
+const leverCounts: [string, number][] = (['RED', 'YELLOW', 'GREEN'] as const).map((m) => [m.toLowerCase(), h?.pulse ? h.pulse.levers.filter((l) => l.mark === m).length : 0])
+// Long-running reds (Python's `chronic`) fold into one line after the worst of them
+// (`chronic_lead`), which stays in the list; a red that is new keeps its own row.
+const folded = <T extends { chronic?: boolean; chronic_lead?: boolean }>(rows: T[]) => rows.filter((r) => r.chronic && !r.chronic_lead)
+const shown = <T extends { chronic?: boolean; chronic_lead?: boolean }>(rows: T[]) => rows.filter((r) => !r.chronic || r.chronic_lead)
+const leversFolded = h?.pulse ? folded(h.pulse.levers) : []
+const leversNotUsual = h?.pulse ? h.pulse.levers.filter((l) => l.mark === 'RED' && !l.chronic) : []
+const projectsFolded = h ? folded(h.projects.active) : []
+const pct = (rate: number | null | undefined) => `${Math.round(Math.max(0, Math.min(1, rate ?? 0)) * 100)}%`
+const WEEK_SHOWN = 3
+---
+<Base title="PFC" heading={h ? formatDate(h.date) : 'PFC'}>
+  <div class="home">
+    <div class="zone zone-today">
+      <div class="zone-head">
+        <h2>Today</h2>
+        <p class="sub">Body first, then the picks.</p>
+      </div>
+      <div class="zone-grid">
+
+    <Band band="body" title="Body first" bare error={failed}>
+      {h && (
+        <div class="body-grid">
+          <div class="hero">
+            <p class="hero-top">
+              {h.pulse && <span class="hero-pill"><Light status={h.pulse.verdict_mark} /></span>}
+              {h.body.broken_night && <span class="hero-pill hero-flag">Broken night</span>}
+            </p>
+            <p class="hero-verdict">{h.pulse ? h.pulse.verdict : 'Sleep decides what today can hold.'}</p>
+            {h.pulse?.move && <p class="hero-move">Tonight: {h.pulse.move}</p>}
+            <div class="hero-foot">
+              <div class="hero-stats">
+                <div><span class="stat">{h.body.sleep_hours === null ? 'No data' : `${h.body.sleep_hours} h`}</span><span class="stat-label">slept</span></div>
+                {h.body.awake_minutes !== null && <div><span class="stat">{h.body.awake_minutes} min</span><span class="stat-label">awake in the night</span></div>}
+              </div>
+            </div>
+          </div>
+          <div class="panel levers-card">
+            {h.pulse && h.pulse.levers.length > 0 ? (
+              <details class="levers-fold">
+                <summary>
+                  <span class="levers-head">Last night against target</span>
+                  <span class="lever-counts">
+                    {leverCounts.map(([light, n]) => n > 0 && <span><Light status={light} /> {n}</span>)}
+                  </span>
+                  {leversNotUsual.length > 0 && (
+                    <span class="lever-new sub">Red last night, but not usually: <strong>{leversNotUsual.map((l) => l.label_plain).join(', ')}</strong></span>
+                  )}
+                </summary>
+                <ul class="plain levers">
+                  {shown(h.pulse.levers).map((l) => (
+                    <>
+                      <LeverRow l={l} />
+                      {l.chronic_lead && leversFolded.length > 0 && (
+                        <li class="chronic-line">
+                          <details class="fold">
+                            <summary><Light status="red" /> {leversFolded.length} more red on {Math.min(...leversFolded.map((x) => x.red_nights))}+ of the last {l.nights} nights</summary>
+                            <ul class="plain levers">{leversFolded.map((x) => <LeverRow l={x} />)}</ul>
+                          </details>
+                        </li>
+                      )}
+                    </>
+                  ))}
+                </ul>
+              </details>
+            ) : <p class="muted">No sleep reading yet.</p>}
+          </div>
+        </div>
+      )}
+      {/* The day Python names, while it is unrated: yesterday before about 6 PM, today after. */}
+      {h && h.rate_target.unrated && (
+        <div class="panel rate-card">
+          <p class="card-title">How was {rateLabel}? <span class="sub">{formatDate(h.rate_target.date)}. One tap each, 5 is best.</span></p>
+          <div class="rate" data-rate-date={h.rate_target.date}>
+            <div class="rate-rows">
+              {ratingRows.map(([key, label]) => (
+                <div class="tap-row" role="group" aria-label={label}>
+                  <span class="tap-label">{label}</span>
+                  {[1, 2, 3, 4, 5].map((n) => <button type="button" class="tap" data-rate={key} data-value={n} aria-pressed="false">{n}</button>)}
+                </div>
+              ))}
+              <div class="tap-row" role="group" aria-label="Hyperfocused (optional)">
+                <span class="tap-label">Hyperfocused? <span class="sub">optional</span></span>
+                <button type="button" class="tap" data-rate="hyperfocused" data-value="yes" aria-pressed="false">Yes</button>
+                <button type="button" class="tap" data-rate="hyperfocused" data-value="no" aria-pressed="false">No</button>
+              </div>
+              {/* Save sits in the grid's free cell, so the card stays two rows tall and the picks stay on the first screen. */}
+              <div class="actions rate-actions">
+                <button type="button" class="act-write save rate-save" disabled>Save rating</button>
+                <span class="day-status sub" role="status" aria-live="polite"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Band>
+
+    <Band band="tasks" title="The 2+1" bare error={failed}>
+      {h && (
+        <>
+          {/* One focus a day with the vision and value behind it: why the picks matter. */}
+          {h.focus_of_day && (
+            <p class="why-line">
+              <span class="panel-label">Why</span>
+              <strong>{h.focus_of_day.title}</strong>
+              {h.focus_of_day.vision && <span class="sub"> &#8594; {h.focus_of_day.vision}</span>}
+              {h.focus_of_day.value && <span class="sub"> &#8594; {h.focus_of_day.value}</span>}
+            </p>
+          )}
+          {/* Today's picks all day, Done buttons included; tomorrow's below from about 6 PM. */}
+          {h.picks ? <PickList picks={h.picks} doneButtons /> : h.evening && <p class="sub">No picks were set today.</p>}
+          {h.evening && (
+            <>
+              <p class="panel-label">Tomorrow, {formatDate(h.pick_date)}</p>
+              {h.tomorrow_picks && <PickList picks={h.tomorrow_picks} doneButtons={false} />}
+            </>
+          )}
+          <div class="task-extras">
+          {(!pickDayPicks || addingToToday) && (h.suggested.length === 0 ? (
+            <p class="sub">Nothing to pick; add a task in chat</p>
+          ) : (
+            <div class="panel suggest" data-pick-date={h.pick_date} data-pick-max={suggestMax} data-keep-picks={keepPicks}>
+              <p class="card-title">{addingToToday ? 'Add to today' : `Set the picks for ${h.evening ? 'tomorrow' : 'today'}`}</p>
+              <p class="sub">{addingToToday
+                ? "Today's picks are done. Tap Set on one or two more to add them to today."
+                : 'Tap Set on up to three: the first two are the picks, a third is the bonus.'}</p>
+              <ul class="plain rows">
+                {h.suggested.map((t) => (
+                  <li title={t.id}>
+                    <span class="row-main"><span class="pick-title">{t.title}</span><WhyLine why={t.why} /></span>
+                    <span class="suggest-buttons">
+                      <button type="button" class="act pick-choice" data-pick-choice={t.id} aria-pressed="false" aria-label={`Set: ${t.title}`}>Set</button>
+                      <ActionButton action="complete-task" id={t.id} label="Already done" name={t.title} confirm="Mark done?" />
+                      <ActionButton action="skip-suggestion" id={t.id} label="Pick another" name={t.title} extra={h.pick_date} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div class="actions">
+                <button type="button" class="act-write save" id="picks-save" disabled>{addingToToday ? 'Add to today' : 'Set these picks'}</button>
+                <span class="day-status sub" role="status" aria-live="polite"></span>
+              </div>
+            </div>
+          ))}
+          {/* What needs you: overdue and flagged items, at most one due review, and the one thing Python says to look at. */}
+          {(needsYou.length > 0 || h.due_review || look) && (
+            <div class="panel">
+              <p class="card-title"><Light status="red" /> What needs you</p>
+              <ul class="plain rows">
+                {needsYou.map((n) => (
+                  <li title={n.id}>
+                    <span class="row-main">{n.title} <span class="overdue">{n.date ? `${n.why} ${formatDate(n.date)}` : n.why}</span></span>
+                    {n.kind !== 'focus' && <ActionButton action="complete-task" id={n.id} label="Done" name={n.title} confirm="Mark done?" />}
+                  </li>
+                ))}
+                {h.due_review && (
+                  <li title={h.due_review.id}>
+                    <span class="row-main"><strong>Review due:</strong> {h.due_review.label}{reviewHint(h.due_review.skill) && <span class="sub why">{reviewHint(h.due_review.skill)}</span>}</span>
+                    {/* Reviews happen on one page, one at a time: /review shows the form. */}
+                    <a class="review-start" href="/review">Start this review</a>
+                  </li>
+                )}
+                {look && (
+                  <li>
+                    <span class="row-main"><strong>Look at:</strong> {look.title} <span class="sub">{look.detail}{look.date && ` ${formatDate(look.date)}`}</span></span>
+                    {lookPrompt && (
+                      <button type="button" class="act" data-chat-prompt={lookPrompt}>
+                        {look.kind === 'stale_areas' ? 'Rate my areas' : look.kind === 'stalled_project' ? 'Revive it' : 'Look at my focuses'}
+                      </button>
+                    )}
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+          {h.handoffs.length > 0 && (
+            <div class="panel">
+              <p class="card-title">An agent can do these</p>
+              <ul class="plain rows">
+                {h.handoffs.map((t) => (
+                  <li title={t.id}>
+                    <span class="row-main">{t.title}</span>
+                    <button type="button" class="act" data-chat-prompt={handOffPrompt(t)} aria-label={`Hand off: ${t.title}`}>Hand off</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          </div>
+          {h.offer_open_day && (
+            <div class="actions">
+              <button type="button" data-chat-prompt={COMMANDS.planOpenDay} data-chat-send="1">Plan tomorrow as an open day</button>
+            </div>
+          )}
+        </>
+      )}
+    </Band>
+
+    <Band band="habits" title="Habits" size="half" error={failed}>
+      {h && dailyHabits.length > 0 && <p class="card-note sub">{dailyLogged} of {dailyHabits.length} daily habits logged today</p>}
+      {h && h.habits.length > 0 && (
+        <>
+          {/* Only what still needs a tap today; the rest sits folded behind a count. */}
+          {dailyToLog.length === 0 ? <p class="sub">Every daily habit you log by hand is logged today.</p> : (
+            <ul class="plain rows habit-rows">
+              {dailyToLog.map((r) => (
+                <li title={`${r.id}: ${r.description}`}>
+                  <span class="row-main">{r.title_plain}</span>
+                  <ActionButton action="log-habit" id={r.id} label="Log today" name={r.title_plain} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {dailyRest.length > 0 && (
+            <details class="fold">
+              <summary>Logged today or automatic ({dailyRest.length})</summary>
+              <ul class="plain rows habit-rows">
+                {dailyRest.map((r) => (
+                  <li title={`${r.id}: ${r.description}`} class={r.logged_today ? 'habit-done' : undefined}>
+                    <span class="row-main">{r.title_plain}</span>
+                    <span class={r.logged_today ? 'tag tag-done' : 'tag'}>{r.auto_derived ? (r.logged_today ? 'Logged today, automatic' : 'Automatic') : 'Logged today'}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {monthlyHabits.length > 0 && (
+            <details class="fold">
+              <summary>Monthly ({monthlyHabits.length})</summary>
+              <ul class="plain rows habit-rows">
+                {monthlyHabits.map((r) => (
+                  <li title={`${r.id}: ${r.description}`} class={r.logged_today ? 'habit-done' : undefined}>
+                    <span class="row-main">{r.title_plain}</span>
+                    {r.auto_derived ? <span class="tag">{r.logged_today ? 'Logged today, automatic' : 'Automatic'}</span>
+                      : r.logged_today ? <span class="tag tag-done">Logged today</span>
+                      : <ActionButton action="log-habit" id={r.id} label="Log today" name={r.title_plain} />}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {yesterdayToLog.length > 0 && (
+            <details class="fold">
+              <summary>Log one for yesterday ({yesterdayToLog.length} not logged)</summary>
+              <ul class="plain rows habit-rows">
+                {yesterdayToLog.map((r) => (
+                  <li title={`${r.id}: ${r.description}`}>
+                    <span class="row-main">{r.title_plain}{r.cadence === 'monthly' && <span class="sub"> · monthly</span>}</span>
+                    <ActionButton action="log-habit" id={r.id} label="Log yesterday" name={r.title_plain} extra={yesterday} />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+      {h && h.habits.length === 0 && <p class="muted">No habits.</p>}
+    </Band>
+
+    <Band band="week" title="Week" size="half" error={failed}>
+      {h && (h.week.length === 0 ? <p class="muted">No calendar data yet.</p> : (
+        <ul class="plain week">
+          {h.week.map((d) => (
+            <li class={d.date === h.date ? 'week-day week-today' : 'week-day'}>
+              <span class="week-date">{d.date === h.date ? 'Today' : formatDate(d.date)}</span>
+              {d.events.length === 0 ? <span class="sub">Nothing scheduled.</span> : (
+                <span class="week-events">
+                  {d.events.slice(0, WEEK_SHOWN).map((e) => <span><span class="week-time">{e.start ? formatTime12(e.start) : 'All day'}</span> {e.title}</span>)}
+                  {d.events.length > WEEK_SHOWN && (
+                    <details class="fold">
+                      <summary>{d.events.length - WEEK_SHOWN} more</summary>
+                      {d.events.slice(WEEK_SHOWN).map((e) => <span><span class="week-time">{e.start ? formatTime12(e.start) : 'All day'}</span> {e.title}</span>)}
+                    </details>
+                  )}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ))}
+    </Band>
+
+      </div>
+    </div>
+
+    <div class="zone zone-quarter">
+      <div class="zone-head">
+        <h2>This quarter</h2>
+        <p class="sub">What you are on now, worst first.</p>
+      </div>
+      <div class="zone-grid">
+
+    <Band band="focuses" title="Focuses" size="half" error={failed}>
+      {h && (
+        <>
+          <p class="card-note sub">{redFocuses} of {liveFocuses.length} live focuses are red{chronicFocuses > 0 && `, ${chronicFocuses} of them for 2 weeks or more`}</p>
+          {h.repick_nudge && (
+            <p class="callout">All six pursuit slots are full and one has been red four weeks or more. Time to re-pick.</p>
+          )}
+          {focusTiers.map(([tier, label]) => {
+            const rows = h.focuses[tier] ?? []
+            return (
+              <>
+                <p class="panel-label">{label}</p>
+                {rows.length === 0 ? <p class="muted">None.</p> : (
+                  <ul class="plain meter-rows">
+                    {shown(rows).map((f) => (
+                      <>
+                        <FocusMeter f={f} />
+                        {f.chronic_lead && folded(rows).length > 0 && (
+                          <li class="chronic-line">
+                            <details class="fold">
+                              <summary><Light status="red" /> {folded(rows).length} more red for {Math.min(...folded(rows).map((x) => x.weeks_red))}+ weeks</summary>
+                              <ul class="plain meter-rows">{folded(rows).map((x) => <FocusMeter f={x} />)}</ul>
+                            </details>
+                          </li>
+                        )}
+                      </>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )
+          })}
+          <div class="actions">
+            <button type="button" class="act" data-chat-prompt={PROMPTS.repickFocus}>Re-pick focuses</button>
+            <button type="button" class="act" data-chat-prompt={PROMPTS.addFocus}>Add a focus</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="projects" title="Projects" size="half" error={failed}>
+      {h && (
+        <>
+          {h.projects.active.length === 0 ? <p class="muted">No active projects.</p> : (
+            <>
+              <p class="card-note sub">{h.projects.active.length} active{stalledProjects > 0 && `, ${stalledProjects} stalled`}</p>
+              <ul class="plain project-rows">
+                {shown(h.projects.active).map((p) => (
+                  <>
+                    <ProjectRow p={p} />
+                    {p.chronic_lead && projectsFolded.length > 0 && (
+                      <li class="chronic-line">
+                        <details class="fold">
+                          <summary><Light status="red" /> {projectsFolded.length} more stalled, idle {Math.min(...projectsFolded.map((x) => x.days_idle ?? 0))}+ days</summary>
+                          <ul class="plain project-rows">{projectsFolded.map((x) => <ProjectRow p={x} />)}</ul>
+                        </details>
+                      </li>
+                    )}
+                  </>
+                ))}
+              </ul>
+            </>
+          )}
+          {h.projects.other.length > 0 && (
+            <details class="more-projects fold">
+              <summary>Parked and on deck ({h.projects.other.length})</summary>
+              <ul class="plain rows">
+                {h.projects.other.map((p) => (
+                  <li title={p.id}>
+                    <span class="row-main"><span class="tag">{statusLabel(p.status)}</span> {p.name}</span>
+                    <ActionButton action="set-project" id={p.id} label="Activate" name={p.name} extra="active" />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+    </Band>
+
+    <Band band="trends" title="Trends" error={failed}>
+      {h && (h.trends.length === 0 ? <p class="muted">No trend data yet.</p> : (
+        <>
+          <p class="card-note sub">The last 30 days</p>
+          <ul class="plain trend-rows">
+            {h.trends.map((t) => <li><Light status={t.light} /><strong>{t.name}</strong><span class="sub">{t.why}</span></li>)}
+          </ul>
+        </>
+      ))}
+    </Band>
+
+      </div>
+    </div>
+
+    <div class="zone zone-always">
+      <div class="zone-head">
+        <h2>Always</h2>
+        <p class="sub">The parts of life that are never done, and what they are judged against.</p>
+      </div>
+      <div class="zone-grid">
+
+    <Band band="areas" title="Areas" error={failed}>
+      {h && (
+        <>
+          {h.plate && (
+            <div class="plate">
+              <p class="plate-line">
+                <span><Light status={h.plate.light} /> <strong>{h.plate.committed} of {h.plate.free}</strong> free waking hours a week committed</span>
+                {h.plate.pct !== null && <span class="sub">{h.plate.pct}%</span>}
+              </p>
+              {h.plate.pct !== null && <span class="bar bar-tall" role="img" aria-label={`${h.plate.pct}% committed`}><span style={`width:${pct(h.plate.pct / 100)}`}></span></span>}
+            </div>
+          )}
+          <div class="light-group">
+            <p class="panel-label">
+              Life wheel
+              <span class="sub"> · {h.areas.date ? `checked ${formatDate(h.areas.date)}` : 'never rated'} · {greenAreas} of {h.areas.rows.length} green</span>
+              {h.areas.stale && <span class="tag flag">Stale</span>}
+            </p>
+            {h.areas.stale && (
+              <div class="actions"><button type="button" class="act" data-chat-prompt={PROMPTS.rateAreas}>Check in on my areas</button></div>
+            )}
+            <ul class="plain area-rows">
+              {h.areas.rows.map((r) => (
+                <li title={r.key}>
+                  <details class="area">
+                    <summary>
+                      <span class="light-name"><Light status={r.light ?? ''} /> <strong>{r.label}</strong></span>
+                      <span class="sub">
+                        {r.hours !== null ? `${r.hours} h a week` : 'no weekly hours'}
+                        {r.source === 'items' ? ` · from ${r.items.length} items` : ''}
+                      </span>
+                      {r.light !== 'green' && <span class="sub area-why">{r.why}</span>}
+                    </summary>
+                    {r.items.length > 0 && (
+                      <ul class="plain area-items">
+                        {r.items.map((i) => (
+                          <li title={i.id}>
+                            <span class="light-name"><Light status={i.light ?? ''} /> {i.title}</span>
+                            <span class="sub">
+                              {i.kind === 'time' ? 'Time' : 'Status'}
+                              {i.hours !== null && ` · ${i.hours} h a week`}
+                              {` · weight ${i.weight}`}
+                              {` · ${i.why}`}
+                            </span>
+                            {i.stale && <span class="tag flag">Stale</span>}
+                            {i.ended && <span class="tag flag">Ended</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {r.source === 'items' ? (
+                      <p class="sub">The color comes from these items; it changes when they do.</p>
+                    ) : (
+                    <div class="light-edit" data-light-kind="area" data-key={r.key} data-light={r.manual ?? ''}>
+                      <span class="sub">{r.items.length ? 'Manual light, used when no item has data:' : 'Manual light:'}</span>
+                      <span class="light-buttons" role="group" aria-label={`${r.label} manual color`}>
+                        {LIGHT_BUTTONS.map(([light, letter]) => (
+                          <button type="button" class={`tap light-tap light-tap-${light}`} data-set-light={light}
+                            aria-pressed={r.manual === light ? "true" : "false"} aria-label={`${lightWord(light)}: ${r.label}`}>{letter}</button>
+                        ))}
+                      </span>
+                      <input type="text" class="light-note" value={r.note ?? ''} maxlength={300}
+                        placeholder="Note" aria-label={`Note for ${r.label}`} />
+                      <button type="button" class="act act-write light-save">Save</button>
+                      <span class="light-status sub" role="status" aria-live="polite"></span>
+                    </div>
+                    )}
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </div>
+          {h.household && (
+          <details class="light-group fold" open={h.household.stale}>
+            <summary>
+              <strong>Household</strong>
+              <span class="sub"> · {greenRooms} of {h.household.rows.length} rooms green · {h.household.date ? `rated ${formatDate(h.household.date)}` : 'never rated'}</span>
+              {h.household.stale && <span class="tag flag">Stale</span>}
+            </summary>
+            <ul class="plain light-rows">
+              {h.household.rows.map((r) => (
+                <li class="light-edit" data-light-kind="room" data-key={r.key} data-light={r.light} title={r.key}>
+                  <span class="light-name"><Light status={r.light} /> <strong>{r.label}</strong></span>
+                  <span class="light-buttons" role="group" aria-label={`${r.label} color`}>
+                    {LIGHT_BUTTONS.map(([light, letter]) => (
+                      <button type="button" class={`tap light-tap light-tap-${light}`} data-set-light={light}
+                        aria-pressed={r.light === light ? "true" : "false"} aria-label={`${lightWord(light)}: ${r.label}`}>{letter}</button>
+                    ))}
+                  </span>
+                  <input type="text" class="light-note" value={r.note ?? ''} maxlength={300}
+                    placeholder="Note" aria-label={`Note for ${r.label}`} />
+                  <button type="button" class="act act-write light-save">Save</button>
+                  <span class="light-status sub" role="status" aria-live="polite"></span>
+                </li>
+              ))}
+            </ul>
+          </details>
+          )}
+        </>
+      )}
+    </Band>
+
+    <Band band="values" title="Values" size="half" error={failed}>
+      {h && (
+        <>
+          {h.values.length === 0 ? <p class="muted">No values listed.</p> : (
+            <div class="chips">{h.values.map((v, i) => <span class="tag chip"><span class="sub">{i + 1}</span> {v}</span>)}</div>
+          )}
+          {h.question_of_day && (
+            <p class="question"><span class="panel-label">Question of the day</span>{h.question_of_day.text}</p>
+          )}
+          <div class="actions">
+            <button type="button" class="act" data-chat-prompt={PROMPTS.editQuestions}>Edit questions</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="visions" title="Visions" size="half" error={failed}>
+      {h && (
+        <>
+          {h.vision_of_day && (
+            <p class="vision-day"><span class="panel-label">Today's vision</span><strong>{h.vision_of_day.title}</strong>{h.vision_of_day.value && <span class="sub"> serves {h.vision_of_day.value}</span>}</p>
+          )}
+          <div class="chips">
+            {h.visions.map((v) => (
+              <span class={`tag chip${h.vision_of_day?.id === v.id ? ' chip-on' : ''}`} title={v.id}>{v.title}</span>
+            ))}
+          </div>
+          {h.visions.length === 0 && <p class="muted">No active visions.</p>}
+          <div class="actions">
+            <button type="button" class="act" data-chat-prompt={PROMPTS.updateVision}>Update a vision</button>
+            <button type="button" class="act" data-chat-prompt={COMMANDS.visionBrainstorm} data-chat-send="1">Brainstorm</button>
+          </div>
+        </>
+      )}
+    </Band>
+
+    <Band band="front-of-mind" title="Front of mind" size="half" error={failed}>
+      {h && (
+        <>
+          {h.anchors.length === 0 ? <p class="muted">No active anchors.</p> : (
+            <ul class="plain rows">
+              {h.anchors.map((a) => (
+                <li title={a.id}>
+                  <span class="row-main">{a.title}</span>
+                  <span class="habit-buttons">
+                    <button type="button" class="act" data-chat-prompt={chatPrompt(PROMPTS.editAnchor, { title: a.title, id: a.id })} aria-label={`Edit: ${a.title}`}>Edit</button>
+                    <ActionButton action="retire-anchor" id={a.id} label="Retire" name={a.title} confirm="Retire it?" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div class="actions"><button type="button" class="act" data-chat-prompt={PROMPTS.addAnchor}>Add</button></div>
+        </>
+      )}
+    </Band>
+
+      </div>
+    </div>
+  </div>
+
+  {h && (
+    <div class="footer-tools">
+      {/* Quick add: what is typed goes into the chat box after the words add task,
+          and waits there for Send. */}
+      <div class="quick-add">
+        <input type="text" id="quick-add" aria-label="Quick add a task" placeholder="Quick add a task" data-chat-enter="quick-add-go" />
+        <button type="button" id="quick-add-go" class="btn-primary" data-chat-prompt={QUICK_ADD} data-chat-input="quick-add">Add</button>
+      </div>
+    </div>
+  )}
+</Base>
+
+<script>
+  import '../scripts/day-client'
+  import '../scripts/home-client'
+</script>
+
+<style is:global>
+  /* --- The page: three groups, top to bottom. --- */
+  .home { display:flex; flex-direction:column; gap:40px; min-width:0; }
+  .zone { display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .zone-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; }
+  .zone-head h2 { margin:0; font-size:26px; letter-spacing:-.02em; }
+  .zone-head .sub { margin:0; font-size:15px; }
+  .zone-grid { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:16px; align-items:start; }
+  .band { grid-column:span 12; min-width:0; }
+  .band.half { grid-column:span 6; } .band.third { grid-column:span 4; } .band.two-thirds { grid-column:span 8; }
+  @container (max-width: 860px) { .band.half, .band.third, .band.two-thirds { grid-column:span 12; } }
+  .band-bare > h2 { font-size:20px; margin:8px 0 10px; }
+  .band h2 { margin:0 0 4px; }
+
+  /* --- Shared pieces --- */
+  .panel ul.plain, ul.plain { list-style:none; padding-left:0; margin:0; }
+  .card-title { margin:0 0 10px; font-size:16px; font-weight:700; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+  .card-note { margin:0 0 6px; }
+  .stat { display:block; font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
+  .stat-label { display:block; font-size:13px; }
+  .rows > li { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:9px 0; margin:0; border-top:1px solid var(--panel); }
+  .rows > li:first-child { border-top:0; }
+  .row-main { flex:1 1 220px; min-width:0; }
+  .fold { margin-top:10px; }
+  .fold > summary { font-weight:600; padding:6px 0; }
+  .fold > summary .light { margin-right:4px; }
+  .callout { background:var(--panel); border-radius:10px; padding:10px 14px; font-weight:600; margin:0 0 8px; }
+  .tag.flag { border-color:var(--red); color:var(--red-t); background:var(--card); margin-left:6px; }
+  .tag-done { background:var(--green-t); border-color:var(--green-t); color:var(--card); }
+  .why { display:block; margin-top:2px; }
+
+  /* Body first */
+  .body-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap:16px; align-items:start; }
+  .hero { background:var(--ink); color:var(--bg); border-radius:16px; padding:20px 26px; display:flex; flex-direction:column; gap:10px; }
+  .hero p { margin:0; }
+  .hero-top { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+  .hero-pill { background:var(--bg); color:var(--ink); border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; display:inline-flex; }
+  .hero-flag { color:var(--red-t); }
+  .hero-verdict { font-size:24px; line-height:1.2; font-weight:700; letter-spacing:-.02em; text-wrap:balance; }
+  .hero-move { font-size:16px; color:var(--panel); max-width:38em; }
+  .hero-foot { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px; }
+  .hero-stats { display:flex; flex-wrap:wrap; gap:10px 28px; }
+  .hero .stat { font-size:22px; }
+  .hero .stat-label { color:var(--panel); }
+  .levers > li { display:grid; grid-template-columns:84px minmax(0, 1fr) auto; gap:2px 10px; align-items:center; padding:8px 0; margin:0; border-top:1px solid var(--panel); }
+  .levers > li:first-child { border-top:0; }
+  .lever-name { font-weight:600; } .lever-name .sub { font-weight:400; font-size:13px; }
+  .lever-value { font-weight:700; font-size:17px; white-space:nowrap; }
+  .lever-bar { grid-column:2 / 4; display:grid; grid-template-columns:minmax(60px, 1fr) auto; gap:10px; align-items:center; }
+  .lever-bar .sub { font-size:12px; }
+  .levers-card { padding:14px 20px; }
+  .levers-fold > summary { padding:4px 0; }
+  .levers-head { font-size:16px; font-weight:700; margin-right:12px; }
+  .lever-counts { display:inline-flex; flex-wrap:wrap; gap:4px 14px; font-weight:600; vertical-align:baseline; }
+  .levers-fold[open] > summary { margin-bottom:6px; }
+
+  /* The 2+1 */
+  .picks { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap:16px; }
+  .pick { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px 22px; margin:0; display:flex; flex-direction:column; gap:8px; }
+  .pick-first { border:2px solid var(--ink); }
+  .pick-bonus { background:transparent; border-style:dashed; border-color:var(--line); }
+  .pick-done { background:var(--panel); }
+  .pick-kicker { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--sub); }
+  .pick-first .pick-kicker { color:var(--ink); }
+  .pick .pick-title { font-size:18px; font-weight:600; line-height:1.3; text-wrap:pretty; }
+  .pick-title { color:var(--ink); }
+  .pick-title.done { color:var(--muted); }
+  .pick-actions { margin-top:auto; padding-top:8px; }
+  .pick-flag { font-size:14px; }
+  .pick-first .pick-actions button.act-write { background:var(--ink); color:var(--bg); padding:7px 20px; font-size:15px; }
+  .task-extras { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap:16px; margin-top:16px; align-items:start; }
+  .task-extras:empty { display:none; }
+  .suggest-buttons, .habit-buttons { display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  button.pick-choice[aria-pressed="true"], button.tap[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:var(--bg); }
+
+  /* Rating taps */
+  .rate-card { margin-top:16px; border:2px solid var(--ink); padding:12px 20px; }
+  .rate-card .card-title { margin-bottom:2px; }
+  .rate-card .tap-row { margin:6px 0; }
+  .rate-card .tap-label .sub { font-size:13px; line-height:1.25; }
+  .rate-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:6px 0; }
+  .rate-card .tap-row { flex-wrap:nowrap; }
+  .rate-card .tap-label { min-width:0; flex:1 1 auto; }
+  .rate-rows { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap:0 28px; }
+  .why-line { margin:0 0 12px; }
+  .why-line .panel-label { display:inline; margin-right:8px; }
+  a.review-start { font-weight:700; font-size:14px; white-space:nowrap; }
+  .tap-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0; }
+  .tap-label { min-width:9em; font-weight:600; }
+  button.tap { min-width:2.6em; min-height:38px; font-weight:600; }
+  button.save { border-color:var(--ink); font-weight:700; }
+  button.save:not(:disabled) { background:var(--ink); color:var(--bg); }
+  button.save:disabled { border-color:var(--border); color:var(--muted); cursor:default; }
+
+  /* Habits, week */
+  .habit-done .row-main { color:var(--sub); }
+  .week { display:flex; flex-direction:column; }
+  .week-day { display:grid; grid-template-columns:104px minmax(0, 1fr); gap:10px; padding:9px 10px; margin:0; border-top:1px solid var(--panel); border-radius:8px; }
+  .week-day:first-child { border-top:0; }
+  .week-today { background:var(--ink); color:var(--bg); }
+  .week-today .sub { color:var(--panel); }
+  .week-date { font-weight:700; }
+  .week-events { display:flex; flex-direction:column; gap:2px; font-size:14px; min-width:0; }
+  .week-events details { margin:0; } .week-events details span { display:block; }
+  .week-time { color:var(--sub); font-variant-numeric:tabular-nums; }
+  .week-today .week-time { color:var(--panel); }
+
+  /* Focuses, projects, trends */
+  .meter-rows > li.chronic-line, .levers > li.chronic-line { display:block; }
+  .chronic-line > .fold { margin:0; }
+  .chronic-line > .fold > summary { font-weight:600; color:var(--ink); }
+  .lever-new { display:block; margin-top:4px; }
+  .meter-rows > li { display:grid; grid-template-columns:minmax(0, 1fr) minmax(70px, 110px) 64px auto; gap:10px; align-items:center; padding:6px 0; margin:0; }
+  .meter-name { display:flex; align-items:center; gap:8px; min-width:0; }
+  .meter-name .light { flex:none; }
+  .meter-count { font-size:13px; color:var(--sub); text-align:right; white-space:nowrap; }
+  /* Park writes now, so it keeps the ink outline (web/AGENTS.md hard rule 12), only smaller. */
+  .meter-rows button.act-write, .project-rows button.act-write { font-size:12px; }
+  .project-rows > li { display:flex; flex-direction:column; gap:5px; padding:10px 0; margin:0; border-top:1px solid var(--panel); }
+  .project-rows > li:first-child { border-top:0; }
+  .project-top, .project-bottom { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  .project-top .sub, .project-top .overdue { font-size:13px; white-space:nowrap; }
+  .trend-rows { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap:10px 24px; }
+  .trend-rows > li { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0; }
+  .trend-rows .sub { flex-basis:100%; }
+
+  /* Areas */
+  .plate { margin-bottom:6px; }
+  .plate-line { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; margin:0 0 6px; }
+  .bar-tall, .bar-tall > span { height:12px; border-radius:6px; }
+  .light-group + .light-group { margin-top:14px; }
+  .area-rows { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap:8px; align-items:start; }
+  .area-rows > li { margin:0; border:1px solid var(--border); border-radius:10px; padding:8px 12px; background:var(--bg); }
+  details.area > summary { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; }
+  .light-name { display:inline-flex; align-items:center; gap:8px; }
+  .area-items { margin:8px 0 6px; }
+  .area-items li { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:4px 0; margin:0; border-top:1px solid var(--panel); }
+  details.area .light-edit { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:8px 0 4px; }
+  .light-rows li { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:6px 0; margin:0; border-top:1px solid var(--panel); }
+  .light-rows .light-name { min-width:13em; }
+  .light-buttons { display:inline-flex; gap:4px; }
+  button.light-tap { min-width:2em; padding:2px 8px; font-weight:700; }
+  button.light-tap-green { color:var(--green-t); } button.light-tap-yellow { color:var(--yellow-t); } button.light-tap-red { color:var(--red-t); }
+  button.light-tap-green[aria-pressed="true"] { background:var(--green-t); border-color:var(--green-t); color:var(--card); }
+  button.light-tap-yellow[aria-pressed="true"] { background:var(--yellow-t); border-color:var(--yellow-t); color:var(--card); }
+  button.light-tap-red[aria-pressed="true"] { background:var(--red-t); border-color:var(--red-t); color:var(--card); }
+  input.light-note { flex:1 1 12em; min-width:0; }
+  .light-status { flex-basis:100%; }
+  .light-status:empty { display:none; }
+
+  /* Values, visions */
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { white-space:normal; font-size:13px; padding:3px 11px; }
+  .chip-on { background:var(--ink); border-color:var(--ink); color:var(--bg); }
+  .question, .vision-day { margin:12px 0; }
+  .question .panel-label, .vision-day .panel-label { display:block; margin:0 0 2px; }
+  .more-projects { margin-top:10px; }
+
+  .footer-tools { margin-top:36px; border-top:1px solid var(--border); padding-top:8px; }
+</style>

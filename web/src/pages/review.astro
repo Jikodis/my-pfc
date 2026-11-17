@@ -1,0 +1,184 @@
+---
+/**
+ * The one due rolling review, as a form (`automations/scripts/review_forms.py`).
+ *
+ * Reviews run one at a time on every surface; this page shows the same review
+ * `/pfc-review` does. Save puts `/pfc-review <id> answers <json>`
+ * in the chat box, where Claude applies it with the owning procedure and stamps it.
+ * Skip stamps it through the `stamp-review` write and reloads onto the next one.
+ */
+import Base from '../layouts/Base.astro'
+import { getReview } from '../lib/computed'
+import { dueCountLine, reviewDue } from '../lib/review'
+import { safe } from '../lib/safe'
+
+// One call per render: this starts a Python process.
+const result = safe(getReview)
+const review = result.ok ? result.value : null
+---
+<Base title="Review" lede={review ? dueCountLine(review.due_count) : undefined}>
+  {!result.ok ? (
+    <div class="panel">
+      <p class="muted">Could not load this panel.</p>
+      <details><summary>Error</summary><pre class="prose mono">{result.error}</pre></details>
+    </div>
+  ) : !review ? (
+    <div class="panel"><p class="muted">No reviews due right now.</p></div>
+  ) : (
+    <div class="panel review" id="review-form" data-review-id={review.id}
+      data-shown={JSON.stringify(review.sections.flatMap((s) => (s.kind === 'choices' ? s.rows.map((r) => r.id) : [])))}>
+      <h2 class="review-label" title={review.id}>{review.label}</h2>
+      <p class="sub review-why">{reviewDue(review.overdue_days)}{review.intro && ` ${review.intro}`}</p>
+
+      {review.sections.map((s) => s.kind === 'choices' ? (
+        <fieldset class="review-section">
+          <legend class="panel-label">{s.title}</legend>
+          {s.hint && <p class="sub hint">{s.hint}</p>}
+          <ul class="plain review-rows">
+            {s.rows.map((r) => (
+              <li class="review-row" title={r.id}>
+                <p class="row-title">{r.title}{r.detail && <span class="sub row-detail">{r.detail}</span>}</p>
+                {s.options.length > 0 && (
+                  <div class="tap-row" role="group" aria-label={r.title}>
+                    {s.options.map((o) => (
+                      <button type="button" class="tap" data-choice-row={r.id} data-value={o} aria-pressed="false">{o}</button>
+                    ))}
+                  </div>
+                )}
+                {s.note && (
+                  <input type="text" class="row-note" data-note-row={r.id} maxlength="300"
+                    placeholder={s.options.length ? 'Note (optional)' : 'Write it here'} aria-label={`Note: ${r.title}`} />
+                )}
+              </li>
+            ))}
+          </ul>
+        </fieldset>
+      ) : (
+        <label class="review-section review-prompt">
+          <span class="panel-label">{s.question}</span>
+          <textarea data-prompt-id={s.id} rows={Math.max(2, s.lines)}></textarea>
+        </label>
+      ))}
+
+      <div class="review-acts">
+        <button type="button" class="btn-primary review-save" id="review-save" data-chat-prompt="" disabled>Save answers</button>
+        <button type="button" class="act-write review-skip" data-skip-review={review.id}>Skip this review</button>
+        <span class="review-status sub" role="status" aria-live="polite">Tap one answer per row; tap again to clear. Blank rows are left alone.</span>
+      </div>
+      <p class="sub review-note">Save opens the chat with your answers. Press Send and Claude carries them out and marks the review done; reload for the next one. Skip marks it done without changing anything.</p>
+    </div>
+  )}
+</Base>
+
+<script>
+  /**
+   * The form's taps and boxes, and its two buttons. Every change rebuilds the answers
+   * (`buildAnswers` in src/lib/review.ts, blanks left out) and writes the prompt onto
+   * Save's `data-chat-prompt`, so the chat drawer's own click handler puts it in the
+   * box. Skip posts `stamp-review` and reloads onto the next due review.
+   */
+  import { answersPrompt, buildAnswers, isEmpty, type FormState } from '../lib/review'
+  import { PENDING, WRITE_HEADERS, outcome } from '../lib/write-ui'
+
+  const form = document.getElementById('review-form') as HTMLElement | null
+  const save = document.getElementById('review-save') as HTMLButtonElement | null
+  const status = form?.querySelector<HTMLElement>('.review-status') ?? null
+
+  function state(): FormState {
+    const s: FormState = { choices: {}, notes: {}, prompts: {} }
+    if (!form) return s
+    for (const b of form.querySelectorAll<HTMLButtonElement>('button[data-choice-row][aria-pressed="true"]')) {
+      s.choices[b.dataset.choiceRow ?? ''] = b.dataset.value ?? ''
+    }
+    for (const i of form.querySelectorAll<HTMLInputElement>('input[data-note-row]')) s.notes[i.dataset.noteRow ?? ''] = i.value
+    for (const t of form.querySelectorAll<HTMLTextAreaElement>('textarea[data-prompt-id]')) s.prompts[t.dataset.promptId ?? ''] = t.value
+    return s
+  }
+
+  function refresh(): void {
+    if (!form || !save) return
+    const answers = buildAnswers(form.dataset.reviewId ?? '', state(), JSON.parse(form.dataset.shown ?? '[]') as string[])
+    save.disabled = isEmpty(answers)
+    save.dataset.chatPrompt = save.disabled ? '' : answersPrompt(answers)
+  }
+
+  form?.addEventListener('click', (event) => {
+    const tap = (event.target as Element).closest<HTMLButtonElement>('button[data-choice-row]')
+    if (!tap) return
+    const again = tap.getAttribute('aria-pressed') === 'true'
+    for (const b of form.querySelectorAll<HTMLButtonElement>('button[data-choice-row]')) {
+      if (b.dataset.choiceRow === tap.dataset.choiceRow) b.setAttribute('aria-pressed', String(!again && b === tap))
+    }
+    refresh()
+  })
+  form?.addEventListener('input', refresh)
+
+  // The drawer's handler fills the box; this only says what happens next.
+  save?.addEventListener('click', () => {
+    if (status) {
+      status.textContent = 'Your answers are in the chat box. Press Send.'
+      status.className = 'review-status sub write-info'
+    }
+  })
+
+  form?.querySelector<HTMLButtonElement>('button[data-skip-review]')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement
+    if (button.disabled || !confirm('Skip this review? It is marked done today and nothing else changes.')) return
+    button.disabled = true
+    button.textContent = PENDING
+    let code: number | null = null
+    let reply: unknown = null
+    try {
+      const response = await fetch('/api/write/stamp-review', {
+        method: 'POST', headers: WRITE_HEADERS, body: JSON.stringify({ id: button.dataset.skipReview }),
+      })
+      code = response.status
+      reply = await response.json().catch(() => null)
+    } catch {
+      code = null
+    }
+    const result = outcome(code, reply)
+    if (status) {
+      status.textContent = result.tone === 'ok' ? `Skipped. ${result.text}` : result.text
+      status.className = `review-status sub write-${result.tone}`
+    }
+    if (result.reloadAfterMs !== null) {
+      setTimeout(() => window.location.reload(), result.reloadAfterMs)
+      return
+    }
+    button.textContent = 'Skip this review'
+    button.disabled = false
+  })
+
+  refresh()
+</script>
+
+<style is:global>
+  .review { max-width:860px; }
+  .review-label { margin:0 0 4px; font-size:22px; }
+  .review-why { margin:0 0 8px; }
+  .review-section { border:0; margin:18px 0 0; padding:0; min-width:0; display:block; }
+  .review-section legend { padding:0; }
+  .review-section .hint { margin:0 0 6px; }
+  ul.plain { list-style:none; padding-left:0; }
+  .review-rows { margin:0; }
+  .review-row { padding:12px 0; border-bottom:1px solid var(--border); margin:0; }
+  .review-row:last-child { border-bottom:0; }
+  .row-title { margin:0; font-size:16px; font-weight:600; line-height:1.35; text-wrap:pretty; }
+  .row-detail { display:block; font-weight:400; margin-top:2px; }
+  .tap-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 0; }
+  button.tap { min-width:2.6em; min-height:42px; padding:6px 14px; font-weight:600; }
+  button.tap[aria-pressed="true"] { border-color:var(--ink); background:var(--ink); color:var(--bg); }
+  input.row-note { display:block; width:100%; margin-top:8px; min-height:40px; font-size:16px; }
+  .review-prompt .panel-label { display:block; text-transform:none; letter-spacing:0; font-size:15px; color:var(--ink); }
+  .review-prompt textarea { display:block; width:100%; margin-top:6px; font:inherit; font-size:16px; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 12px; resize:vertical; }
+  .review-acts { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:22px 0 4px; }
+  button.review-save { min-height:44px; padding:8px 22px; font-size:15px; }
+  button.review-save:disabled { background:var(--card); border-color:var(--border); color:var(--muted); cursor:default; }
+  button.review-skip { min-height:44px; border-color:var(--ink); font-weight:600; }
+  .review-status { flex-basis:100%; }
+  .review-note { margin:8px 0 0; }
+  .write-ok { color:var(--strong); font-weight:600; border-left:3px solid var(--green); padding-left:6px; }
+  .write-info { color:var(--strong); border-left:3px solid var(--blue); padding-left:6px; }
+  .write-error { color:var(--strong); font-weight:600; border-left:3px solid var(--red); padding-left:6px; }
+</style>

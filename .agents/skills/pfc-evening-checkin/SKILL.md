@@ -15,6 +15,8 @@ Five jobs, in order:
 4. Refresh the dashboard.
 5. Plan tomorrow — Current Focus trickle, tomorrow's 2+1, anchor-slot annotation (Step 4d).
 
+**With the optional web UI** ([`docs/install/web-ui.md`](../../../docs/install/web-ui.md)), the home page at `http://127.0.0.1:4323/` does jobs 1, 2 and 5 with buttons: the rating card, the Habits band's Log buttons, the one due review, and from 6 PM the 2+1 band's suggestions for tomorrow. Its writes land in the same files this check-in reads: Step 2 asks only about habits not yet logged, Step 4 finds the day's record the page wrote, and Step 4d's "already staged" guard shows tomorrow's picks instead of re-picking them. When the page already rated the day, skip the rating questions in Step 3 and say so in one line.
+
 ---
 
 ## Step 0 — Derive the target date (CRITICAL)
@@ -309,7 +311,7 @@ The old weekly / monthly / quarterly ritual check-ins are gone. Their review wor
 
 **Never surface more than 2. Never surface a due item whose gate is empty.** A due-but-empty-gate item silently passes (not shown, not stamped) and re-checks next night.
 
-**What this step is NOT:** it does not re-implement any review workflow. Each surfaced item is a one-line pointer at the **owning skill** — the user runs that skill (or you offer to) if they want to act now. This step's job is to *notice what's due and point*, then stamp.
+**What this step is NOT:** it does not re-implement any review workflow, and it does not build the forms: `/pfc-review` runs each surfaced review as a short form from `automations/scripts/review_forms.py`, the same form the web UI's `/review` page shows. The `gate()` block below is this step's own quicker test of whether a review has something to act on; some gates always pass, and `/pfc-review` still skips a review whose form turns out to have nothing to ask. Each surfaced item is a one-line pointer at the **owning skill** — the user runs that skill (or you offer to) if they want to act now. This step's job is to *notice what's due and point*, then stamp.
 
 ### 1. Compute gated candidates (due AND something to act on), most-overdue first, capped 2
 
@@ -660,7 +662,8 @@ Rule: bend the running state into the first task. A lost slot stays lost.
 ## Step 5 — Commit
 
 ```bash
-git add data/day-tracking.ndjson 7-habits/_data/habits-daily.ndjson 6-tasks/_data/daily-focus.ndjson data/review-ledger.ndjson
+git add data/day-tracking.ndjson 7-habits/_data/habits-daily.ndjson 7-habits/_data/habits-monthly.ndjson \
+  6-tasks/_data/daily-focus.ndjson 6-tasks/_data/tasks.ndjson 6-tasks/_data/task_events.ndjson data/review-ledger.ndjson
 git commit -m "checkin: record YYYY-MM-DD"
 git push
 ```

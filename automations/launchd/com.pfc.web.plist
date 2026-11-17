@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The web UI as a macOS launch agent: http://127.0.0.1:4323, started at login and
+  restarted if it stops. A template: docs/install/web-ui.md fills in __REPO_ROOT__,
+  __USER__, __PATH__ and __PYTHON__ and copies the result to
+  ~/Library/LaunchAgents/com.pfc.web.plist.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.pfc.web</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>__REPO_ROOT__/automations/scripts/run-web.sh</string></array>
+  <key>WorkingDirectory</key><string>__REPO_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOST</key><string>127.0.0.1</string>
+    <key>PORT</key><string>4323</string>
+    <!-- Your IANA time zone; the writer dates every change by it. -->
+    <key>LOCAL_TZ</key><string>America/Denver</string>
+    <!-- launchd starts with a bare PATH. This one must find node, npm, git, jq,
+         python3 and claude (the chat panel). -->
+    <key>PATH</key><string>__PATH__</string>
+    <!-- claude finds its login in the keychain under this account name. Without it,
+         `claude auth status` reports loggedIn false. -->
+    <key>USER</key><string>__USER__</string>
+    <!-- The interpreter that has PyYAML (automations/requirements.txt). -->
+    <key>PFC_PYTHON</key><string>__PYTHON__</string>
+    <!-- Optional. When the active gh account is not the one that can push this repo,
+         name the one that can; the writer reads its token from the gh keyring for
+         each push and never stores it.
+    <key>PFC_PUSH_GH_USER</key><string>your-github-login</string>
+    -->
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <!-- A build that can never succeed would otherwise restart every 10 seconds. -->
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>/tmp/pfc-web.log</string>
+  <key>StandardErrorPath</key><string>/tmp/pfc-web.log</string>
+</dict>
+</plist>

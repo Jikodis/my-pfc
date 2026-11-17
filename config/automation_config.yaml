@@ -4,6 +4,11 @@
 # Only completed tasks are moved to tasks-archive.ndjson; open tasks are never touched
 task_archive_threshold: 200
 
+# Set to true to hide the household rooms (2-areas/_data/household-status.ndjson) from
+# the web UI's home page for a stretch when nobody tracks them. The data and the
+# set-room write stay (home_data.household_parked).
+household_parked: false
+
 # Check-in schedule (for future systemd timer)
 daily_checkin:
   enabled: false

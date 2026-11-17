@@ -66,7 +66,7 @@ Everything you *commit to doing* (as opposed to direction or criteria) lives in 
 
 Above these sit Values, Areas, and Visions — criteria and direction, deliberately *ungauged* (a vision has no deadline and cannot "slip"). Below them sit tasks — execution detail, gauged only through the 2+1.
 
-Two recovery surfaces read all three gauges together, so an off-track intention can't hide in a layer nobody is watching: the **`pfc-back-on-track` TRMNL screen** (the whole off-track set, ambient) and the **evening check-in's back-on-track step** (one re-entry step per night, from the item's landing anchor).
+Two recovery surfaces read all three gauges together, so an off-track intention can't hide in a layer nobody is watching: the **`pfc-back-on-track` TRMNL screen** (the whole off-track set, ambient) and the **evening check-in's back-on-track step** (one re-entry step per night, from the item's landing anchor). With the optional web UI, its home page's **Focuses, Projects and Habits bands** show the same gauges (project velocity and days idle from `automations/scripts/project_gauges.py`, the one home of both rules).
 
 **The don't-multiply-concepts guard:** when adding any new commitment type, gauge, or surface, first name which of the three layers it belongs to. If it fits none, it is probably a new concept the system doesn't need.
 

@@ -21,6 +21,12 @@ No questions during the run; any decision goes in one Open questions table at th
 Score each feature on real use: the last 30 days, and the 60 days before that, each against what the feature asks for in that window. A daily feature asks 30 of 30; a weekly one asks about 4. Count only the user's own use: rows the system writes itself (health-fetched day records with no rating, auto-derived habits) do not count.
 
 ```bash
+python3 automations/scripts/feature_use.py          # three tables: features, habits, jobs that run on their own; --json for the raw numbers
+```
+
+`feature_use.py` scores every feature this way and suggests a verdict per feature (keep / just use it / change cadence / change feature); the web UI's writes count as the user's use. Use its tables when it runs. The shell block below gives the same day counts without Python:
+
+```bash
 TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
 D30=$(date -d '30 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-30d '+%Y-%m-%d')
 D90=$(date -d '90 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-90d '+%Y-%m-%d')

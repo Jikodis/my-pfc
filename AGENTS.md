@@ -156,6 +156,7 @@ The always-present picture of the whole system — both the structure above and 
 - `notes/` — generated reports (daily summaries, yearly check-ins).
 - `automations/` — Python scripts for auto-fetched data and bots.
 - `trmnl/` — source for the TRMNL e-ink display plugins (one folder per plugin, `trmnlp` layout). See § "TRMNL e-ink dashboard".
+- `web/` — source for the optional local web UI, an Astro app served at `http://127.0.0.1:4323`. See § "Web UI".
 - `scripts/` — validation, hooks, helpers.
 - `.claude/skills/` — `pfc-*` skill definitions. Two utility skills sit outside the VAVFPTH flow and are easy to forget: `pfc-commit-and-push` (commit + push the working tree) and `pfc-summarize-project`. **These are symlinks**: each `.claude/skills/<name>` points to the real file at `.agents/skills/<name>/` (the dual-framework layout lets both Claude Code's `.claude/` and a generic `.agents/` resolve the same skills). **The canonical path for editing and `git add` is `.agents/skills/<name>/SKILL.md`** — `git add .claude/skills/...` fails with "beyond a symbolic link". Edits through the symlink land on the real file fine; only the `git add` path must use `.agents/skills/`. To add a new skill: create `.agents/skills/<name>/SKILL.md`, then `ln -s ../../.agents/skills/<name> .claude/skills/<name>`.
 
@@ -174,6 +175,7 @@ Connections between values, areas, visions, projects, tasks, and habits happen n
 | [`7-habits/`](7-habits/AGENTS.md) | Habit tracking, unlogged = missed (rate math), auto-derived habits, append pattern |
 | [`data/`](data/AGENTS.md) | Supplements, insights / hypotheses / findings, graduation flow |
 | [`trmnl/`](trmnl/AGENTS.md) | TRMNL plugin folder layout, design-system hard rules, payload budget, local preview loop |
+| [`web/`](web/AGENTS.md) | Page and data-access rules, Python-backed numbers, data-file coverage, display rules, chat panel, one-click writes, launch agent |
 
 When adding a new subtree with operational rules, create `<subtree>/AGENTS.md` and add a row here. An area folder's own `2-areas/<area>/AGENTS.md` holds that area's notes index (its Contents table), not operational rules.
 
@@ -312,6 +314,12 @@ The PFC system mirrors to a Trello board (`TRELLO_DASHBOARD_BOARD_ID`) for an at
 
 TRMNL is the **ambient** surface, a screen in the room, as opposed to Trello on the phone. Plugin sources live in `trmnl/`; repo is canonical and the screen is read-only. **Before writing or editing any TRMNL Liquid markup, load the `trmnl` skill** (plugin `trmnl@trmnl-agent-skills`, declared in `.claude/settings.json`; on a new machine run `claude plugin install trmnl@trmnl-agent-skills`); its hard rules fail silently on the device (no inline styles, no emoji in markup, `image-dither` on images). The PFC-side workflow is `/pfc-trmnl-plugin`; folder rules, transports, preview and deploy are in [`trmnl/AGENTS.md`](trmnl/AGENTS.md); architecture and setup in [`docs/trmnl-plugins.md`](docs/trmnl-plugins.md). What goes on a screen must change day to day, or it goes invisible within ~2 days.
 
+## Web UI
+
+An optional home for the whole system in a browser: a local Astro app at `http://127.0.0.1:4323` (launch agent template `automations/launchd/com.pfc.web.plist`; install and restart: [`docs/install/web-ui.md`](docs/install/web-ui.md)). It holds no state and binds to `127.0.0.1` only. A chat drawer runs `claude -p` in this repo. Only twelve actions write directly (task `Done` and `Drop`, habit logs, focus `Park`/`Unpark`, the day rating, the 2+1 picks, the review stamp, skipping a suggested task, an area or room light, retiring a Front-of-Mind anchor, and switching a project between active and parked), all through `automations/scripts/web_write.py`, which commits and pushes each change under the lock `data/.web-write.lock`. Every number with a rule behind it comes from Python (`automations/scripts/home_data.py`, read through `web_data.py --home`), never TypeScript. The home page (`/`) holds the daily loop: the rating card while the day is unrated, the Habits band's Log buttons, the 2+1 band's suggestions (tomorrow's picks from 6 PM on), and a "What needs you" card that shows at most one due rolling review with a link to `/review`. `/review` shows that review as a form (`automations/scripts/review_forms.py`, the same review `/pfc-review` shows in chat); Save puts `/pfc-review <id> answers <json>` in the chat box for Claude to apply. Findings, hypotheses and insights are agent-only: no page shows them. Every job the page does also has a chat skill, so the web UI is never required. Rules for working on it: [`web/AGENTS.md`](web/AGENTS.md).
+
+**A data file the web writer touches must stay line-stable.** The writer rewrites only the lines it changed (`automations/scripts/ndjson_file.py`) and refuses when a file it needs has uncommitted edits, so a skill that edits a data file should commit it in the same turn.
+
 ## Calendar scheduling
 
 **Before creating or moving any calendar event, read `docs/calendar-scheduling.md`.** The summary: always pull the full day from the in-scope calendars, check every existing event for overlap with the target slot (not just the target hour), and never schedule on top of an existing event. This applies to single events AND to batch scheduling of course/study series.
@@ -389,8 +397,8 @@ The always-loaded ground-truth profile (Who / Brain / How to work with this brai
 ## System cadences
 
 See `docs/cadences.md` for the full schedule. Key rhythms:
-- **Daily (the evening spine):** `/pfc-evening-checkin` — rate/log today, habits, rolling reviews (≤2 due items), Current Focus trickle, then set tomorrow's 2+1 + anchor annotation. There is no separate morning ritual.
-- **Rolling reviews:** the old weekly/monthly/quarterly rituals are folded into a ledger (`data/review-ledger.ndjson`) that drips ≤2 due items per evening; `/pfc-review` clears the whole backlog at once. Covers stale-task triage, focus accuracy, life wheel, project progress, vision activation, insights, trend analysis, quarterly Focus re-pick, etc.
+- **Daily (the evening spine):** `/pfc-evening-checkin` — rate/log today, habits, rolling reviews (≤2 due items), Current Focus trickle, then set tomorrow's 2+1 + anchor annotation. There is no separate morning ritual. With the optional web UI installed, its home page does the same daily loop with buttons (rating card, habit Log buttons, tomorrow's 2+1 from 6 PM on, the one due review).
+- **Rolling reviews:** the old weekly/monthly/quarterly rituals are folded into a ledger (`data/review-ledger.ndjson`) that drips ≤2 due items per evening. `/pfc-review` and the web UI's `/review` page run one review at a time as a short form, picked by `automations/scripts/review_forms.py` (never done first, then most overdue, skipping one with nothing to ask); keep saying "next" to clear a backlog. Covers stale-task triage, focus accuracy, life wheel, project progress, vision activation, insights, trend analysis, quarterly Focus re-pick, etc.
 - **Yearly:** `/pfc-yearly-checkin` — values, area statements, questions, vision brainstorm, big direction.
 
 ## Data formats

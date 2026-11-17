@@ -1,0 +1,1 @@
+A tidy home that runs itself.

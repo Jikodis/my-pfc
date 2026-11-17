@@ -4,6 +4,8 @@ Canonical reference for data files and their schemas. Keep this in sync with `co
 
 **All NDJSON writes must go through `jq`.** Never use `echo >>`, `sed`, or string concatenation. See [conventions.md](conventions.md) for the exact patterns.
 
+Two scripts rewrite NDJSON in Python instead: the web UI's writer (`automations/scripts/web_write.py`) and the Trello sync (`trello_writeback.py`). Both make their record changes in `automations/scripts/pfc_writes.py` and write files through `automations/scripts/ndjson_file.py`, which keeps untouched lines byte for byte, writes changed lines the way `jq -c` does, and replaces the file atomically.
+
 ## Formats
 
 | Format | Use case |
@@ -89,11 +91,12 @@ Fields:
 {"date":"2025-01-16","critical":["task-20250101-002","task-20250115-003"],"bonus":"task-20250101-017","completed":[],"bonus_completed":false}
 ```
 
-- `date` — `YYYY-MM-DD`. The evening check-in pre-stages **tomorrow's** record, so a date up to 1 day in the future is valid (the validator allows the +1-day ceiling).
-- `critical` — array of exactly 2 task ids (strings; must exist in `tasks.ndjson` or `tasks-archive.ndjson`)
+- `date` — `YYYY-MM-DD`. The evening check-in (or the web home page after 6 PM) pre-stages **tomorrow's** record, so a date up to 1 day in the future is valid (the validator allows the +1-day ceiling).
+- `critical` — array of task ids (strings; must exist in `tasks.ndjson` or `tasks-archive.ndjson`), normally 2. At most 2 of them are undone; the rest are picks already done that day, kept when more work is pulled in after the first ones were finished (`web_write.py set-picks`). A record may carry `critical: []` when it holds only skips.
 - `bonus` — optional task id string (same existence rule)
 - `completed` — array of task ids from `critical` that were finished
 - `bonus_completed` — boolean
+- `skipped` — optional array of task ids (same existence rule) the web home page stops suggesting for that date (`web_write.py skip-suggestion`, read by `home_data.py`). A task named here moves to the archive when dropped, like a pick.
 - `calendar_events` — optional object written by `pfc-schedule-focus` for manually-placed per-task events; keyed by task id, each value has `event_id`, `start`, `end` (ISO timestamps).
 
 ### `7-habits/_data/habits-daily.ndjson`
@@ -105,7 +108,7 @@ Fields:
 
 - `habit_id` — must match an `id` in `config/habit_schema.yaml` (active) or `deprecated_habits` (historical only)
 - `completed` — boolean; did the habit happen that day
-- `source` — `"google_health_auto"` | `"manual"` | `"fitbit"` | `"evening-checkin"` | `"chat"` | `"trello"` | `"fitbit-derived"` (`derive_sleep_habit.py`) | `"calendar-derived"` (`derive_calendar_habits.py`) | `"health-derived"` (`derive_workout_habits.py`)
+- `source` — `"google_health_auto"` | `"manual"` | `"fitbit"` | `"evening-checkin"` | `"chat"` | `"trello"` | `"web"` (the web UI's Log buttons) | `"fitbit-derived"` (`derive_sleep_habit.py`) | `"calendar-derived"` (`derive_calendar_habits.py`) | `"health-derived"` (`derive_workout_habits.py`)
 - `value` — optional measurement (e.g. active-minutes count, bedtime)
 - `skipped` — optional boolean; `true` means the day was structurally unavailable (e.g. travel, illness, a family-time habit on a night the family is away). A skipped day is **not a miss** — habit-rate math excludes it from both numerator and denominator: `rate = completed / max(1, target_frequency - skipped_count)`.
 - `skip_reason` — optional free-text string; required when `skipped: true`. Short, human-readable.
@@ -132,7 +135,7 @@ Same shape as daily: one row per habit per date, `date` the day of the rep.
 {"date":"2025-01-21","rating":4,"energy":3,"focus":4,"mood":4,"sick":false,"exercised":null,"hyperfocused":true,"notes":null,"evening_notes":"…","health":{"sleep_minutes":423,"sleep_hours":7.0,"awake_minutes":14,"sleep_deep_minutes":87,"sleep_rem_minutes":99,"sleep_light_minutes":236,"sleep_bedtime":"2025-01-20T22:30:00-07:00","sleep_wake_time":"2025-01-21T06:23:00-07:00","resting_hr_bpm":70,"active_zone_minutes":null,"awakenings":[{"start":"2025-01-21T04:59:00-07:00","minutes":12}],"awakenings_count":1}}
 ```
 
-Written by `pfc-log-day` (minimal entry) or updated in place by the evening check-in (full entry; the `health` object is populated by `automations/scripts/auto_fetch_health.py` on a schedule). Used by `pfc-analyze-trends`.
+Written by `pfc-log-day` (minimal entry), by the web home page's rating card (`web_write.py rate-day`: energy, mood, focus, the derived rating, optional `hyperfocused`; it fills a row the health fetch already wrote, and never overwrites a rated day), or updated in place by the evening check-in (full entry; the `health` object is populated by `automations/scripts/auto_fetch_health.py` on a schedule). Used by `pfc-analyze-trends`.
 
 - `date` — `YYYY-MM-DD`
 - `energy`, `focus`, `mood` — 1–5. **These three are the PRIMARY capture** — discrete component readouts beat an integrative "rate your day" guess. `mood` reads the **general sense of well-being across the day as a whole**, not the peak moment; it tends to run higher than the other two, so it's kept but not given outsized weight. It is a real reading, never something to discount.
@@ -355,7 +358,9 @@ Fields: `id` (`focus-YYYYMMDD-NNN`), `tier` (`foundation`|`pursuit`|`consuming`)
 
 One record per review item — the weekly/monthly/quarterly review work that used to live in separate batch check-in rituals, now drip-fed through the evening check-in instead of batched into standalone events. Managed by the evening check-in's rolling-review step (nightly, ≤2 items) and `/pfc-review` (catch up on everything due at once).
 
-Fields: `id` (stable slug mapped to a gate in `pfc-evening-checkin`, e.g. `stale-task-triage`), `label` (human-readable name), `tier` (`weekly`|`monthly`|`quarterly`), `cadence_days` (minimum days between surfacings — 7/30/90 respectively), `weekday_hint` (optional `0`=Mon..`6`=Sun soft ordering preference, or `null`), `last_done` (`YYYY-MM-DD` it was last surfaced-and-engaged; seeded with a far-past sentinel like `2000-01-01` meaning "never").
+Fields: `id` (stable slug mapped to a gate in `pfc-evening-checkin`, e.g. `stale-task-triage`), `label` (human-readable name), `tier` (`weekly`|`monthly`|`quarterly`), `cadence_days` (minimum days between surfacings — 7/30/90 respectively), `weekday_hint` (optional `0`=Mon..`6`=Sun soft ordering preference, or `null`), `last_done` (`YYYY-MM-DD` it was last surfaced-and-engaged; seeded with a far-past sentinel like `2000-01-01` meaning "never"), `seen` (optional: the row ids answered this round when a review had more rows than one form holds; written by `web_write.py review-seen` through `review_forms.py --finish`, cleared when the review is stamped).
+
+**One review at a time:** `/pfc-review` and the web UI's `/review` page show the same one review as a fill-in form, picked by `automations/scripts/review_forms.py` (`current_review`: never done first, then most overdue, skipping a review whose form has nothing to ask). Answers from the web page arrive as `/pfc-review <id> answers <json>`.
 
 **Due/gate/cap model:** an item is a *candidate* once `today − last_done ≥ cadence_days`. Candidates are then filtered through a per-id **gate** — a small check (in `pfc-evening-checkin`) that returns a reason string only if there's genuinely something to act on (e.g. `tasks-missing-area` gates on an open task with no area); a due-but-empty-gate item silently passes without stamping and re-checks the next night. Gated candidates are sorted most-overdue-first and **capped at 2 surfaced per evening check-in** (`/pfc-review` has no cap — it surfaces everything due at once for a catch-up pass). Only items the user actually engages get `last_done` stamped to today; ignored items are left alone and re-surface on cadence. Seeded with items spanning all three tiers (stale-task triage, missing-area/values checks, focus accuracy, vision relevance, habit rates, day-trend peek, hypotheses review, life wheel, household status, project progress, vision activation, monthly habits, insights review, findings alignment, trend analysis, revive outcomes, usage audit, quarterly focus re-pick, vision brainstorm, strengths refresh).
 
