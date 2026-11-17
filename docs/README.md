@@ -14,6 +14,7 @@ Cross-cutting system documentation. If you're trying to understand how the PFC s
 | [`conventions.md`](conventions.md) | File-format conventions — NDJSON, schemas, ID formats |
 | [`automation-policy.md`](automation-policy.md) | Commit policy and safety rules for automation scripts |
 | [`workflows.md`](workflows.md) | End-to-end workflow examples (the evening spine, rolling reviews, project lifecycle) |
+| [`trello-dashboard.md`](trello-dashboard.md) | Trello board reference: every list, the render triggers, the card conventions |
 | [`trmnl-plugins.md`](trmnl-plugins.md) | TRMNL e-ink dashboard — which repo data feeds which screen, transports, deploy loop |
 
 ## Install guides

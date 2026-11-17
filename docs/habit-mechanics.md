@@ -68,6 +68,16 @@ Cap forced choices at **two per review**. More than two decisions in one sitting
 
 Why two weeks rather than nightly: a nightly red nag becomes wallpaper within days. A decision demanded every other week does not.
 
+## Habits that log themselves
+
+A rep the system can already see is never asked about. A hole in the log reads as a miss at compute time (`7-habits/AGENTS.md` rule 2), so a habit that depends on memory for something already recorded elsewhere reads red on days that were fine.
+
+- **Wearable sleep:** the starter `sleep-on-time` habit, mirrored from `qqrt.timing` by `automations/scripts/derive_sleep_habit.py` on every health fetch. Point `HABIT_ID` in that script at your own sleep-timing habit; it does nothing when the habit is not declared in `config/habit_schema.yaml`. The starter ships with `auto_derived: true`, so check-ins do not ask about it (remove the flag if you log it by hand); a hand-logged row always wins over the derived one.
+- **Calendar:** any habit with `auto_derived: true` and a `calendar: {match, exclude}` rule in `config/habit_schema.yaml` (for example a class: `match: "^Yoga\\b"`, `exclude: "MISSED"`). `automations/scripts/derive_calendar_habits.py` reads `data/calendar-cache.json` and writes one rep per date with a matching event that has started, however many events match, so two classes in one evening are one rep and a class renamed `(MISSED)` is none. Run it after the calendar cache is refreshed; nothing in this repo runs it on a timer.
+- **Tracked workouts:** any daily habit with a `workout: {types: [...], min_minutes: N}` rule. `automations/scripts/derive_workout_habits.py` runs on every health fetch and writes one rep (`source: "health-derived"`) per date with at least one watch session of a listed Google Health exercise type. These habits are **not** `auto_derived`: a session done without starting the watch still counts, so hand logging stays, and a row from any other source wins. `min_minutes` is measured by the heart-rate-derived `real_minutes` (`automations/scripts/row_duration.py`) because the watch timer overruns when Stop is forgotten, and by the timer only when no derived length exists. Leave `min_minutes` off for session types that don't hold the heart rate up, such as strength training. A day with no session gets no row, never a miss.
+
+To make another habit derived, add the rule fields to its definition; nothing else changes. The ramp, never-miss-twice and four-way-choice rules above apply unchanged, because they read the log, not who wrote it.
+
 ## What we deliberately did NOT take from the book
 
 **The visible habit tracker — the wall chart, the streak counter, "don't break the chain."** Clear treats it as a core mechanism. For a brain where object-based reminders go invisible within a couple of days — sticky notes, sand timers, progress bars, calendar squares — it is inert.

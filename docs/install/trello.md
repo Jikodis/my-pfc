@@ -33,7 +33,7 @@ Create one board in Trello. It will host both the `📥 Inbox` capture list and 
 | 9 | `🧭 Areas` | Life-wheel state shows as a colored label here |
 | 10 | `🔭 Visions` | |
 | 11 | `🛠️ Projects` | |
-| 12 | `✅ Actions` | Standalone tasks only |
+| 12 | `✅ Tasks` | Standalone tasks only |
 | 13 | `☀️ Daily Habits` | |
 | 14 | `🌙 Monthly Habits` | |
 | 15 | `💡 Insights` | |
@@ -41,7 +41,7 @@ Create one board in Trello. It will host both the `📥 Inbox` capture list and 
 | 17 | `🧪 Hypothesis` | |
 | 18 | `💊 Supplements` | |
 
-One more list shape appears automatically: a `🎯 <Project name>` list per **active** project, holding that project's open backlog so it doesn't drown `✅ Actions`. These are created and archived by the render as projects go active and inactive — don't create them by hand.
+One more list shape appears automatically: a `🎯 <Project name>` list per **active** project, holding that project's open backlog so it doesn't drown `✅ Tasks`. These are created and archived by the render as projects go active and inactive — don't create them by hand.
 
 The emoji prefix convention is recommended for visual disambiguation — you can rename or reorder lists freely after creation. The render skill matches by name, so if you rename a list it will create a new one at the bottom on the next render; just delete the old one.
 
@@ -162,7 +162,7 @@ Trello's iOS app does not ship a true home-screen list widget at the time of wri
 
 ### Verify
 
-After setting up a widget, mark a habit or 2+1 task complete from the home screen. Then run `/pfc-sync-trello` (or wait for the next checkin) and confirm the completion landed in `7-habits/_data/habits-daily.ndjson` or `6-actions/_data/tasks.ndjson`. If it didn't, see the troubleshooting section below.
+After setting up a widget, mark a habit or 2+1 task complete from the home screen. Then run `/pfc-sync-trello` (or wait for the next checkin) and confirm the completion landed in `7-habits/_data/habits-daily.ndjson` or `6-tasks/_data/tasks.ndjson`. If it didn't, see the troubleshooting section below.
 
 ---
 
@@ -171,7 +171,7 @@ After setting up a widget, mark a habit or 2+1 task complete from the home scree
 `pfc-evening-checkin` includes Trello sync steps that fire automatically when `TRELLO_DASHBOARD_BOARD_ID` is set. Nothing further to configure.
 
 - Start of the check-in: any `dueComplete: true` card you ticked from the widget triggers the matching task completion or habit log in the repo.
-- End of the check-in: tomorrow's 2+1 picks move from `✅ Actions` to `✅ 2+1`, uncompleted cards move back, and the whole board re-renders.
+- End of the check-in: tomorrow's 2+1 picks move from `✅ Tasks` to `✅ 2+1`, uncompleted cards move back, and the whole board re-renders.
 - A `post-commit` git hook re-renders the board whenever a mirrored file is committed outside a skill — see `.githooks/post-commit`. Install it with `cp .githooks/* .git/hooks/ && chmod +x .git/hooks/{pre,post}-commit`.
 - Fail-safe: any Trello API error logs 🟡 and the check-in continues — Trello state never blocks the workflow.
 

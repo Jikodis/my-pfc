@@ -1,0 +1,43 @@
+# Schema for 2-areas/_data/area-items.ndjson — the items each life area carries
+# (the recurring commitments and conditions that make an area go well or badly),
+# and for 2-areas/_data/area-checkins.ndjson — the check-in answers that light them.
+# Checked by scripts/validate.sh. Lights, the area rollup and the plate are
+# computed in automations/scripts/area_items.py, never stored.
+
+area_items:
+  required_fields:
+    - id        # item-<area>-<slug>, unique
+    - area      # a key of the newest life-wheel snapshot (health, finances, ...) or a 2-areas/ folder
+    - title     # short name, e.g. "Weekly meal prep"
+    - kind      # time | status
+    - weight    # 1, 2 or 3. 3 = glass ball (breaks if dropped), 1 = rubber ball. Also "what comes out first".
+    - active    # false = retired, kept for history
+  optional_fields:
+    - hours     # time items: hours per week (per occurrence when `every` is set). Required on a
+                # time item unless its source is calendar:<name> (the calendar supplies the hours).
+    - every     # Upkeep: week | month | quarter | year. `hours` is per occurrence.
+    - ends      # Season: YYYY-MM-DD. After it passes the item leaves the hours and the light,
+                # and the next check-in offers to retire it.
+    - question  # the check-in question. Exactly one of question / source.
+    - source    # auto light: fitbit:sleep | habit:<habit-id> | calendar:<calendar name>
+  enums:
+    kind: [time, status]
+    weight: [1, 2, 3]
+    every: [week, month, quarter, year]
+  rules:
+    - status items carry no hours, every or ends
+    - a habit:<id> source names a habit declared in config/habit_schema.yaml
+    - a calendar:<name> source names a calendar as it appears in data/calendar-cache.json
+      (the event organizer's displayName); it supplies hours only, never a light
+
+area_checkins:
+  # Append-only. The newest answer per item (newest date, then the later line) is its light.
+  # An answer older than 31 days (the life wheel's rule) shows as stale.
+  required_fields:
+    - date      # YYYY-MM-DD, local date, never in the future
+    - item_id   # an id in area-items.ndjson
+    - answer    # good | okay | rough  (green / yellow / red)
+  optional_fields:
+    - note      # free text
+  enums:
+    answer: [good, okay, rough]

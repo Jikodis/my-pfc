@@ -1,6 +1,6 @@
 # Projects
 
-Short-term efforts (1–3 months) that move you toward a vision or area outcome. The "deliberate work" layer of VAVFPAH — bigger than a single task, smaller than a life direction.
+Short-term efforts (1–3 months) that move you toward a vision or area outcome. The "deliberate work" layer of VAVFPTH — bigger than a single task, smaller than a life direction.
 
 ## What lives here
 

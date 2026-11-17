@@ -1,13 +1,70 @@
 ---
 name: pfc-usage-audit
-description: Audit whether the system is actually being USED and producing — data freshness, logging gaps, missed-target streaks, stale reviews, surfaces nobody reads. Use when the user says "usage audit", "system health", "is the system working", "am I actually using the system", "what am I not using", or "check the system". This is NOT /pfc-repo-maintenance (machinery and docs integrity) and NOT /pfc-status (the life content view).
+description: Audit whether the system is actually being USED and producing — data freshness, logging gaps, missed-target streaks, stale reviews, surfaces nobody reads. Use when the user says "usage audit", "system health", "is the system working", "am I actually using the system", "what am I not using", "system health report", "which features am I using", or "check the system". This is NOT /pfc-repo-maintenance (machinery and docs integrity) and NOT /pfc-status (the life content view).
 ---
 
 # Usage Audit
 
 Audit whether the system is actually being *used* and producing — not what's in it (/pfc-status) and not whether the machinery is intact (/pfc-repo-maintenance). The question this skill answers: **"am I doing what the system exists to make me do — logging, reviewing, acting — and which parts have quietly gone unused?"** Renamed from `pfc-system-health`; the old trigger phrases still work.
 
-Run all checks, then output a sorted table and a prioritized action list. No questions, no interaction.
+Two parts, in this order:
+
+1. **Feature scorecard** (Step 0): which features are used, which aren't, and whether each needs plain use, a new cadence, or a redesign. This leads the output.
+2. **Plumbing checks** (Steps 1–6): data freshness, logging gaps, stale reviews. A sorted table and an action list.
+
+No questions during the run; any decision goes in one Open questions table at the end.
+
+---
+
+## Step 0 — Feature scorecard
+
+Score each feature on real use: the last 30 days, and the 60 days before that, each against what the feature asks for in that window. A daily feature asks 30 of 30; a weekly one asks about 4. Count only the user's own use: rows the system writes itself (health-fetched day records with no rating, auto-derived habits) do not count.
+
+```bash
+TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+D30=$(date -d '30 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-30d '+%Y-%m-%d')
+D90=$(date -d '90 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-90d '+%Y-%m-%d')
+
+# Days with use, from a list of dates on stdin: "<last 30> <days 31-90>"
+days() { sort -u | awk -v a="$D30" -v b="$D90" -v t="$TODAY" '$1>a && $1<=t {r++} $1>b && $1<=a {o++} END {print r+0, o+0}'; }
+# Days a file was committed to (for features whose records carry no date of use)
+commit_days() { git log --since="$D90" --format=%ad --date=short -- "$@" 2>/dev/null; }
+
+echo "rating (daily):      $(jq -r 'select(.rating != null) | .date' data/day-tracking.ndjson 2>/dev/null | days)"
+echo "habits (daily):      $(jq -r 'select((.source // "") | endswith("-derived") | not) | .date' 7-habits/_data/habits-daily.ndjson 2>/dev/null | days)"
+echo "2+1 (daily):         $(jq -r 'select(((.critical // []) | length) > 0) | .date' 6-tasks/_data/daily-focus.ndjson 2>/dev/null | days)"
+echo "reviews (weekly):    $(commit_days data/review-ledger.ndjson | days)"
+echo "focus (weekly):      $(commit_days 4-focus/_data/focus.ndjson | days)"
+echo "task capture:        $(jq -r '.created // empty' 6-tasks/_data/tasks.ndjson 6-tasks/_data/tasks-archive.ndjson 2>/dev/null | days)"
+echo "task completion:     $(jq -r 'select(.event == "completed") | .timestamp[:10]' 6-tasks/_data/task_events.ndjson 2>/dev/null | days)"
+echo "projects:            $(commit_days 5-projects/_data/projects.ndjson | days)"
+echo "insights:            $(jq -r '.created // empty' data/insights.ndjson 2>/dev/null | days)"
+echo "hypotheses:          $(commit_days data/hypotheses.ndjson | days)"
+echo "revive:              $(jq -r '.date' data/revive-events.ndjson 2>/dev/null | days)"
+echo "vision brainstorm:   $(commit_days 3-visions/_data/vision-brainstorm.ndjson | days)"
+```
+
+Each line prints two numbers: days used in the last 30, and days used in days 31–90. Turn them into rates against what the feature asks for (daily: 30 and 60; weekly: about 4 and 9). Commit days are a proxy, so say so in the report. **On-demand features** (task capture and below) have no target: report the last use only.
+
+**Suggested verdict, from the two rates** (🟢 used ≥ 60%, 🟡 partly ≥ 20%, 🔴 unused below that):
+
+| Suggested verdict | When | Means |
+|---|---|---|
+| keep | used in the last 30 days | Leave it. |
+| just use it | it worked in days 31–90, or is climbing | The feature is fine; it lapsed. Restart with one small step. |
+| change cadence | half-used for 90 days | The user will do it, just not that often, or not from that trigger. Lower the rhythm or move the ask to where the user already is. |
+| change feature | barely used for 90 days | It isn't landing. Redesign it, merge it into something that is used, or retire it. |
+
+The verdict is a starting point. Override it with judgment, and say why in one line:
+
+- **Inputs before design** (Step 6): a feature that died the same week sleep or exercise fell off is input-side, not "change feature".
+- **Core features** (day rating, habits, the 2+1, reviews, the focus re-pick, projects) feed the current focuses and visions. Mark them "should be using". A core feature never gets "retire"; it gets a lighter route.
+- **Habits:** a red habit that feeds a focus is that focus's real problem. Two causes look the same in the data: the user does it and doesn't log it, or doesn't do it. Ask which before changing the target.
+- **On-demand features** are flagged only when they have gone a full 90 days unused *and* something they exist for happened (a slipping task never revived).
+
+**Report shape:** a one-line verdict; the scorecard table (feature, last 30 days, verdict, one-line why), core features first, red first, at most about 12 rows; the top 3 changes to make first, each a 15-minute step; then the plumbing checks.
+
+**Log what the user decides.** Every change the user agrees to (a new cadence, a new route, a feature retired) becomes a task through `/pfc-add-task`, worded as a check: "Check whether <change> worked for <feature>", with a `deadline` about 4 weeks out. When that task comes up, ask whether it worked; if it did not, record that as an insight (`/pfc-add-insight`) so the same change is not proposed again. Read open and recently done tasks of that shape before proposing a change, so a change already being tried is not proposed twice.
 
 ---
 
@@ -122,15 +179,27 @@ for i in $(seq 6 -1 0); do
   echo "track:$d:$RATING"
 done
 echo "=== TASK HYGIENE ==="
-PHANTOM=$(jq -c 'select(.status=="open" and .completed != null)' 6-actions/_data/tasks.ndjson 2>/dev/null | wc -l)
+PHANTOM=$(jq -c 'select(.status=="open" and .completed != null)' 6-tasks/_data/tasks.ndjson 2>/dev/null | wc -l)
 echo "phantom_tasks:$PHANTOM"
-TASK_LINES=$(wc -l < 6-actions/_data/tasks.ndjson)
+TASK_LINES=$(wc -l < 6-tasks/_data/tasks.ndjson)
 echo "task_lines:$TASK_LINES"
 OVERDUE=$(jq -r --arg c "$CUTOFF_7D" \
   'select(.status=="open" and .deadline!=null and .deadline<$c) | "\(.id): \(.description)"' \
-  6-actions/_data/tasks.ndjson 2>/dev/null)
+  6-tasks/_data/tasks.ndjson 2>/dev/null)
 echo "overdue_tasks:$(echo "$OVERDUE" | grep -c . 2>/dev/null)"
 [ -n "$OVERDUE" ] && echo "$OVERDUE"
+
+# Agent-doable backlog. Tasks marked agent_doable:"yes" need nobody but an agent,
+# so one sitting clears them. If they pile up and age, the hand-off route is not
+# being used, which is a usage failure, not a backlog failure.
+AGENT_YES=$(jq -r --arg t "$TODAY" '
+  select(.status == "open" and (.deferred != true) and .agent_doable == "yes" and .created != null)
+  | (($t | strptime("%Y-%m-%d") | mktime) - (.created | strptime("%Y-%m-%d") | mktime)) / 86400 | floor
+  ' 6-tasks/_data/tasks.ndjson 2>/dev/null)
+echo "agent_doable_yes_open:$(echo "$AGENT_YES" | grep -c '[0-9]' || true)"
+echo "agent_doable_yes_oldest_days:$(echo "$AGENT_YES" | sort -n | tail -1)"
+# Unclassified open tasks: the field should be set at capture.
+echo "agent_doable_unset:$(jq -r 'select(.status == "open" and .agent_doable == null) | .id' 6-tasks/_data/tasks.ndjson 2>/dev/null | grep -c . || true)"
 
 echo "=== REVIVE WATCHLIST ==="
 # Slippage signals across tasks, projects, and habits.
@@ -147,13 +216,25 @@ fi
 echo "=== CADENCES ==="
 # The daily spine is the evening check-in. The weekly/monthly/quarterly rituals are gone —
 # their work is the rolling ledger (data/review-ledger.ndjson), which drips ≤2 due items
-# per evening and is cleared in bulk by /pfc-review. So cadence freshness is (a) how recent
+# per evening and is worked one review at a time by /pfc-review. So cadence freshness is (a) how recent
 # the newest evening check-in is and (b) how backed-up the ledger is. Do NOT key off
 # notes/weekly/ or notes/monthly/ — those are archival and nothing writes to them.
 
 # Evening check-in freshness: newest day-tracking row carrying an evening rating.
 EVENING_LAST=$(jq -r 'select(.rating != null) | .date' data/day-tracking.ndjson 2>/dev/null | sort | tail -1)
 echo "evening_checkin_last:${EVENING_LAST:-never}"
+
+# Rating GAPS in the trailing 14 days (today excluded: the day isn't over).
+# Freshness alone hides a hole in the middle: a rating yesterday and one last week
+# reads "fresh" while five days in between are unrecoverable.
+RATING_GAPS=$(jq -rs --arg t "$TODAY" '
+  (map(select(.rating != null) | .date) | unique) as $rated
+  | [ range(1; 15) as $i
+      | (($t | strptime("%Y-%m-%d") | mktime) - ($i * 86400) | strftime("%Y-%m-%d"))
+      | select(. as $d | $rated | index($d) | not) ]
+  | join(",")' data/day-tracking.ndjson 2>/dev/null)
+echo "rating_gaps_14d_count:$(echo "$RATING_GAPS" | awk -F, '{print ($1=="" ? 0 : NF)}')"
+echo "rating_gaps_14d:${RATING_GAPS:-none}"
 
 # Rolling-review backlog. For each ledger item: days_overdue = (today - last_done) - cadence_days.
 # Report how many are currently due, the worst overdue among weekly items, and the worst
@@ -186,6 +267,27 @@ else
   echo "review_ledger_items:no-ledger"
 fi
 
+# Area check-in freshness. Every active, not-ended area item with a `question` is lit
+# only by its newest answer in 2-areas/_data/area-checkins.ndjson (the life-wheel step
+# of /pfc-review). Counted as answered within 31 days, so high is good; an item never
+# answered counts as not fresh.
+if [ -s 2-areas/_data/area-items.ndjson ]; then
+  CHECKIN_STATS=$(jq -rn --arg t "$TODAY" \
+    --slurpfile items 2-areas/_data/area-items.ndjson \
+    --slurpfile ans <(cat 2-areas/_data/area-checkins.ndjson 2>/dev/null) '
+    ($t | strptime("%Y-%m-%d") | mktime) as $now
+    | ($ans | group_by(.item_id) | map({key: .[0].item_id, value: (map(.date) | max)}) | from_entries) as $last
+    | [ $items[] | select(.active == true and has("question") and ((.ends // "9999-12-31") >= $t)) ] as $asked
+    | [ $asked[] | select($last[.id] != null
+          and ((($now - ($last[.id] | strptime("%Y-%m-%d") | mktime)) / 86400 | floor) <= 31)) ] as $fresh
+    | "\($fresh | length)\t\($asked | length)\t\(($ans | map(.date) | max) // "never")"')
+  echo "area_checkins_fresh:$(echo "$CHECKIN_STATS" | cut -f1)"
+  echo "area_checkins_asked:$(echo "$CHECKIN_STATS" | cut -f2)"
+  echo "area_checkins_last:$(echo "$CHECKIN_STATS" | cut -f3)"
+else
+  echo "area_checkins_fresh:no-items"
+fi
+
 # Yearly checkin freshness: flag missing note past Feb 15 of the new year
 LAST_YEAR=$(TZ="${LOCAL_TZ:-America/Denver}" date -d '1 year ago' '+%Y' 2>/dev/null || TZ="${LOCAL_TZ:-America/Denver}" date -v-1y '+%Y' 2>/dev/null || echo "")
 CURRENT_MONTH=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%m')
@@ -193,6 +295,12 @@ CURRENT_DAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%d')
 YEARLY_NOTE_EXISTS=$([ -n "$LAST_YEAR" ] && ls "notes/yearly/${LAST_YEAR}.md" 2>/dev/null && echo "yes" || echo "no")
 echo "yearly_checkin_last_year:${LAST_YEAR:-unknown}"
 echo "yearly_checkin_note_exists:$YEARLY_NOTE_EXISTS"
+
+echo "=== CLONE SYNC ==="
+# "ahead" = commits nobody else can see yet; "behind" = this clone is editing stale
+# copies. A healthy clone shows neither.
+git fetch -q origin 2>/dev/null
+echo "clone_sync:$(git status -sb 2>/dev/null | head -1)"
 
 echo "=== AUTOMATION ==="
 [ -f config/google_health_tokens.json ] && echo "tokens:present" || echo "tokens:missing"
@@ -366,7 +474,7 @@ echo "=== SURFACE USE ==="
 # Which parts of the system are actually being used. There is no invocation
 # log, so last-write is the only available proxy — report it as a proxy, not
 # as fact.
-for f in 6-actions/_data/tasks.ndjson 7-habits/_data/habits-daily.ndjson \
+for f in 6-tasks/_data/tasks.ndjson 7-habits/_data/habits-daily.ndjson \
          7-habits/_data/habits-monthly.ndjson 4-focus/_data/focus.ndjson \
          5-projects/_data/projects.ndjson data/day-tracking.ndjson \
          data/insights.ndjson data/hypotheses.ndjson data/findings.ndjson \
@@ -394,7 +502,7 @@ Every labeled inbox email is supposed to become a task — `pfc-email-triage` St
 2. Collect thread ids already linked to a task, live plus archive:
    ```bash
    jq -r 'select((.source_email_thread_id // null) != null) | .source_email_thread_id' \
-     6-actions/_data/tasks.ndjson 6-actions/_data/tasks-archive.ndjson | sort -u
+     6-tasks/_data/tasks.ndjson 6-tasks/_data/tasks-archive.ndjson | sort -u
    ```
 3. Report labeled thread ids present in step 1 and absent from step 2 as `orphaned_labeled_emails:<count>`.
 
@@ -423,8 +531,13 @@ Use this table to determine status for each result:
 | Phantom task dates | 0 tasks | 1–3 tasks | > 3 tasks |
 | Task volume | < 150 lines | 150–199 lines | ≥ 200 lines |
 | Overdue tasks | 0 tasks | 1–2 tasks | 3+ tasks |
+| Agent-doable backlog | `agent_doable_yes_oldest_days` ≤ 30 | oldest 31–60 days | oldest > 60 days, OR `agent_doable_yes_open` ≥ 10 with oldest > 30 (nobody has to do these; the hand-off route has gone unused, so batch them) |
+| Task classification coverage | `agent_doable_unset` = 0 | 1–5 unset | > 5 unset (capture is skipping the field; see `pfc-add-task`) |
+| Clone sync | `clone_sync` line has no `[ahead`/`behind` marker | `[behind N]` only (run `git pull --rebase`) | `[ahead N]` or `[ahead N, behind M]` (commits stranded on this clone: `git pull --rebase && git push`) |
 | Revive watchlist freshness | exit 0, 0 items ("Nothing slipping right now.") | exit 0, 1–5 items ("Some slippage — walk via `/pfc-revive` when convenient.") | exit non-zero (real bug — surface stderr), OR exit 0 with ≥ 6 items ("Heavy slippage — triage thresholds may need adjustment, or batch through `/pfc-revive` now.") |
 | Evening check-in freshness | `evening_checkin_last` ≤ 2d ago | 3–5d ago | > 5d ago or never (the daily spine has lapsed — and with it the review drip) |
+| Rating gaps, trailing 14d | `rating_gaps_14d_count` = 0 | 1–2 days unrated | 3+ days unrated (each is a day that is hard to reconstruct later; `scripts/hook-missing-checkin.sh` flags them at session start) |
+| Area check-in freshness | `area_checkins_fresh` ≥ 75% of `area_checkins_asked` (or `no-items`) | 40–74% | < 40% (most area lights rest on answers over a month old, or none: run the `life-wheel` review in `/pfc-review`) |
 | Rolling-review backlog | `review_ledger_due_count` ≤ 5 | 6+ due, OR `review_ledger_weekly_max_overdue` > 14 | `review_ledger_quarterly_max_cadences_late` ≥ 2 (a quarterly item is two full cadences past due — the re-pick was skipped, not delayed) |
 | Rolling-review first run | `review_ledger_never_run` = 0 | — | — (see the fresh-clone note below; never a FAIL on its own) |
 | Yearly checkin note | note exists for last year, OR not yet Feb 15 of current year | note missing and current date ≥ Feb 15 | — |
@@ -453,7 +566,7 @@ Use this table to determine status for each result:
 
 Decide which story to tell from `review_ledger_never_run`:
 
-- **All items never run** → this is a fresh (or freshly re-seeded) system. Report it once, informationally: "Rolling reviews: N items, none run yet — the ledger starts here. The evening check-in will drip up to 2 per night, or run `/pfc-review` to walk them all now." No WARN, no FAIL.
+- **All items never run** → this is a fresh (or freshly re-seeded) system. Report it once, informationally: "Rolling reviews: N items, none run yet — the ledger starts here. The evening check-in will drip up to 2 per night, or run `/pfc-review` to start on them one at a time now." No WARN, no FAIL.
 - **Some items never run, others stamped** → the system is live and those specific items have simply never come up. Name them; WARN only if the due count also crosses the threshold above.
 - **All items stamped, some overdue** → a genuine backlog. Apply the eval table normally.
 
@@ -497,7 +610,7 @@ For each `focus_stuck:` line: 🔴. A focus whose primary vehicle has been red 4
 
 ## Step 3 — Output table
 
-Display sorted: FAIL rows first, then WARN, then OK.
+The feature scorecard (Step 0) comes first. Then this table, sorted: FAIL rows first, then WARN, then OK.
 
 ```
 | Status   | Category    | Check                  | Detail                        | Action                              |
@@ -566,8 +679,8 @@ This turns audit data into an actionable suggestion rather than a flat report. D
 | Values missing | Recreate 1-values/values.md with your top values |
 | Area statement missing | Ask Claude to draft one, then review |
 | Area statement stale | Update the statement.md for that area |
-| Too many active projects | Archive or move one project to planned status |
-| Stale active project (0%, old) | Ask: progress it, pause it, or cut it? |
+| Too many active projects | Archive one project or move it to on-deck |
+| Stale active project (0%, old) | Ask: progress it, park it, or cut it? |
 | No daily habits defined | Add to config/habit_schema.yaml |
 | Daily habit logging gap (no entries N+ days) | Run /pfc-evening-checkin or /pfc-log-habit. **Do NOT backfill `completed:false` for the silent days** — absence is not a miss. |
 | Habit logging blackout (5+ straight days, no records) | Restart the loop before touching any habit: run /pfc-evening-checkin tonight. Say plainly that the per-habit rates covering the blackout are not real failures — nothing was logged, so "unlogged = missed" has nothing to measure. Do not propose cutting or rescoping habits off blackout-window data. |
@@ -585,7 +698,7 @@ This turns audit data into an actionable suggestion rather than a flat report. D
 | Revive watchlist — ≥ 6 items slipping | Batch through `/pfc-revive` now, or revisit the signal thresholds in `automations/scripts/revive_watchlist.py` if the volume looks systemic rather than real slippage |
 | Revive watchlist — helper errored | Capture stderr and investigate `automations/scripts/revive_watchlist.py` — real bug, not a data issue |
 | Evening check-in lapsed (> 5d) | Run /pfc-evening-checkin — the daily spine drives the review drip; when it lapses, nothing surfaces and the ledger backs up |
-| Rolling-review backlog (6+ due, or a weekly item > 14d overdue) | Run /pfc-review to clear the due backlog in one sitting, instead of waiting for 2-per-night to catch up |
+| Rolling-review backlog (6+ due, or a weekly item > 14d overdue) | Run /pfc-review and keep saying "next" to work the backlog one review at a time, instead of waiting for 2-per-night to catch up |
 | Rolling-review quarterly item ≥ 2 cadences late | Run /pfc-review — a quarterly item this late means a whole season's re-pick was skipped, not delayed (`focus-repick`, `vision-brainstorm`, `strengths-refresh`) |
 | Yearly checkin note missing (past Feb 15) | Run /pfc-yearly-checkin — note should exist for last year by Feb 15 of the new year |
 | Health tokens missing | Run `python3 automations/scripts/google_health_auth.py` |
@@ -617,5 +730,5 @@ The one exception worth a single line: a task parked **more than 90 days** is wo
 CUT=$(TZ="${LOCAL_TZ:-America/Denver}" date -d '90 days ago' '+%Y-%m-%d')
 jq -c --arg c "$CUT" \
   'select(.status == "open" and .deferred == true and .created < $c) | {id, description, deferred_reason}' \
-  6-actions/_data/tasks.ndjson
+  6-tasks/_data/tasks.ndjson
 ```

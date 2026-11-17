@@ -152,7 +152,7 @@ On error: print `🟡 Trello render failed (non-blocking): <error>` and continue
 ## Step 12 — Commit
 
 ```bash
-git add notes/yearly/ data/ 2-areas/ 6-actions/_data/ 5-projects/_data/ 7-habits/_data/ config/ 1-values/ 3-visions/
+git add notes/yearly/ data/ 2-areas/ 6-tasks/_data/ 5-projects/_data/ 7-habits/_data/ config/ 1-values/ 3-visions/
 git commit -m "report: generate yearly check-in ${REVIEWED_YEAR}"
 git push
 ```

@@ -24,7 +24,7 @@ See `docs/automation-policy.md` for the commit policy and safety rules.
 **Script:** `scripts/auto_fetch_health.py`
 **Units:** `systemd/pfc-health-fetch.{service,timer}.template` + `systemd/pfc-health-fetch-morning.{service,timer}.template`
 
-Writes two layers per run: derived day metrics into `data/day-tracking.ndjson` → `health`, and the comprehensive raw streams into `data/health-raw/YYYY-MM-DD.json.gz`. Then recomputes the QQRT sleep composite (`qqrt` on each record) and commits + pushes.
+Writes two layers per run: derived day metrics into `data/day-tracking.ndjson` → `health`, and the comprehensive raw streams into `data/health-raw/YYYY-MM-DD.json.gz`. Then stamps each workout's heart-rate-derived length (`row_duration.py`), recomputes the QQRT sleep composite (`qqrt` on each record), derives the habits the watch can answer (`derive_sleep_habit.py`, `derive_workout_habits.py`) into `7-habits/_data/habits-daily.ndjson`, and commits + pushes both files together. A partial raw snapshot of a day still in progress is not committed on its own.
 
 Three cadences, because the data lands at three different times:
 
@@ -60,6 +60,12 @@ The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email
 | `pulse.py` | Daily Pulse levers, verdict, per-lever fix, and the multi-day trend — the single source of truth every pulse surface imports (Trello render, check-in). Bands tunable via `config/automation_config.yaml` → `health.pulse` |
 | `auto_fetch_health.py` | Fetch health into day-tracking.ndjson + the raw archive, recompute QQRT, commit and push — runs via `pfc-health-fetch` and `pfc-health-fetch-morning` |
 | `analyze_day_trends.py` | Analyze day-tracking data: correlations, gate/gradient classification, QQRT threshold, sleep debt, trailing-2-night worst night |
+| `row_duration.py` | Heart-rate-derived workout length (`real_minutes`, `hard_minutes`) for sessions whose watch timer ran long. No args prints Timer vs Real per session; `--write` stamps day-tracking.ndjson |
+| `derive_sleep_habit.py` | Mirror `qqrt.timing` into the `sleep-on-time` habit log (source `fitbit-derived`); a hand-logged row wins. `--dry-run` |
+| `derive_workout_habits.py` | Log habits with a `workout:` rule in `config/habit_schema.yaml` from recorded exercise sessions (source `health-derived`); a hand-logged row wins. `--dry-run` |
+| `derive_calendar_habits.py` | Log `auto_derived` habits with a `calendar:` rule from `data/calendar-cache.json` (source `calendar-derived`). `--dry-run`, `--events FILE` for a backfill |
+| `area_items.py` | Area item lights, the weighted area rollup, and the plate (committed vs free weekly hours) from `2-areas/_data/area-items.ndjson` + `area-checkins.ndjson`. Prints JSON; `--today YYYY-MM-DD` |
+| `ndjson_file.py` | Rewrite an NDJSON file so only changed lines change; atomic replace that refuses when the file changed underneath |
 
 ---
 
@@ -121,4 +127,4 @@ python3 automations/scripts/auto_fetch_health.py 2025-01-12
 
 ## Future automation targets
 
-- Task archival (when `6-actions/_data/tasks.ndjson` exceeds ~200 lines)
+- Task archival (when `6-tasks/_data/tasks.ndjson` exceeds ~200 lines)

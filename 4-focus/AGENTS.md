@@ -1,6 +1,6 @@
 # Agents — focus folder
 
-Folder-scoped operational rules for the **Focus** layer (VAVFPAH position 4, between Visions and Projects). Cross-cutting rules live in the repo-root `AGENTS.md`.
+Folder-scoped operational rules for the **Focus** layer (VAVFPTH position 4, between Visions and Projects). Cross-cutting rules live in the repo-root `AGENTS.md`.
 
 ## File summary
 

@@ -1,6 +1,6 @@
 # Data
 
-Non-VAVFPAH state and knowledge — files that don't belong to a specific life-domain folder but are referenced across the whole system.
+Non-VAVFPTH state and knowledge — files that don't belong to a specific life-domain folder but are referenced across the whole system.
 
 ## What lives here
 

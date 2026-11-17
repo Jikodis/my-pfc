@@ -5,7 +5,7 @@ description: Introduce PFC system features one at a time. Use when the user says
 
 # PFC Onboarding
 
-Walk new users through the system one feature at a time. This skill covers the full feature catalog (43 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
+Walk new users through the system one feature at a time. This skill covers the full feature catalog (51 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
 
 ---
 
@@ -54,7 +54,7 @@ When appending a `tried` event, always append it immediately after the user comp
 
 ## Step 3: Feature catalog
 
-43 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
+51 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
 
 | Category | Feature key | Description | Auth-gated? |
 |---|---|---|---|
@@ -71,6 +71,10 @@ When appending a `tried` event, always append it immediately after the user comp
 | daily-loop | daily-loop/log-day | Rate the day (1–5) | No |
 | daily-loop | daily-loop/add-hypothesis | Capture a testable claim | No |
 | daily-loop | daily-loop/add-project | Register a new short-term project | No |
+| daily-loop | daily-loop/daily-summary | One dashboard of the day: calendar, habits, projects, focus, trends | No |
+| daily-loop | daily-loop/stuck | Get unstuck when frozen, locked in, tired or overwhelmed | No |
+| daily-loop | daily-loop/schedule-focus | Put the day's 2+1 tasks on the calendar | Yes |
+| daily-loop | daily-loop/summarize-project | Status summary of one project | No |
 | tracking | tracking/habits | Daily + monthly habit logging | No |
 | tracking | tracking/day-rating | Emotional/energy/focus tracking | No |
 | tracking | tracking/trend-analysis | Find what predicts good vs bad days | No |
@@ -79,10 +83,11 @@ When appending a `tried` event, always append it immediately after the user comp
 | knowledge | knowledge/findings | Promote validated hypotheses | No |
 | health | health/supplements | Supplement registry | No |
 | health | health/google-health | Auto-fetch sleep + AZM | Yes |
-| reviews | reviews/rolling-reviews | The review ledger that drips ≤2 due items into each evening check-in | No |
-| reviews | reviews/review-catchup | `/pfc-review` — clear all currently-due reviews at once | No |
+| reviews | reviews/rolling-reviews | The review ledger: the evening check-in points at up to 2 due items, `/pfc-review` does them | No |
+| reviews | reviews/review-catchup | `/pfc-review` — do the due reviews one at a time, each as a short form | No |
 | reviews | reviews/yearly-checkin | Annual reflection | No |
 | reviews | reviews/revive | Detect and revive stalled tasks and projects | No |
+| reviews | reviews/usage-audit | Check whether the system is actually being used and producing | No |
 | areas | areas/areas | Life-area folder structure | No |
 | areas | areas/area-statements | Write what each area means to you | No |
 | areas | areas/second-brain | Drop docs into 2-areas/<area>/ | No |
@@ -94,6 +99,7 @@ When appending a `tried` event, always append it immediately after the user comp
 | integrations | integrations/google-health | Auto-fetch sleep + AZM | Yes |
 | integrations | integrations/trello-inbox | Phone widget for fast voice capture | Yes |
 | integrations | integrations/trello-dashboard | Full PFC board + mark-complete sync from phone | Yes |
+| integrations | integrations/trmnl | Build or edit a screen for the TRMNL e-ink display | Yes |
 | meta | meta/personas | Voice/character overlays for the assistant | No |
 | meta | meta/profile | Personality/brain context (interview + optional assessments) | No |
 | meta | meta/personality | Deep personality reference file (`0-me/personality.md`) | No |
@@ -101,6 +107,8 @@ When appending a `tried` event, always append it immediately after the user comp
 | meta | meta/working-with-me | Collaboration profile (interview) | No |
 | meta | meta/system-is-editable | How to ask the system to change itself | No |
 | meta | meta/pull-template-updates | Pull upstream template changes into your fork | No |
+| meta | meta/commit-and-push | Save your changes to GitHub in one step | No |
+| meta | meta/repo-maintenance | Check the system's files and docs for broken links and drift | No |
 
 ---
 
@@ -118,7 +126,7 @@ Read current state, then apply this logic:
 
 5. **First four foundations done but `meta/system-is-editable` not yet**: suggest `meta/system-is-editable`. Knowing the system is editable retains users.
 
-6. **Otherwise**: scan categories in this order — daily-loop, meta, tracking, knowledge, health, reviews, areas, visions, integrations. For each category, if at least one feature in that category has status `tried`, find the first feature in that category with status `not_introduced` and suggest it. Cap at 1 suggestion. If all features in all tried-categories are exhausted, suggest the first `not_introduced` feature in the next untouched category.
+6. **Otherwise**: scan categories in this order — daily-loop, meta, tracking, knowledge, health, reviews, areas, visions, focus, integrations. For each category, if at least one feature in that category has status `tried`, find the first feature in that category with status `not_introduced` and suggest it. Cap at 1 suggestion. If all features in all tried-categories are exhausted, suggest the first `not_introduced` feature in the next untouched category.
 
 7. **All features tried or dismissed**: congratulate briefly. Offer to revisit any dismissed feature or show status.
 
@@ -135,7 +143,7 @@ Run the matching lesson below. After the user completes "Try it now," append a `
 ### Lesson: daily-loop/add-task
 
 **What it is**
-Tasks live in `6-actions/_data/tasks.ndjson`. Every task has a size (XS–XL), location (Home/PC/Errand/Phone/Anywhere), impact (high/medium/low), and urgency (high/medium/low). The system picks tasks for you based on these fields — you don't have to re-prioritize by hand each morning.
+Tasks live in `6-tasks/_data/tasks.ndjson`. Every task has a size (XS–XL), location (Home/PC/Errand/Phone/Anywhere), impact (high/medium/low), and urgency (high/medium/low). The system picks tasks for you based on these fields — you don't have to re-prioritize by hand each morning.
 
 **Why use it**
 Use this whenever something occurs to you that you don't want to lose. The external capture is the whole point — your brain doesn't have to hold it. Skip if you already have a capture system you trust.
@@ -159,7 +167,7 @@ Not ready? `/pfc-onboarding skip daily-loop/add-task`
 ### Lesson: daily-loop/list-tasks
 
 **What it is**
-Shows all open tasks in a readable list, sorted by urgency and impact. Pulls directly from `6-actions/_data/tasks.ndjson` using `jq`.
+Shows all open tasks in a readable list, sorted by urgency and impact. Pulls directly from `6-tasks/_data/tasks.ndjson` using `jq`.
 
 **Why use it**
 Your task file is the canonical backlog. This is the fast way to see what's there without opening the file. Use it any time you want to know what you have in flight.
@@ -179,7 +187,7 @@ Your task file is the canonical backlog. This is the fast way to see what's ther
 ### Lesson: daily-loop/complete-task
 
 **What it is**
-Marks a task done, sets the `completed` date, and logs a lifecycle event to `6-actions/_data/task_events.ndjson`. Completed tasks stay in `tasks.ndjson` until the next weekly check-in archives them.
+Marks a task done, sets the `completed` date, and logs a lifecycle event to `6-tasks/_data/task_events.ndjson`. Completed tasks stay in `tasks.ndjson` until the next weekly check-in archives them.
 
 **Why use it**
 Closing the loop matters. Completed tasks get archived weekly, which keeps the active file clean. The event log builds a history of what you actually shipped.
@@ -201,7 +209,7 @@ The skill will ask which task to close if you don't specify one.
 ### Lesson: daily-loop/focus-2plus1
 
 **What it is**
-Each morning you pick 3 deliberate items: 2 critical tasks + 1 bonus stretch task. Optionally a 4th slot for an active project task. Logged in `6-actions/_data/daily-focus.ndjson`. The morning check-in runs this automatically, but you can run it standalone too.
+Each morning you pick 3 deliberate items: 2 critical tasks + 1 bonus stretch task. Optionally a 4th slot for an active project task. Logged in `6-tasks/_data/daily-focus.ndjson`. The morning check-in runs this automatically, but you can run it standalone too.
 
 **Why use it**
 The 2+1 structure prevents the "I'll just pick the easy things" trap. Two critical items forces prioritization. The bonus slot gives you a safe stretch without guilt if it doesn't land. If you're doing the evening check-in daily, tomorrow's 2+1 is picked there automatically — no need to run it separately.
@@ -302,6 +310,42 @@ The skill will ask for a rating and a few optional tags.
 
 ---
 
+### Lesson: daily-loop/daily-summary
+
+**What it is**
+One dashboard of the day: today's calendar, habits logged so far, active projects, today's 2+1, and the recent day-rating trend.
+
+**Try it now:** `/pfc-daily-summary` | **Skip:** `/pfc-onboarding skip daily-loop/daily-summary`
+
+---
+
+### Lesson: daily-loop/stuck
+
+**What it is**
+A short diagnosis for a body state that blocks work (frozen, locked in, mediocre, tired, overwhelmed), then one intervention matched to it. Use it in the moment, not as a review.
+
+**Try it now:** `/pfc-stuck` the next time you can't start | **Skip:** `/pfc-onboarding skip daily-loop/stuck`
+
+---
+
+### Lesson: daily-loop/schedule-focus
+
+**What it is**
+Places today's 2+1 tasks into open calendar slots on your primary calendar, or re-places them after the day shifts. Auth-gated: needs the Calendar connector (`docs/install/connectors.md`).
+
+**Try it now:** `/pfc-schedule-focus` | **Skip:** `/pfc-onboarding skip daily-loop/schedule-focus`
+
+---
+
+### Lesson: daily-loop/summarize-project
+
+**What it is**
+A status summary of one project: purpose, status, percent complete, velocity against its deadline, and open tasks. Offers to break a stalled project into smaller parts.
+
+**Try it now:** `/pfc-summarize-project <project>` | **Skip:** `/pfc-onboarding skip daily-loop/summarize-project`
+
+---
+
 ### Lesson: tracking/habits
 
 **What it is**
@@ -357,7 +401,7 @@ If you haven't logged today's rating yet:
 
 <!-- TODO: full lesson content -->
 
-**Try it now:** `/pfc-add-insight` | **Skip:** `/pfc-onboarding skip knowledge/insights`
+**Try it now:** `/pfc-add-insight` (review them later with `/pfc-insights`) | **Skip:** `/pfc-onboarding skip knowledge/insights`
 
 ---
 
@@ -396,7 +440,7 @@ Auth-gated — requires Google Health setup. See `docs/install/connectors.md`. *
 ### Lesson: reviews/rolling-reviews
 
 **What it is**
-The old weekly/monthly ritual reviews are gone. Their work lives in a rolling ledger (`data/review-ledger.ndjson`): each review item has a cadence (weekly/monthly/quarterly) and a `last_done`. Your evening check-in surfaces at most 2 *due* items per night, each a one-line pointer at the skill that runs it. No batch ritual to remember — the reviews come to you, a couple at a time.
+The old weekly/monthly ritual reviews are gone. Their work lives in a rolling ledger (`data/review-ledger.ndjson`): each review item has a cadence (weekly/monthly/quarterly) and a `last_done`. Your evening check-in points at up to 2 *due* items per night, and `/pfc-review` does them one at a time, each as a short form you answer in one reply. No batch ritual to remember — the reviews come to you, a couple at a time.
 
 **Why use it**
 Batch reviews get skipped (the morning gets away from you, the week fills up). Dripping 2/night keeps the review load tiny and always-current instead of a dreaded 30-minute block. You don't invoke this directly — it's part of `/pfc-evening-checkin`.
@@ -408,7 +452,7 @@ Batch reviews get skipped (the morning gets away from you, the week fills up). D
 ### Lesson: reviews/review-catchup
 
 **What it is**
-`/pfc-review` runs the same rolling-review ledger as the evening drip but with **no cap** — every currently-due, actionable item in one sitting, tier-ordered (weekly → monthly → quarterly). Use it when reviews have piled up and you want to clear the backlog deliberately.
+`/pfc-review` does the most overdue due review as a short form: a numbered table of rows (tasks, habits, focuses, areas) with a few options each, or a question or two. Answer in one reply ("1 keep, 2 drop, 3 park"), and the answers are applied and the review is stamped. Then it offers the next one, so you can clear a backlog one review at a time. A review too long for one form carries over: the next sitting starts where you stopped.
 
 **Try it now:** `/pfc-review` | **Skip:** `/pfc-onboarding skip reviews/review-catchup`
 
@@ -443,6 +487,15 @@ After 30 days, `/pfc-revive --review-outcomes` shows which past interventions wo
 
 **Skip / dismiss**
 `/pfc-onboarding skip reviews/revive`
+
+---
+
+### Lesson: reviews/usage-audit
+
+**What it is**
+A health report on whether the system is being used: a feature scorecard (used, lapsed, or not landing, with a suggested fix for each), then plumbing checks such as data freshness, logging gaps and stale reviews. It is not a content view (`/pfc-status`) or a file check (`/pfc-repo-maintenance`).
+
+**Try it now:** `/pfc-usage-audit` | **Skip:** `/pfc-onboarding skip reviews/usage-audit`
 
 ---
 
@@ -733,6 +786,15 @@ Then run `/pfc-onboarding reset integrations/trello-dashboard` once you've worke
 
 ---
 
+### Lesson: integrations/trmnl
+
+**What it is**
+Builds, previews and pushes a screen for a TRMNL e-ink display from your repo data (today's 2+1, the week, habits). Auth-gated: needs a TRMNL device and `TRMNL_API_KEY` in `.env` (see `docs/trmnl-plugins.md`).
+
+**Try it now:** `/pfc-trmnl-plugin` | **Skip:** `/pfc-onboarding skip integrations/trmnl`
+
+---
+
 ### Lesson: meta/set-local-timezone
 
 **What it is**
@@ -939,7 +1001,7 @@ The other five sections are reasonable to leave for later — they're either acc
 ### Lesson: meta/system-is-editable
 
 **What it is**
-The PFC system is not fixed software. Every skill, rule, schema, and behavior lives in plain text files in this repo — and you can ask Claude to change any of it. You can say "from now on, when I add a task, also ask me for a due date" and it will update the skill file to make that permanent. You can edit `CLAUDE.md` (or `AGENTS.md`) to change cross-cutting rules. You can update `config/habit_schema.yaml` to add a new habit. The whole system is yours.
+The PFC system is not fixed software. Every skill, rule, schema, and behavior lives in plain text files in this repo — and you can ask Claude to change any of it. You can say "from now on, when I add a task, also ask me for a due date" and it will update the skill file to make that permanent. You can edit `AGENTS.md` to change cross-cutting rules. You can update `config/habit_schema.yaml` to add a new habit. The whole system is yours.
 
 **Why use it**
 Most productivity apps are closed boxes — you get the behavior they ship. This system is a living repo. The skills that run today were written to fit one person's brain; yours is different. The fastest path to a system that actually works for you is to start editing it early, before you build habits around behavior that doesn't fit.
@@ -951,7 +1013,7 @@ High-leverage edits to consider early:
 - Adjust the 2+1 logic in `pfc-evening-checkin` (plan-tomorrow step) if 2 critical + 1 bonus doesn't fit your flow
 
 **Try it now**
-Pick one thing that already feels off about the system. Tell Claude what you want changed and say "update the skill" or "add this rule to CLAUDE.md." Watch what it does. If you don't like the result, revert with `git checkout <file>`.
+Pick one thing that already feels off about the system. Tell Claude what you want changed and say "update the skill" or "add this rule to AGENTS.md." Watch what it does. If you don't like the result, revert with `git checkout <file>`.
 
 Example: "When I add a task, also ask me what time of day is best for it. Add that as a field."
 
@@ -970,7 +1032,7 @@ Your fork drifts from upstream over time as new skills, refinements, and fixes s
 **Why use it**
 Most people fork a template, customize it, then never pull updates, because merging hand-edited files is painful and risks losing real data. This skill removes both risks. It snapshots to a tag first, refuses to overwrite anything on a protected list (your tasks, habits, day tracking, values, areas, habit definitions), and verifies your record counts afterward — a drop means something went wrong and you roll back to the tag.
 
-The one to watch for: upstream ships data files as *empty starters*. Accepting `6-actions/_data/tasks.ndjson` from a release over your populated file would wipe your tasks. The skill's guard catches exactly that.
+The one to watch for: upstream ships data files as *empty starters*. Accepting `6-tasks/_data/tasks.ndjson` from a release over your populated file would wipe your tasks. The skill's guard catches exactly that.
 
 **Try it now**
 ```
@@ -983,6 +1045,24 @@ It shows what's available, groups each release by what it means for you, and app
 
 **Skip / dismiss**
 `/pfc-onboarding skip meta/pull-template-updates`
+
+---
+
+### Lesson: meta/commit-and-push
+
+**What it is**
+Commits the changes in your repo with a message in the repo's commit style and pushes them to GitHub, in one step. Most skills already commit their own writes; this is for everything else (a hand edit, a new note).
+
+**Try it now:** `/pfc-commit-and-push` | **Skip:** `/pfc-onboarding skip meta/commit-and-push`
+
+---
+
+### Lesson: meta/repo-maintenance
+
+**What it is**
+Checks the system's own files: the validator, broken links and references, docs that drifted from the code, and leftover mentions of removed things. It fixes trivial drift and asks about anything else. Run it after any structural change you make.
+
+**Try it now:** `/pfc-repo-maintenance` | **Skip:** `/pfc-onboarding skip meta/repo-maintenance`
 
 ---
 
@@ -1017,7 +1097,7 @@ tracking        habits                           ⚫ dismissed
 ...
 ```
 
-At the bottom, show a one-line summary: "X of 33 features tried · Y dismissed · Z not introduced"
+At the bottom, show a one-line summary: "X of 51 features tried · Y dismissed · Z not introduced"
 
 ---
 

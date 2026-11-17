@@ -19,9 +19,9 @@ Verify env vars set: `TRELLO_API_KEY`, `TRELLO_API_TOKEN`, `TRELLO_DASHBOARD_BOA
 
 ### Step 1 — Fetch Calendar data via MCP (if Google Calendar MCP is available)
 
-Use `mcp__claude_ai_Google_Calendar__list_events` (or your environment's equivalent) to fetch events from the user's primary + work calendars for the next 7 days starting today (`$LOCAL_TZ`). Per `docs/calendar-scheduling.md`, EXCLUDE any context-only calendars (e.g. holidays, shared community calendars) — edit `config/trello_calendar_filters.yaml` to match the calendars in your scope.
+Use `mcp__claude_ai_Google_Calendar__list_events` (or your environment's equivalent) to fetch events from the user's primary + work calendars from the start of **yesterday** through 7 days after today (`$LOCAL_TZ`). Per `docs/calendar-scheduling.md`, EXCLUDE any context-only calendars (e.g. holidays, shared community calendars) — edit `config/trello_calendar_filters.yaml` to match the calendars in your scope.
 
-Get today's date: `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` and end date 7 days later.
+Get the dates: `TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')`, `YESTERDAY=$(TZ="${LOCAL_TZ:-America/Denver}" date -v-1d '+%Y-%m-%d' 2>/dev/null || TZ="${LOCAL_TZ:-America/Denver}" date -d yesterday '+%Y-%m-%d')`, and the end date 7 days after today. Yesterday is in the fetch only for the cache below: `automations/scripts/derive_calendar_habits.py` logs calendar-derived habits from it, and an event late yesterday would otherwise never be logged. The Calendar list itself gets today onward only (trimmed below).
 
 Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this shape per event.
 
@@ -42,9 +42,38 @@ Save the results as a JSON array to `/tmp/pfc-calendar-events.json` with this sh
 
 If Calendar MCP is not available, skip this step. The render will skip the Calendar list with a 🟡 note.
 
+After a successful fetch, write the durable cache (`docs/data-model.md`). Scripts cannot reach the Calendar connector, so this file is their only calendar feed:
+
+```bash
+jq --arg ts "$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%dT%H:%M:%S%z')" --arg from "$YESTERDAY" \
+  '{fetched_at: $ts, from: $from, events: .}' /tmp/pfc-calendar-events.json > data/calendar-cache.json
+```
+
+Then trim the render's copy to events that reach today or later, so yesterday never lands on the Calendar list (the cache keeps it):
+
+```bash
+jq --arg t "$TODAY" '[.[] | select(
+    ((.end.dateTime // .start.dateTime // "")[:10] >= $t)
+    or ((.end.date // "") > $t) or ((.start.date // "") >= $t))]' \
+  /tmp/pfc-calendar-events.json > /tmp/pfc-calendar-events.today.json \
+  && mv /tmp/pfc-calendar-events.today.json /tmp/pfc-calendar-events.json
+```
+
+Commit the cache (`track: refresh calendar cache`) if it changed.
+
+### Step 1b — Log calendar-derived habits
+
+After the cache is written, log any habit with `auto_derived: true` and a `calendar:` rule in `config/habit_schema.yaml`:
+
+```bash
+python3 automations/scripts/derive_calendar_habits.py
+```
+
+If `7-habits/_data/habits-daily.ndjson` or `habits-monthly.ndjson` changed, commit only those, by explicit path, as `habit: calendar log <today>`, and push. With no `calendar:` habits defined, the script changes nothing.
+
 ### Step 2 — Run the render
 
-Email is NOT rendered to a dashboard list. Labeled inbox emails become tasks via `pfc-email-triage` Step 0 (run daily by the evening check-in), and those show up as ordinary Action cards. To refresh them, run `/pfc-email-triage`, not this skill.
+Email is NOT rendered to a dashboard list. Labeled inbox emails become tasks via `pfc-email-triage` Step 0 (run daily by the evening check-in), and those show up as ordinary task cards. To refresh them, run `/pfc-email-triage`, not this skill.
 
 ```bash
 python3 automations/scripts/trello_render.py \

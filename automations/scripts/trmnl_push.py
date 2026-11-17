@@ -208,12 +208,12 @@ def build_pfc_today(env, today):
     day's plan at the check-in instead of sitting on the day just closed —
     which is what you want on the wall overnight and at breakfast.
     """
-    tasks = {t["id"]: t for t in read_ndjson("6-actions/_data/tasks.ndjson")}
-    archive = {t["id"]: t for t in read_ndjson("6-actions/_data/tasks-archive.ndjson")}
+    tasks = {t["id"]: t for t in read_ndjson("6-tasks/_data/tasks.ndjson")}
+    archive = {t["id"]: t for t in read_ndjson("6-tasks/_data/tasks-archive.ndjson")}
     tasks.update({k: v for k, v in archive.items() if k not in tasks})
 
     tomorrow = (dt.date.fromisoformat(today) + dt.timedelta(days=1)).isoformat()
-    focus_records = read_ndjson("6-actions/_data/daily-focus.ndjson")
+    focus_records = read_ndjson("6-tasks/_data/daily-focus.ndjson")
 
     def record_for(date):
         return next((f for f in reversed(focus_records) if f.get("date") == date), None)
@@ -481,7 +481,7 @@ PROJECT_SCREEN_CAP = 6
 
 def build_pfc_projects(env, today):
     """Active projects: percent + parts + deadline countdown + next open tasks."""
-    open_tasks = [t for t in read_ndjson("6-actions/_data/tasks.ndjson") if t.get("status") == "open"]
+    open_tasks = [t for t in read_ndjson("6-tasks/_data/tasks.ndjson") if t.get("status") == "open"]
     projects = []
     for p in read_ndjson("5-projects/_data/projects.ndjson"):
         if not p.get("active"):
@@ -779,11 +779,11 @@ def build_pfc_back_on_track(env, today):
     # Projects: the revive watchlist's project entries (same slip signals
     # /pfc-revive uses), days idle from task events, step = the next task.
     watch = revive_watchlist.compose_watchlist(REPO_ROOT, dt.date.fromisoformat(today))
-    all_tasks = read_ndjson("6-actions/_data/tasks.ndjson")
+    all_tasks = read_ndjson("6-tasks/_data/tasks.ndjson")
     open_tasks = [t for t in all_tasks if t.get("status") == "open"]
     projects_by_id = {p["id"]: p for p in read_ndjson("5-projects/_data/projects.ndjson")}
     last_event = {}
-    for e in read_ndjson("6-actions/_data/task_events.ndjson"):
+    for e in read_ndjson("6-tasks/_data/task_events.ndjson"):
         tid, ts = e.get("task_id"), (e.get("timestamp") or "")[:10]
         if tid and ts and ts > last_event.get(tid, ""):
             last_event[tid] = ts

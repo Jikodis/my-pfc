@@ -5,7 +5,9 @@
 #   1. Every data/*.ndjson parses cleanly (catches raw echo/sed corruption)
 #   2. Every .claude/skills/*/SKILL.md has valid frontmatter with name+description
 #   3. tasks.ndjson conforms to config/task_schema.yaml (required fields, enums, id format)
-#   4. habits-daily.ndjson uses declared habit_ids (active or deprecated)
+#   4. Habit logs: habits-daily.ndjson uses declared habit_ids (active or deprecated),
+#      and both habits-daily.ndjson and habits-monthly.ndjson hold one row per habit
+#      per date (a duplicate row would count a habit twice in every rate)
 #   5. projects.ndjson has required fields and id format
 #   6. Cross-file integrity:
 #      - daily-focus critical/bonus task ids exist in tasks.ndjson or tasks-archive.ndjson
@@ -14,6 +16,7 @@
 #      - habit_schema.yaml habit.area values exist as folders in 2-areas/
 #      - daily habit count ≤ 14 (config/habit_schema.yaml cap)
 #  12. config/onboarding.ndjson schema (feature pattern, status enum, date format)
+#  17. 2-areas/_data/area-items.ndjson + area-checkins.ndjson (config/area_item_schema.yaml)
 #
 # Usage: scripts/validate.sh
 # Exit 0 on success, 1 on any failure. Safe to run as a pre-commit hook.
@@ -28,8 +31,8 @@ fail() { echo "  ✗ $*" >&2; FAIL=1; }
 ok()   { echo "  ✓ $*"; }
 
 # ── 1. NDJSON parse ───────────────────────────────────────────────────────────
-echo "[1/16] NDJSON parse validation"
-for f in data/*.ndjson 3-visions/_data/*.ndjson 4-focus/_data/*.ndjson 5-projects/_data/*.ndjson 6-actions/_data/*.ndjson 7-habits/_data/*.ndjson; do
+echo "[1/17] NDJSON parse validation"
+for f in data/*.ndjson 2-areas/_data/*.ndjson 3-visions/_data/*.ndjson 4-focus/_data/*.ndjson 5-projects/_data/*.ndjson 6-tasks/_data/*.ndjson 7-habits/_data/*.ndjson; do
   [ -s "$f" ] || { ok "$(basename "$f") (empty)"; continue; }
   if ! jq -e . "$f" >/dev/null 2>&1; then
     fail "$f — malformed JSON (run: jq . $f to see where)"
@@ -39,7 +42,7 @@ for f in data/*.ndjson 3-visions/_data/*.ndjson 4-focus/_data/*.ndjson 5-project
 done
 
 # ── 2. Skill frontmatter ──────────────────────────────────────────────────────
-echo "[2/16] Skill frontmatter lint"
+echo "[2/17] Skill frontmatter lint"
 for dir in .agents/skills/*/; do
   skill_name=$(basename "$dir")
   f="${dir}SKILL.md"
@@ -65,8 +68,8 @@ for dir in .agents/skills/*/; do
 done
 
 # ── 3. tasks.ndjson schema ────────────────────────────────────────────────────
-echo "[3/16] tasks.ndjson schema"
-TASKS=6-actions/_data/tasks.ndjson
+echo "[3/17] tasks.ndjson schema"
+TASKS=6-tasks/_data/tasks.ndjson
 if [ -s "$TASKS" ]; then
   bad=$(jq -c '
     select(
@@ -79,6 +82,8 @@ if [ -s "$TASKS" ]; then
       ([.urgency] | inside(["high","medium","low"]) | not) or
       ((.project // null) == null) or
       ((.created // "") == "") or
+      ((.agent_doable // null) != null and
+        ([.agent_doable] | inside(["yes","partly","no"]) | not)) or
       ((.depends_on // null) != null and (
         (.depends_on | type) != "array" or
         ([.depends_on[]? | test("^task-[0-9]{8}-[0-9]{3}$") | not] | any)
@@ -94,8 +99,8 @@ if [ -s "$TASKS" ]; then
   fi
 fi
 
-# ── 4. habits-daily.ndjson habit_id declared ──────────────────────────────────
-echo "[4/16] habits-daily.ndjson habit_id declared"
+# ── 4. habit logs: declared ids, and one row per habit per date ───────────────
+echo "[4/17] habit logs (declared habit_ids, no duplicate rows)"
 HABITS=7-habits/_data/habits-daily.ndjson
 SCHEMA=config/habit_schema.yaml
 if [ -s "$HABITS" ] && [ -f "$SCHEMA" ]; then
@@ -123,8 +128,23 @@ if [ -s "$HABITS" ] && [ -f "$SCHEMA" ]; then
   fi
 fi
 
+# Two rows for the same habit on the same date make readers disagree: a reader that
+# keeps the last row for a date sees one rep, while focus_status.habit_rate counts
+# every completed row, so a duplicate raises the rate.
+for f in 7-habits/_data/habits-daily.ndjson 7-habits/_data/habits-monthly.ndjson; do
+  [ -s "$f" ] || continue
+  dupes=$(jq -r '[.habit_id, .date] | @tsv' "$f" | sort | uniq -d)
+  if [ -n "$dupes" ]; then
+    while IFS=$'\t' read -r hid hdate; do
+      fail "$(basename "$f") — two rows for $hid on $hdate (keep one; duplicate rows inflate the rate)"
+    done <<< "$dupes"
+  else
+    ok "$(basename "$f") (one row per habit per date)"
+  fi
+done
+
 # ── 5. projects.ndjson schema ─────────────────────────────────────────────────
-echo "[5/16] projects.ndjson schema"
+echo "[5/17] projects.ndjson schema"
 PROJECTS=5-projects/_data/projects.ndjson
 if [ -s "$PROJECTS" ]; then
   bad=$(jq -c '
@@ -158,10 +178,10 @@ if [ -s "$PROJECTS" ]; then
 fi
 
 # ── 6. Cross-file integrity ──────────────────────────────────────────────────
-echo "[6/16] Cross-file integrity"
+echo "[6/17] Cross-file integrity"
 
-FOCUS=6-actions/_data/daily-focus.ndjson
-ARCHIVE=6-actions/_data/tasks-archive.ndjson
+FOCUS=6-tasks/_data/daily-focus.ndjson
+ARCHIVE=6-tasks/_data/tasks-archive.ndjson
 
 # 6a. daily-focus schema: critical is string-array, bonus is string or null,
 #     calendar_events is an optional object of {task_id: {event_id, start, end}}.
@@ -188,7 +208,7 @@ if [ -s "$FOCUS" ]; then
   fi
 
   # 6b. daily-focus task_ids must resolve to a task in live or archive
-  jq -r '.id' 6-actions/_data/tasks.ndjson "$ARCHIVE" 2>/dev/null | sort -u > /tmp/.validate-task-ids
+  jq -r '.id' 6-tasks/_data/tasks.ndjson "$ARCHIVE" 2>/dev/null | sort -u > /tmp/.validate-task-ids
   dangling=$(jq -r '(.critical[]?), (.bonus // empty)' "$FOCUS" \
              | sort -u \
              | while read -r tid; do
@@ -321,7 +341,7 @@ if [ -f "$PERSONA_CFG" ] && [ -f "$PERSONA_REG" ]; then
 fi
 
 # ── 7. findings.ndjson schema + cross-file ─────────────────────────────────────
-echo "[7/16] findings.ndjson schema + cross-file"
+echo "[7/17] findings.ndjson schema + cross-file"
 FINDINGS=data/findings.ndjson
 if [ -s "$FINDINGS" ]; then
   bad=$(jq -c '
@@ -386,7 +406,7 @@ else
 fi
 
 # ── 8. supplements.ndjson schema ──────────────────────────────────────────────
-echo "[8/16] supplements.ndjson schema"
+echo "[8/17] supplements.ndjson schema"
 SUPP=data/supplements.ndjson
 if [ -s "$SUPP" ]; then
   bad=$(jq -c '
@@ -418,7 +438,7 @@ else
 fi
 
 # ── 9. insights.ndjson schema ─────────────────────────────────────────────────
-echo "[9/16] insights.ndjson schema"
+echo "[9/17] insights.ndjson schema"
 INSIGHTS=data/insights.ndjson
 if [ -s "$INSIGHTS" ]; then
   bad=$(jq -c '
@@ -459,16 +479,16 @@ else
 fi
 
 # ── 10. Future-dated date-stamped fields (UTC vs local slip detection) ───────
-echo "[10/16] No future-dated records (catches UTC vs local-tz date slips)"
+echo "[10/17] No future-dated records (catches UTC vs local-tz date slips)"
 LOCAL_TZ="${LOCAL_TZ:-America/Denver}"
 TODAY_MT=$(TZ="$LOCAL_TZ" date '+%Y-%m-%d')
 
 # tasks.ndjson — created, completed, deadline must not be > today_MT
 # (deadline can legitimately be future, so skip it; created/completed cannot)
-if [ -s 6-actions/_data/tasks.ndjson ]; then
+if [ -s 6-tasks/_data/tasks.ndjson ]; then
   future=$(jq -r --arg t "$TODAY_MT" \
     'select((.created // "") > $t or (.completed // "" | tostring) > $t) | "\(.id) created=\(.created // "null") completed=\(.completed // "null")"' \
-    6-actions/_data/tasks.ndjson)
+    6-tasks/_data/tasks.ndjson)
   if [ -n "$future" ]; then
     while IFS= read -r line; do
       fail "tasks.ndjson — future-dated record: $line (today is $TODAY_MT MT — likely UTC vs MT slip)"
@@ -481,10 +501,10 @@ fi
 # task_events.ndjson — timestamp must not be > today_MT
 # Compare only the date portion (first 10 chars) so same-day timestamps don't
 # falsely flag as "future" due to the T… suffix sorting after the bare date.
-if [ -s 6-actions/_data/task_events.ndjson ]; then
+if [ -s 6-tasks/_data/task_events.ndjson ]; then
   future=$(jq -r --arg t "$TODAY_MT" \
     'select(((.timestamp // "")[0:10]) > $t) | "\(.task_id // "?") timestamp=\(.timestamp)"' \
-    6-actions/_data/task_events.ndjson)
+    6-tasks/_data/task_events.ndjson)
   if [ -n "$future" ]; then
     while IFS= read -r line; do
       fail "task_events.ndjson — future-dated record: $line (today is $TODAY_MT MT)"
@@ -495,8 +515,8 @@ if [ -s 6-actions/_data/task_events.ndjson ]; then
 fi
 
 # daily-focus.ndjson — date must not be > today_MT
-if [ -s 6-actions/_data/daily-focus.ndjson ]; then
-  future=$(jq -r --arg t "$TODAY_MT" 'select((.date // "") > $t) | .date' 6-actions/_data/daily-focus.ndjson)
+if [ -s 6-tasks/_data/daily-focus.ndjson ]; then
+  future=$(jq -r --arg t "$TODAY_MT" 'select((.date // "") > $t) | .date' 6-tasks/_data/daily-focus.ndjson)
   if [ -n "$future" ]; then
     while IFS= read -r d; do
       fail "daily-focus.ndjson — future-dated record: $d (today is $TODAY_MT MT)"
@@ -576,7 +596,7 @@ if [ -s data/hypotheses.ndjson ]; then
 fi
 
 # ── 11. hypotheses.ndjson schema ──────────────────────────────────────────────
-echo "[11/16] hypotheses.ndjson schema"
+echo "[11/17] hypotheses.ndjson schema"
 HYP=data/hypotheses.ndjson
 if [ -s "$HYP" ]; then
   bad=$(jq -c '
@@ -602,7 +622,7 @@ else
 fi
 
 # ── 12. config/onboarding.ndjson schema ───────────────────────────────────────
-echo "[12/16] config/onboarding.ndjson schema"
+echo "[12/17] config/onboarding.ndjson schema"
 ONBOARDING=config/onboarding.ndjson
 if [ ! -f "$ONBOARDING" ]; then
   ok "onboarding.ndjson (not present — skipping)"
@@ -626,7 +646,7 @@ else
 fi
 
 # ── 13. revive-events.ndjson schema + cross-ref ───────────────────────────────
-echo "[13/16] revive-events.ndjson schema"
+echo "[13/17] revive-events.ndjson schema"
 REVIVE=data/revive-events.ndjson
 if [ ! -s "$REVIVE" ]; then
   ok "revive-events.ndjson (empty)"
@@ -664,7 +684,7 @@ else
 fi
 
 # ── 14. focus.ndjson schema + cross-refs ──────────────────────────────────────
-echo "[14/16] focus.ndjson schema"
+echo "[14/17] focus.ndjson schema"
 FOCUS_FILE=4-focus/_data/focus.ndjson
 if [ ! -s "$FOCUS_FILE" ]; then
   ok "focus.ndjson (empty)"
@@ -745,7 +765,7 @@ else
 fi
 
 # ── 15. review-ledger.ndjson schema ───────────────────────────────────────────
-echo "[15/16] review-ledger.ndjson schema"
+echo "[15/17] review-ledger.ndjson schema"
 LEDGER=data/review-ledger.ndjson
 if [ ! -s "$LEDGER" ]; then
   ok "review-ledger.ndjson (empty)"
@@ -764,7 +784,7 @@ else
 fi
 
 # ── 16. grounding.ndjson schema ───────────────────────────────────────────────
-echo "[16/16] grounding.ndjson schema"
+echo "[16/17] grounding.ndjson schema"
 GROUNDING=data/grounding.ndjson
 if [ ! -s "$GROUNDING" ]; then
   ok "grounding.ndjson (empty)"
@@ -779,6 +799,63 @@ else
   [ -n "$bad" ] && { while IFS= read -r id; do fail "grounding.ndjson — record $id violates schema"; done <<< "$bad"; } || ok "grounding.ndjson ($(wc -l <"$GROUNDING" | tr -d ' ') records conform)"
   fut=$(jq -rc --arg t "$TODAY_MT" 'select(.created > $t) | .id' "$GROUNDING")
   [ -n "$fut" ] && fail "grounding.ndjson — future-dated created: $fut" || ok "grounding.ndjson — no future-dated created"
+fi
+
+# ── 17. area-items.ndjson + area-checkins.ndjson (config/area_item_schema.yaml) ─
+echo "[17/17] area items and check-ins"
+ITEMS=2-areas/_data/area-items.ndjson
+CHECKINS=2-areas/_data/area-checkins.ndjson
+if [ ! -s "$ITEMS" ]; then
+  ok "area-items.ndjson (empty or absent)"
+else
+  bad=$(jq -r 'select(
+      (.id // "" | test("^item-[a-z_]+-[a-z0-9-]+$") | not)
+      or ((.title // "") == "")
+      or (.kind // "" | IN("time","status") | not)
+      or (.weight // 0 | IN(1,2,3) | not)
+      or ((.active | type) != "boolean")
+      or ((has("question")) == (has("source")))
+      or (has("question") and ((.question | type) != "string" or .question == ""))
+      or (has("source") and (.source | test("^(fitbit:sleep|calendar:.+|habit:[a-z0-9-]+)$") | not))
+      or (has("every") and (.every | IN("week","month","quarter","year") | not))
+      or (has("ends") and (.ends | tostring | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") | not))
+      or (has("hours") and ((.hours | type) != "number" or .hours < 0))
+      or (.kind == "time" and (has("hours") | not) and ((.source // "") | startswith("calendar:") | not))
+      or (.kind == "status" and (has("hours") or has("every") or has("ends")))
+    ) | .id // "(no id)"' "$ITEMS")
+  [ -n "$bad" ] && { while IFS= read -r id; do fail "area-items.ndjson — record $id violates config/area_item_schema.yaml"; done <<< "$bad"; } \
+    || ok "area-items.ndjson ($(wc -l <"$ITEMS" | tr -d ' ') records conform)"
+  dup=$(jq -r '.id' "$ITEMS" | sort | uniq -d)
+  [ -n "$dup" ] && fail "area-items.ndjson — duplicate id(s): $dup" || ok "area-items.ndjson — ids unique"
+  # area: a 2-areas/ folder or a key of the newest life-wheel snapshot
+  wheel_keys=$(jq -s -r 'sort_by(.date) | last | (.ratings // {}) | keys[]' 2-areas/_data/life-wheel.ndjson 2>/dev/null)
+  bad_area=$(jq -r '.area' "$ITEMS" | sort -u | while read -r a; do
+    [ -d "2-areas/$a" ] || grep -qxF "$a" <<< "$wheel_keys" || echo "$a"
+  done)
+  [ -n "$bad_area" ] && fail "area-items.ndjson — area not in 2-areas/ or the life wheel: $(echo "$bad_area" | tr '\n' ',')" \
+    || ok "area-items.ndjson — all area values resolve"
+  declared_habits=$(awk '/^(daily|monthly)_habits:/{f=1;next} /^[a-z_]+:/{f=0} f && /^  - id:/{print $3}' \
+    config/habit_schema.yaml | tr -d '"' | sort -u)
+  unknown_habit=$(jq -r '.source // empty | select(startswith("habit:")) | ltrimstr("habit:")' "$ITEMS" \
+    | sort -u | comm -23 - <(echo "$declared_habits"))
+  [ -n "$unknown_habit" ] && fail "area-items.ndjson — habit source not declared in habit_schema.yaml: $(echo "$unknown_habit" | tr '\n' ',')" \
+    || ok "area-items.ndjson — all habit sources resolve"
+fi
+if [ -s "$CHECKINS" ]; then
+  T=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+  bad=$(jq -r --arg t "$T" 'select(
+      (.date // "" | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") | not)
+      or (.date > $t)
+      or ((.item_id // "") == "")
+      or (.answer // "" | IN("good","okay","rough") | not)
+      or (has("note") and ((.note | type) != "string"))
+    ) | "\(.date // "?") \(.item_id // "?")"' "$CHECKINS")
+  [ -n "$bad" ] && { while IFS= read -r r; do fail "area-checkins.ndjson — record $r violates config/area_item_schema.yaml (or is future-dated; today is $T)"; done <<< "$bad"; } \
+    || ok "area-checkins.ndjson ($(wc -l <"$CHECKINS" | tr -d ' ') records conform)"
+  item_ids=$(jq -r '.id' "$ITEMS" 2>/dev/null | sort -u)
+  dangling=$(jq -r '.item_id' "$CHECKINS" | sort -u | comm -23 - <(echo "$item_ids"))
+  [ -n "$dangling" ] && fail "area-checkins.ndjson — item_id not in area-items.ndjson: $(echo "$dangling" | tr '\n' ',')" \
+    || ok "area-checkins.ndjson — all item_ids resolve"
 fi
 
 echo

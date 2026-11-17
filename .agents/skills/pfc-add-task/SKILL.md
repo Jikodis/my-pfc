@@ -5,15 +5,20 @@ description: Add a new task to the productivity system. Use when the user says "
 
 # Add Task
 
-All tasks live in `6-actions/_data/tasks.ndjson` — strategic and operational alike. See [task_schema.yaml](../../../config/task_schema.yaml).
+All tasks live in `6-tasks/_data/tasks.ndjson` — strategic and operational alike. See [task_schema.yaml](../../../config/task_schema.yaml).
 
 ## Required fields
 
-Every task needs all four — never skip or omit any:
+Every task needs all five — never skip or omit any:
 - **size**: `XS`, `S`, `M`, `L`, `XL`
 - **location**: `Home`, `PC`, `Errand`, `Phone`, `Anywhere`
 - **impact**: `high`, `medium`, `low`
 - **urgency**: `high`, `medium`, `low`
+- **agent_doable**: `yes`, `partly`, `no` — who can actually do the work. Infer it; only ask when it's genuinely unclear. Full rules: [`../../../6-tasks/AGENTS.md`](../../../6-tasks/AGENTS.md) § Agent delegation.
+  - **`yes`**: an agent with a browser can drive it start to finish and the user only approves the result. Infer it for online research, comparing and picking, web forms, portals, registrations, warranties, returns, purchases, account changes, drafting a reply, and code in this repo.
+  - **`partly`**: an agent does the setup or research, and the user does one step only a person can do. Infer it for anything that ends in a phone call, a signature, a physical object, or being somewhere in person.
+  - **`no`**: only the user can do it. Infer it for learning and practice, workouts, creative work in the user's own voice, and any conversation with another person.
+  - **The bar for `no` is "the doing is the point."** "It would be faster to just do it myself" is not a reason for `no`; a task an agent can finish should not take one of the user's 2+1 slots.
 
 For operational items without clear strategic weight, default to `impact: medium`, `urgency: low`. Infer from context — only ask if truly ambiguous.
 
@@ -22,13 +27,13 @@ For operational items without clear strategic weight, default to `impact: medium
 When the user says "take X off the rotation", "park it", "stop offering it", or "not until I'm ready", set `deferred: true` on the task plus a `deferred_reason` in their own words. Do NOT delete it and do NOT mark it done — it's still open work.
 
 ```bash
-tmp=6-actions/_data/.jq_update.tmp
+tmp=6-tasks/_data/.jq_update.tmp
 jq -c --arg id "task-YYYYMMDD-NNN" --arg why "..." \
   'if .id==$id then .deferred=true | .deferred_reason=$why else . end' \
-  6-actions/_data/tasks.ndjson > "$tmp" && mv "$tmp" 6-actions/_data/tasks.ndjson
+  6-tasks/_data/tasks.ndjson > "$tmp" && mv "$tmp" 6-tasks/_data/tasks.ndjson
 ```
 
-Deferred tasks drop out of `pfc-pick-tasks`, the evening check-in's 2+1 pool, the Trello `✅ Actions` list, and `pfc-revive`'s slippage signals. They stay visible in `/pfc-list-tasks`. Un-park by setting `deferred` to `false`.
+Deferred tasks drop out of `pfc-pick-tasks`, the evening check-in's 2+1 pool, the Trello `✅ Tasks` list, and `pfc-revive`'s slippage signals. They stay visible in `/pfc-list-tasks`. Un-park by setting `deferred` to `false`.
 
 ## Shorthand input
 
@@ -74,7 +79,7 @@ Example: `BC S Install <software> on <device>` → impact=medium, urgency=low, s
    **Layer 1 — email thread ID (exact; only when `source='email-triage'`).** When the caller passes an email thread ID, query both open AND archived tasks for an exact match:
    ```bash
    jq -c --arg tid "GMAIL_THREAD_ID" 'select(.source_email_thread_id == $tid)' \
-     6-actions/_data/tasks.ndjson 6-actions/_data/tasks-archive.ndjson
+     6-tasks/_data/tasks.ndjson 6-tasks/_data/tasks-archive.ndjson
    ```
    Match against the archive too — a previously-completed task on the same thread usually means the email should be unlabeled, not re-tasked.
 
@@ -82,12 +87,12 @@ Example: `BC S Install <software> on <device>` → impact=medium, urgency=low, s
    ```bash
    NORM=$(printf '%s' "EMAIL_SUBJECT" | sed -E 's/^([Rr][Ee]|[Ff][Ww][Dd]):[[:space:]]*//' | tr '[:upper:]' '[:lower:]')
    jq -c --arg sub "$NORM" 'select((.source_email_subject // "") | ascii_downcase | sub("^(re|fwd):[[:space:]]*"; "") == $sub)' \
-     6-actions/_data/tasks.ndjson 6-actions/_data/tasks-archive.ndjson
+     6-tasks/_data/tasks.ndjson 6-tasks/_data/tasks-archive.ndjson
    ```
 
    **Layer 3 — keyword substring (always; catches non-email duplicates and same-topic-different-phrasing).** Try each significant noun/verb from the description:
    ```bash
-   jq -c --arg kw "KEYWORD" 'select(.status == "open" and (.description | test($kw; "i")))' 6-actions/_data/tasks.ndjson
+   jq -c --arg kw "KEYWORD" 'select(.status == "open" and (.description | test($kw; "i")))' 6-tasks/_data/tasks.ndjson
    ```
 
    If any layer finds a match:
@@ -110,23 +115,23 @@ Example: `BC S Install <software> on <device>` → impact=medium, urgency=low, s
      --argjson tid 'null' \
      --argjson esub 'null' \
      --arg created "YYYY-MM-DD" \
-     '{id:$id, status:"open", description:$desc, notes:$notes, size:"M", location:"PC", impact:"high", urgency:"low", project:"none", depends_on:$depends_on, deadline:null, created:$created, completed:null, source:"chat", source_email_thread_id:$tid, source_email_subject:$esub}' \
-     >> 6-actions/_data/tasks.ndjson
+     '{id:$id, status:"open", description:$desc, notes:$notes, size:"M", location:"PC", impact:"high", urgency:"low", agent_doable:"no", project:"none", depends_on:$depends_on, deadline:null, created:$created, completed:null, source:"chat", source_email_thread_id:$tid, source_email_subject:$esub}' \
+     >> 6-tasks/_data/tasks.ndjson
    ```
    - Pass `--argjson notes 'null'` when no notes, or `--argjson notes '"the notes text"'` when notes are present.
    - Pass `--argjson depends_on 'null'` when no dependencies, or `--argjson depends_on '["task-20260422-004"]'` (JSON array) when the task is blocked by one or more prior tasks.
    - Pass `--argjson tid 'null'` and `--argjson esub 'null'` for non-email tasks. For email-sourced tasks (`source: "email-triage"`), pass `--argjson tid '"<gmail-thread-id>"'` and `--argjson esub '"<email subject>"'`.
-8. Append event to `6-actions/_data/task_events.ndjson`:
+8. Append event to `6-tasks/_data/task_events.ndjson`:
    ```bash
    jq -cn --arg id "task-YYYYMMDD-NNN" --arg ts "YYYY-MM-DD" \
      '{task_id:$id, event:"created", timestamp:$ts, source:"chat"}' \
-     >> 6-actions/_data/task_events.ndjson
+     >> 6-tasks/_data/task_events.ndjson
    ```
-9. Commit and push: `git add 6-actions/_data/ && git commit -m "task: add [short description]" && git push`
+9. Commit and push: `git add 6-tasks/_data/ && git commit -m "task: add [short description]" && git push`
 
 10. **Refresh Trello dashboard** (fail-safe)
 
-    If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the new task shows up on `✅ Actions` immediately.
+    If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the new task shows up on `✅ Tasks` immediately.
 
     ```bash
     python3 automations/scripts/trello_render.py 2>&1

@@ -7,13 +7,27 @@ description: Suggest tasks to work on, prioritized by impact, urgency, and size.
 
 Help the user select tasks to work on right now. Optimized for ADHD: surface the highest-value, lowest-friction work first. Quick wins build momentum.
 
+## Step 0: Pull Trello completions into the repo first (fail-safe)
+
+Run this **before** reading tasks or today's focus. Cards the user checked off from the phone widget have not reached `tasks.ndjson` yet, so skipping it suggests tasks that are already done and misreports which focus slots are open.
+
+```bash
+python3 automations/scripts/trello_writeback.py sync 2>&1
+```
+
+The output is a JSON counters block (`tasks_completed`, `habits_logged`, and so on). On error: print `🟡 Trello sync failed (non-blocking): <error>` and continue. Every later step reads local NDJSON, so a missed sync only means widget state isn't reflected yet.
+
+If `TRELLO_DASHBOARD_BOARD_ID` is not set in `.env`, skip this step.
+
+**Never ask the user which tasks they completed before running this.** The board already holds the answer.
+
 ## Step 1: Gather open tasks
 
 ```bash
-jq -c 'select(.status == "open" and (.deferred // false) == false)' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open" and (.deferred // false) == false)' 6-tasks/_data/tasks.ndjson
 ```
 
-**`deferred: true` means the user parked it — never suggest it.** A deferred task is still open work; the user has just said "not now, and stop offering it." It stays out of every pick pool, off the Trello `✅ Actions` list, and out of `pfc-revive`'s slippage signals until they ask for it back. Do NOT surface it as a candidate, do NOT nudge about it, and do NOT count it as slipping. To un-park one, set `deferred` to `false`. `/pfc-list-tasks` is where parked tasks stay visible.
+**`deferred: true` means the user parked it — never suggest it.** A deferred task is still open work; the user has just said "not now, and stop offering it." It stays out of every pick pool, off the Trello `✅ Tasks` list, and out of `pfc-revive`'s slippage signals until they ask for it back. Do NOT surface it as a candidate, do NOT nudge about it, and do NOT count it as slipping. To un-park one, set `deferred` to `false`. `/pfc-list-tasks` is where parked tasks stay visible.
 
 ### Step 1a: Exclude blocked tasks (depends_on not yet done)
 
@@ -24,7 +38,7 @@ jq -cs '
   (map(select(.status == "open") | .id)) as $open_ids |
   .[] | select(.status == "open" and (.deferred // false) == false) |
   select((.depends_on // []) | all(. as $d | $open_ids | index($d) | not))
-' 6-actions/_data/tasks.ndjson
+' 6-tasks/_data/tasks.ndjson
 ```
 
 This returns only open tasks whose dependencies are all completed (or never existed in the first place — deleted/archived dependencies are treated as resolved, same as done).
@@ -42,7 +56,7 @@ TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
 # Then filter:
 jq -c --slurpfile scheduled /tmp/scheduled-ids.json \
   'select(.status == "open" and (.id as $id | $scheduled | any(. == $id) | not))' \
-  6-actions/_data/tasks.ndjson
+  6-tasks/_data/tasks.ndjson
 ```
 
 Only exclude events whose `start.dateTime` (or `start.date` for all-day) is `>= TODAY`. An event dated `< TODAY` that references a still-open task is a carry-forward and SHOULD remain a candidate.
@@ -78,14 +92,14 @@ This keeps every standalone task and exactly one project task per project (the n
 
 Sort descending by total score.
 
-**Never suggest calendar events as tasks.** Calendar events are already built into the day — they don't belong in the 2+1 focus or task recommendations. Only pull from `6-actions/_data/tasks.ndjson`.
+**Never suggest calendar events as tasks.** Calendar events are already built into the day — they don't belong in the 2+1 focus or task recommendations. Only pull from `6-tasks/_data/tasks.ndjson`.
 
 **Top-priority tasks surface every day — never filter them out by day of week.** Rank the pool by `priority` when it's set (AA > AB/BA > AC/BB/CA > BC/CB > CC; fall back to impact + urgency when it isn't). **Always surface the top AA (high-impact + high-urgency) items regardless of what day it is** — including a rest day, a holiday, an observance, or any day you've marked off. Do NOT suppress, hide, or skip an AA task because the day "isn't for that kind of work." Top-priority items surface every day; the *user* decides whether to act on them. Day-appropriateness may only shape which *lower-priority* task rounds out the bonus slot (e.g. prefer a restful or family task over an errand on a rest day) — it must never keep an AA task off the list or leave the user without their most-important items in view. The failure this rule kills: a check-in that quietly drops needed top-priority tasks in favor of "appropriate for today" picks.
 
 ## Step 3: Check today's focus
 
 ```bash
-grep "$(date +%Y-%m-%d)" 6-actions/_data/daily-focus.ndjson | tail -1
+grep "$(date +%Y-%m-%d)" 6-tasks/_data/daily-focus.ndjson | tail -1
 ```
 
 If a daily focus is already set, show it and note which items are already completed. Suggest replacements only for completed items.
@@ -98,11 +112,26 @@ If no focus is set, proceed to suggest a 2+1 set.
 
 Show the top 5-8 tasks as a ranked table:
 
-| # | Score | Description | Size | Impact | Urgency | Location |
-|---|-------|-------------|------|--------|---------|----------|
+| # | Score | Description | Size | Impact | Urgency | Location | 🤖 |
+|---|-------|-------------|------|--------|---------|----------|---|
+
+The last column shows 🤖 when `agent_doable == "yes"`, blank otherwise.
 
 Flag any with deadlines: `[DUE: Apr 15]` or `[OVERDUE]`
 Flag any that are stale: `[STALE: 3 weeks]`
+
+### Hand-off batch: offer it before the 2+1
+
+Before suggesting focus tasks, count the open tasks that do not need the user at all:
+
+```bash
+jq -r 'select(.status == "open" and (.deferred != true) and .agent_doable == "yes")
+       | .id + " — " + .description' 6-tasks/_data/tasks.ndjson
+```
+
+If there are 3 or more, lead with one line (*"N of these don't need you. Want to hand them to an agent instead?"*) and list up to 5. Offer it **once**, before the 2+1 suggestion, then move on.
+
+Why it goes first: a task an agent can finish should never take a 2+1 slot. The 2+1 is for work only the user can do. The `agent_doable` field is defined in `config/task_schema.yaml`.
 
 ### Suggested 2+1 Focus
 

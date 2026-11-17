@@ -61,7 +61,7 @@ Insights live in `data/insights.ndjson` (schema: [insight_schema.yaml](../../../
 
 6. **Commit each batch:**
    ```bash
-   git add data/insights.ndjson 6-actions/_data/tasks.ndjson 5-projects/_data/projects.ndjson config/habit_schema.yaml
+   git add data/insights.ndjson 6-tasks/_data/tasks.ndjson 5-projects/_data/projects.ndjson config/habit_schema.yaml
    git commit -m "insight: triage YYYY-MM-DD"
    git push
    ```

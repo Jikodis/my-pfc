@@ -1,6 +1,6 @@
 # 4 · Focus
 
-The **Focus** layer of VAVFPAH — the quarter-horizon band between **Vision** (years) and **Habit** (a day). It holds the scarce, capped, traffic-lit set of what you're actively pursuing *right now*.
+The **Focus** layer of VAVFPTH — the quarter-horizon band between **Vision** (years) and **Habit** (a day). It holds the scarce, capped, traffic-lit set of what you're actively pursuing *right now*.
 
 Visions answer *where am I headed*. Habits answer *what's today's rep*. Neither answers *what am I actually on this season* — that's this folder.
 

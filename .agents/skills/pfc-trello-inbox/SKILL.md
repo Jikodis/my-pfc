@@ -147,7 +147,7 @@ When in doubt between SIMPLE and COMPLEX, classify as COMPLEX — the cost of a 
 - **Batch first, walk second.** Phase 1 covers the easy bulk; Phase 2 covers the judgment calls. Never collapse both into a single per-card loop.
 - **Card deletion is gated on action success.** A mid-flow abort or skill failure leaves the card in Trello. No card is ever deleted on failure.
 - **No state files.** Failures are surfaced immediately. No retry queue.
-- **Display.** Use 🟢 / 🟡 / 🔴 status circles per CLAUDE.md.
+- **Display.** Use 🟢 / 🟡 / 🔴 status circles per AGENTS.md.
 - **Cancellation in Phase 1 halts Phase 2 too.** If the user says `no` / `cancel` / `stop` to the batch approval, do not proceed to walk the COMPLEX cards in the same invocation — they re-run on the next `/pfc-trello-inbox`.
 
 ## Out of scope

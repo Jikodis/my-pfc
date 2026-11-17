@@ -20,7 +20,7 @@ class TestPollCompleted(unittest.TestCase):
         from trello_writeback import poll_completed_cards
         mock_lists.return_value = [
             {"id": "L_2plus1", "name": "✅ 2+1", "closed": False},
-            {"id": "L_actions", "name": "✅ Actions", "closed": False},
+            {"id": "L_actions", "name": "✅ Tasks", "closed": False},
             {"id": "L_values", "name": "💎 Values", "closed": False},
             {"id": "L_inbox", "name": "📥 Inbox", "closed": False},
         ]
@@ -42,7 +42,7 @@ class TestPollCompleted(unittest.TestCase):
     def test_skips_cards_without_pfc_id(self, mock_lists, mock_cards):
         from trello_writeback import poll_completed_cards
         mock_lists.return_value = [
-            {"id": "L_actions", "name": "✅ Actions", "closed": False},
+            {"id": "L_actions", "name": "✅ Tasks", "closed": False},
         ]
         mock_cards.return_value = [
             _card("c1", id_list="L_actions", due_complete=True, desc="No frontmatter"),
@@ -71,7 +71,7 @@ class TestCompleteTaskFromCard(unittest.TestCase):
     @patch("trello_writeback.archive_card")
     def test_marks_open_task_done_and_archives(self, mock_archive):
         from trello_writeback import complete_task_from_card
-        card = {"pfc_id": "task-1", "pfc_type": "task", "list_name": "✅ Actions",
+        card = {"pfc_id": "task-1", "pfc_type": "task", "list_name": "✅ Tasks",
                 "trello_card_id": "c1", "card_name": "X"}
         result = complete_task_from_card(
             "K", "T", card, tasks_path=self.tasks_path, events_path=self.events_path,
@@ -95,7 +95,7 @@ class TestCompleteTaskFromCard(unittest.TestCase):
     @patch("trello_writeback.archive_card")
     def test_already_done_is_idempotent(self, mock_archive):
         from trello_writeback import complete_task_from_card
-        card = {"pfc_id": "task-2", "pfc_type": "task", "list_name": "✅ Actions",
+        card = {"pfc_id": "task-2", "pfc_type": "task", "list_name": "✅ Tasks",
                 "trello_card_id": "c2", "card_name": "Y"}
         result = complete_task_from_card(
             "K", "T", card, tasks_path=self.tasks_path, events_path=self.events_path,
@@ -112,7 +112,7 @@ class TestCompleteTaskFromCard(unittest.TestCase):
     @patch("trello_writeback.archive_card")
     def test_unknown_task_id_returns_unknown(self, mock_archive):
         from trello_writeback import complete_task_from_card
-        card = {"pfc_id": "task-999", "pfc_type": "task", "list_name": "✅ Actions",
+        card = {"pfc_id": "task-999", "pfc_type": "task", "list_name": "✅ Tasks",
                 "trello_card_id": "cX", "card_name": "?"}
         result = complete_task_from_card(
             "K", "T", card, tasks_path=self.tasks_path, events_path=self.events_path,
@@ -190,7 +190,7 @@ class TestMoveHelpers(unittest.TestCase):
         from trello_writeback import move_2plus1_from_actions
         mock_lists.return_value = [
             {"id": "L_2plus1", "name": "✅ 2+1", "closed": False},
-            {"id": "L_actions", "name": "✅ Actions", "closed": False},
+            {"id": "L_actions", "name": "✅ Tasks", "closed": False},
         ]
         mock_cards.return_value = [
             {"id": "c1", "idList": "L_actions", "desc": "---\npfc-id: task-A\npfc-type: task\n---\n\nb"},
@@ -212,7 +212,7 @@ class TestMoveHelpers(unittest.TestCase):
         from trello_writeback import move_back_uncompleted
         mock_lists.return_value = [
             {"id": "L_2plus1", "name": "✅ 2+1", "closed": False},
-            {"id": "L_actions", "name": "✅ Actions", "closed": False},
+            {"id": "L_actions", "name": "✅ Tasks", "closed": False},
         ]
         mock_cards.return_value = [
             # In 2+1, not completed → move back

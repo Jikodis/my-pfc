@@ -103,7 +103,7 @@ recently-completed tasks in the matching area.
 ### 3c — Tasks
 
 ```bash
-jq -c 'select(.status=="open" and (.deferred // false | not)) | {id, description, impact, urgency, size, area, project, deadline}' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status=="open" and (.deferred // false | not)) | {id, description, impact, urgency, size, area, project, deadline}' 6-tasks/_data/tasks.ndjson
 ```
 
 Surface: top items by impact/urgency, anything with a near deadline, and **anything carried in
@@ -198,7 +198,7 @@ Fail-safe per call: log `🟡 Calendar write failed for <block> (non-blocking): 
 
 **The calendar is the plan. No new NDJSON file.**
 
-- Tasks created in Step 4 → append to `6-actions/_data/tasks.ndjson` via `jq`.
+- Tasks created in Step 4 → append to `6-tasks/_data/tasks.ndjson` via `jq`.
 - Leave `daily-focus.ndjson` alone.
 
 ```bash

@@ -355,7 +355,7 @@ def load_projects(repo_root: Path) -> list[Project]:
 
 
 def load_tasks(repo_root: Path) -> list[Task]:
-    rows = _load_ndjson(repo_root / "6-actions/_data/tasks.ndjson")
+    rows = _load_ndjson(repo_root / "6-tasks/_data/tasks.ndjson")
     out: list[Task] = []
     for r in rows:
         out.append(Task(
@@ -370,7 +370,7 @@ def load_tasks(repo_root: Path) -> list[Task]:
 
 
 def load_focuses(repo_root: Path) -> list[DailyFocus]:
-    rows = _load_ndjson(repo_root / "6-actions/_data/daily-focus.ndjson")
+    rows = _load_ndjson(repo_root / "6-tasks/_data/daily-focus.ndjson")
     out: list[DailyFocus] = []
     for r in rows:
         out.append(DailyFocus(
@@ -388,7 +388,7 @@ def load_events(repo_root: Path) -> list[TaskEvent]:
     Accepts: task_id | id (task id), timestamp | ts | date (when), event (required).
     Rows missing the task id, timestamp, or event are skipped (logged event file has drift).
     """
-    rows = _load_ndjson(repo_root / "6-actions/_data/task_events.ndjson")
+    rows = _load_ndjson(repo_root / "6-tasks/_data/task_events.ndjson")
     out: list[TaskEvent] = []
     for r in rows:
         task_id = r.get("task_id") or r.get("id")

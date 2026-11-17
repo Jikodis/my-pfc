@@ -35,10 +35,10 @@ Verify `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`. If unset, this skill is a n
    YDAY=$(TZ="${LOCAL_TZ:-America/Denver}" date -d 'yesterday' '+%Y-%m-%d')
    jq -r --arg d "$TODAY" --arg y "$YDAY" \
      'select(.event == "completed" and (.timestamp == $d or .timestamp == $y) and .source == "trello") | .task_id' \
-     6-actions/_data/task_events.ndjson | sort -u | while read -r tid; do
+     6-tasks/_data/task_events.ndjson | sort -u | while read -r tid; do
      [ -z "$tid" ] && continue
      jq -r --arg id "$tid" 'select(.id == $id) | .source_email_thread_id // empty' \
-       6-actions/_data/tasks.ndjson
+       6-tasks/_data/tasks.ndjson
    done
    ```
 

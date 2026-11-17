@@ -1,6 +1,6 @@
 # Notes
 
-Generated reports — daily and yearly summaries the system produces during check-ins. Treat this folder as output, not source: the canonical state lives in `6-actions/_data/`, `7-habits/_data/`, `data/`, etc. These files are rendered views.
+Generated reports — daily and yearly summaries the system produces during check-ins. Treat this folder as output, not source: the canonical state lives in `6-tasks/_data/`, `7-habits/_data/`, `data/`, etc. These files are rendered views.
 
 ## Subfolders
 

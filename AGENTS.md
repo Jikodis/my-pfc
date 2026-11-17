@@ -14,8 +14,8 @@ You are operating a personal productivity system. The Git repo is the canonical 
 
 **Critical productivity-system behavior lives in the repo, not in Claude memory.** Any rule that shapes how skills run, how data is written, how chat is formatted, or how the assistant interprets intent is load-bearing and belongs in one of:
 
-- **This file (CLAUDE.md)** — cross-cutting rules that affect multiple skills (output style, commit policy, schema conventions, personas, date derivation).
-- **The relevant skill** (`.claude/skills/*/SKILL.md`) — rules that apply to a single workflow (evening-checkin question order, pick-tasks filters, add-task breakdown).
+- **This file (`AGENTS.md`)** — cross-cutting rules that affect multiple skills (output style, commit policy, schema conventions, personas, date derivation).
+- **The relevant skill** (`.agents/skills/*/SKILL.md`) — rules that apply to a single workflow (evening-checkin question order, pick-tasks filters, add-task breakdown).
 - **A doc under `docs/`** — rules that span many skills and are large enough to warrant a page (e.g. `docs/calendar-scheduling.md`, `docs/data-model.md`, `docs/cadences.md`).
 
 Claude memory is for session-layer context only: user background facts, transient preferences, one-off notes. If a rule must hold after a memory purge or on a fresh machine, it belongs in the repo. When in doubt, err toward the repo — memory is a cache, not a source of truth. When this file is updated with a new rule that replaces a memory entry, delete that memory entry so the two don't drift.
@@ -24,6 +24,8 @@ Claude memory is for session-layer context only: user background facts, transien
 
 ### Dates and time
 - **Always derive dates via your local timezone** (defaults to `America/Denver`; set `LOCAL_TZ` in `.env` to override for template users in other timezones). Before any date-stamped write (task id, `created` / `completed` / `started` / `stopped` / `deadline`, daily-focus date, habit date, day-tracking date, insight/hypothesis/finding date, calendar event date, commit message date), run `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` and use that output. Do NOT trust the injected `currentDate` from context — the server is UTC and after ~5 PM local it's already tomorrow. Two hooks inject the authoritative local-timezone date: `scripts/hook-session-date.sh` (SessionStart, once per session) and `scripts/hook-user-prompt-date.sh` (UserPromptSubmit, every turn — catches sessions that cross local midnight). When the two disagree, the per-turn value wins. Use either hook output, not `currentDate`.
+
+  A third SessionStart hook, `scripts/hook-missing-checkin.sh`, flags yesterday if it was never rated (a missing record or a null `rating` in `data/day-tracking.ndjson`), and never an older day. It prints only when there is a gap, and today is never flagged. **Surface it once, early, as a single soft line, then drop it**: repeating it is how a signal goes invisible. The fix it points at is `/pfc-log-day` in chat. Never fabricate `energy` / `mood` / `focus` for a day the user can't recall: leave them null and write the records-based reconstruction to `notes`, labeled as such, because a guessed rating poisons every trend the system computes. Set `PFC_CHECKIN_LOOKBACK_DAYS` in `.env` to look further back than yesterday.
 - **Display times in 12-hour AM/PM format** (`4:45 PM`, `11:45 AM`). Never 24-hour / military (`16:45`). Applies to every time shown in chat: schedules, summaries, logs, event readouts, daily-focus output.
 
 ### Response style
@@ -61,7 +63,7 @@ Long-form reference with examples and the interview "why" lives in [`0-me/workin
 
 ### Three failure patterns to avoid
 
-1. **Confident wrongness** — overclaim certainty when wrong, OR skip a context-lookup that would have caught the error. The lookups expected: the relevant skill file before running its workflow, the data files before answering a factual question, the rules already in this file, and the docs CLAUDE.md names. Cite sources to earn trust on sight.
+1. **Confident wrongness** — overclaim certainty when wrong, OR skip a context-lookup that would have caught the error. The lookups expected: the relevant skill file before running its workflow, the data files before answering a factual question, the rules already in this file, and the docs AGENTS.md names. Cite sources to earn trust on sight.
 2. **Weird / abstract terminology** — see "Plain English" rule above; this is the same failure surfaced from the user side.
 3. **Long with repetition** — same point made twice in one response. One pass is enough.
 
@@ -94,7 +96,7 @@ Long-form reference with examples and the interview "why" lives in [`0-me/workin
 ADHD + autism makes years and decades hard to reason with. Even months is a stretch.
 
 - **Don't frame trade-offs in years or decades.** No SMART goals, no "by [date] I will X" — they actively annoy you.
-- **Direction beats deadlines.** Express progress through projects, actions, and habits.
+- **Direction beats deadlines.** Express progress through projects, tasks, and habits.
 - **Values and area statements are top authority.** Projects must align. When pushing back, cite values + area statements first.
 - **Visions** bridge Areas and Projects: "ship a side project," "build a sustainable habit." See `3-visions/README.md`. Add via `/pfc-add-vision`. **Locus of control matters** — outside-control visions only have leading indicators, never deadlines. No deadline field on a vision, ever.
 
@@ -114,9 +116,9 @@ When the system shows trouble (habits skipped, focus not landing, day rating low
 
 Do not default to either "the system is fine" or "the system needs an overhaul." Diagnose explicitly. Allow in-the-moment system tweaks when sleep / exercise / state are off — flexibility wins over rigidity in those windows. Applies most strongly during `/pfc-usage-audit` and any time you notice a pattern worth flagging.
 
-## System structure — VAVFPAH
+## System structure — VAVFPTH
 
-The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus → Projects → Actions → Habits. The numbered top-level folders mirror the model on disk:
+The system follows a **VAVFPTH** model: Values → Areas → Visions → Focus → Projects → Tasks → Habits. The numbered top-level folders mirror the model on disk:
 
 **Why Values sit before Areas** — they're really a loop, not a strict sequence. Values are the enduring criteria everything else is judged against; areas are the domains of life where those values actually get lived (an area statement is just your values applied to one domain). Values shape which areas matter and what "good" looks like in each; tending an area can in turn surface a value you hadn't named. So read V → A as "values inform areas," not "values finish, then areas begin." The acronym only orders the layers most-enduring → most-operational (values → habits) as a memory aid — it is not a dependency chain to enforce.
 
@@ -125,10 +127,10 @@ The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus �
 - `3-visions/` — long-term direction tied to an area (e.g. "ship a side project," "build a sustainable habit"). 0–2 active visions per area. No deadlines. See `3-visions/README.md`. Add via `/pfc-add-vision`. The annual vision-brainstorm exercise lives here too (`3-visions/_data/vision-brainstorm.ndjson`, captured via `/pfc-vision-brainstorm`).
 - `4-focus/` — the **Focus** layer (quarter horizon, between Visions and Projects): the scarce, capped, traffic-lit set of what's actively pursued now. `_data/focus.ndjson` registry; managed by `/pfc-focus`, rendered to the `🎯 Current Focus` Trello list. See `4-focus/README.md`.
 - `5-projects/` — short-term projects (1-3 months; up to 12 active — a runaway backstop, not a focus cap). Project markdown files at the top of the folder; `_data/projects.ndjson` registry. May declare an optional `vision:` link in metadata.
-- `6-actions/` — tasks, focus picks, and event log. `_data/tasks.ndjson`, `_data/tasks-archive.ndjson`, `_data/task_events.ndjson`, `_data/daily-focus.ndjson`.
+- `6-tasks/` — tasks, focus picks, and event log. `_data/tasks.ndjson`, `_data/tasks-archive.ndjson`, `_data/task_events.ndjson`, `_data/daily-focus.ndjson`.
 - `7-habits/` — daily and monthly habit logs. `_data/habits-daily.ndjson`, `_data/habits-monthly.ndjson`. Schema in `config/habit_schema.yaml`.
 
-Convention: each VAVFPAH-numbered folder uses a `_data/` subfolder for structured data (NDJSON). Markdown content (READMEs, project notes, vision files) lives at the top of the folder.
+Convention: each VAVFPTH-numbered folder uses a `_data/` subfolder for structured data (NDJSON). Markdown content (READMEs, project notes, vision files) lives at the top of the folder.
 
 ### Area → Vision → Focus → Habit — the four altitudes (canonical)
 
@@ -148,30 +150,32 @@ The always-present picture of the whole system — both the structure above and 
 ### Other top-level folders
 
 - `0-me/` — personal context files about who you are and how you operate: `profile.md` (always-loaded summary), `working-with-me.md` (collaboration profile), `schedule-patterns.md` (fixed weekly availability), `questions.md` (life questions). Optional deep-reference files (`personality.md`, `core-psychology.md`) can be created during onboarding — see `/pfc-onboarding`.
-- `data/` — non-VAVFPAH state and knowledge: `day-tracking.ndjson`, `findings.ndjson`, `hypotheses.ndjson`, `insights.ndjson`, `grounding.ndjson` (Front-of-Mind anchors — see the Trello section), `review-ledger.ndjson`, `revive-events.ndjson`, `supplements.ndjson`. Also the temp path for atomic NDJSON updates: `data/.jq_update.tmp`. (Life wheel and household status live in `2-areas/_data/` — they're area-scoped, not global.)
+- `data/` — non-VAVFPTH state and knowledge: `day-tracking.ndjson`, `findings.ndjson`, `hypotheses.ndjson`, `insights.ndjson`, `grounding.ndjson` (Front-of-Mind anchors, see `data/AGENTS.md`), `review-ledger.ndjson`, `revive-events.ndjson`, `supplements.ndjson`. Also the temp path for atomic NDJSON updates: `data/.jq_update.tmp`. (Life wheel and household status live in `2-areas/_data/` — they're area-scoped, not global.)
 - `config/` — schemas (`task_schema.yaml`, `habit_schema.yaml`, `project_schema.yaml`, etc.), persona registry, automation settings.
 - `docs/` — cross-cutting **system** documentation (how the system works, not personal data): `calendar-scheduling.md`, `data-model.md`, `cadences.md`, `conventions.md`, `automation-policy.md`, `architecture.md`, `workflows.md`, `ideas.md`, `system-map.md`.
 - `notes/` — generated reports (daily summaries, yearly check-ins).
 - `automations/` — Python scripts for auto-fetched data and bots.
 - `trmnl/` — source for the TRMNL e-ink display plugins (one folder per plugin, `trmnlp` layout). See § "TRMNL e-ink dashboard".
 - `scripts/` — validation, hooks, helpers.
-- `.claude/skills/` — `pfc-*` skill definitions. **These are symlinks**: each `.claude/skills/<name>` points to the real file at `.agents/skills/<name>/` (the dual-framework layout lets both Claude Code's `.claude/` and a generic `.agents/` resolve the same skills). **The canonical path for editing and `git add` is `.agents/skills/<name>/SKILL.md`** — `git add .claude/skills/...` fails with "beyond a symbolic link". Edits through the symlink land on the real file fine; only the `git add` path must use `.agents/skills/`. To add a new skill: create `.agents/skills/<name>/SKILL.md`, then `ln -s ../../.agents/skills/<name> .claude/skills/<name>`.
+- `.claude/skills/` — `pfc-*` skill definitions. Two utility skills sit outside the VAVFPTH flow and are easy to forget: `pfc-commit-and-push` (commit + push the working tree) and `pfc-summarize-project`. **These are symlinks**: each `.claude/skills/<name>` points to the real file at `.agents/skills/<name>/` (the dual-framework layout lets both Claude Code's `.claude/` and a generic `.agents/` resolve the same skills). **The canonical path for editing and `git add` is `.agents/skills/<name>/SKILL.md`** — `git add .claude/skills/...` fails with "beyond a symbolic link". Edits through the symlink land on the real file fine; only the `git add` path must use `.agents/skills/`. To add a new skill: create `.agents/skills/<name>/SKILL.md`, then `ln -s ../../.agents/skills/<name> .claude/skills/<name>`.
 
-Connections between values, areas, visions, projects, actions, and habits happen naturally. Do not over-formalize the links.
+Connections between values, areas, visions, projects, tasks, and habits happen naturally. Do not over-formalize the links.
 
 ### Per-subtree instructions (nested AGENTS.md)
 
-Folder-scoped operational rules live in nested `AGENTS.md` files. Claude Code's autoloader walks up the directory tree and loads every `CLAUDE.md` along the way; each subtree has a one-line `CLAUDE.md` shim that `@`-imports the local `AGENTS.md` (Claude Code does not auto-load `AGENTS.md` by name — the shim is what surfaces the content). Root-level context is never lost on subtree loads. Consult the local `AGENTS.md` when working in a subtree:
+`AGENTS.md` is the only instruction file in this repo; there is no `CLAUDE.md` anywhere. Claude Code (v2.1.277 and later) and Codex both read `AGENTS.md` natively: the root file at session start, and a subfolder's `AGENTS.md` when a file in that folder is read. `@path` imports inside it are expanded. **Never add a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`**: one at the root or above the working directory switches native `AGENTS.md` reading off for the whole session, and one in a subfolder stops that folder's `AGENTS.md` from loading (https://code.claude.com/docs/en/memory, "AGENTS.md"). Consult the local `AGENTS.md` when working in a subtree:
 
-| Subtree | Loader | Content | Covers |
-|---|---|---|---|
-| `5-projects/` | [`CLAUDE.md`](5-projects/CLAUDE.md) → | [`AGENTS.md`](5-projects/AGENTS.md) | Project schema, velocity calc, daily project status, vision linkage, `pfc-revive` slippage |
-| `6-actions/` | [`CLAUDE.md`](6-actions/CLAUDE.md) → | [`AGENTS.md`](6-actions/AGENTS.md) | Task ops + `jq` patterns, archival policy, daily focus 2+1, task breakdown, slippage pointer |
-| `7-habits/` | [`CLAUDE.md`](7-habits/CLAUDE.md) → | [`AGENTS.md`](7-habits/AGENTS.md) | Habit tracking, unlogged = missed (rate math), append pattern |
-| `data/` | [`CLAUDE.md`](data/CLAUDE.md) → | [`AGENTS.md`](data/AGENTS.md) | Supplements, insights / hypotheses / findings, graduation flow |
-| `trmnl/` | [`CLAUDE.md`](trmnl/CLAUDE.md) → | [`AGENTS.md`](trmnl/AGENTS.md) | TRMNL plugin folder layout, design-system hard rules, payload budget, local preview loop |
+| Subtree | Covers |
+|---|---|
+| [`2-areas/`](2-areas/AGENTS.md) | Area data files, area items and check-ins, life wheel and household ratings, per-area notes |
+| [`4-focus/`](4-focus/AGENTS.md) | Focus registry, tiers and caps, vehicle habits |
+| [`5-projects/`](5-projects/AGENTS.md) | Project schema, velocity calc, daily project status, vision linkage, `pfc-revive` slippage |
+| [`6-tasks/`](6-tasks/AGENTS.md) | Task ops + `jq` patterns, archival policy, daily focus 2+1, task breakdown, agent delegation, slippage pointer |
+| [`7-habits/`](7-habits/AGENTS.md) | Habit tracking, unlogged = missed (rate math), auto-derived habits, append pattern |
+| [`data/`](data/AGENTS.md) | Supplements, insights / hypotheses / findings, graduation flow |
+| [`trmnl/`](trmnl/AGENTS.md) | TRMNL plugin folder layout, design-system hard rules, payload budget, local preview loop |
 
-When adding a new subtree with operational rules, create both files: a single-line `<subtree>/CLAUDE.md` containing `@AGENTS.md`, and the `<subtree>/AGENTS.md` with the actual content.
+When adding a new subtree with operational rules, create `<subtree>/AGENTS.md` and add a row here. An area folder's own `2-areas/<area>/AGENTS.md` holds that area's notes index (its Contents table), not operational rules.
 
 If a rule applies cross-cutting (e.g. dates, commits, response style, calendar scheduling), it stays in this root file. If it applies only when working in a subtree, it lives in that subtree's `AGENTS.md`.
 
@@ -190,7 +194,7 @@ If a rule applies cross-cutting (e.g. dates, commits, response style, calendar s
 ### Ask before committing
 - Structural repo changes
 - Skill or agent definition edits
-- CLAUDE.md changes
+- AGENTS.md changes
 - Large planning or reorganization sessions
 
 ### Plan-authorized execution (supersedes "Ask before committing")
@@ -206,6 +210,7 @@ Out-of-scope changes discovered mid-execution still fall under "Ask before commi
 - `habit: log [date]`
 - `track: log day [date]`
 - `checkin: record [date]`
+- `habit: calendar log [date]`
 - `project: [add|update|archive] [name]`
 - `report: generate yearly check-in`
 - `system: [description of structural change]`
@@ -242,9 +247,11 @@ Rules:
 
 ## Repo validation
 
-`scripts/validate.sh` checks NDJSON parse, skill frontmatter, and task/habit/project schemas. It runs automatically on every commit via `.git/hooks/pre-commit` (versioned source in `.githooks/pre-commit`). Run it manually any time: `scripts/validate.sh`. If it fails, fix the root cause rather than skipping the hook.
+`scripts/validate.sh` checks NDJSON parse, skill frontmatter, and task/habit/project schemas. It runs automatically on every commit via `.git/hooks/pre-commit` (versioned source in `.githooks/pre-commit`), and again as a Claude Code `PostToolUse` hook after every `Edit`/`Write` via `scripts/hook-validate.sh`, so a bad edit surfaces at edit time, not at commit time. Run it manually any time: `scripts/validate.sh`. If it fails, fix the root cause rather than skipping the hook.
 
 A companion `post-commit` hook (versioned in `.githooks/post-commit`, installed at `.git/hooks/post-commit`) auto-renders the Trello dashboard whenever a mirrored file changes — closes the gap when an edit bypasses a render-aware skill. Install both hooks on a fresh clone: `cp .githooks/* .git/hooks/ && chmod +x .git/hooks/{pre,post}-commit`.
+
+**Bash permission hook.** `scripts/hook-allow-known-commands.py` (a `PreToolUse` hook on `Bash`) lets skill commands that use `$(...)` run in headless sessions, allowing a command only when every command word is already on the allow list in `.claude/settings.json`, no deny or ask rule matches, and its redirects stay inside the repo. The allow list ships empty, so the hook allows nothing until you add `Bash(...)` rules. Full rules: [`docs/conventions.md`](docs/conventions.md) § "Bash permission hook". Tests: `pytest scripts/tests -q`.
 
 ## Subagent usage
 
@@ -299,53 +306,11 @@ Do not proactively read my email unless I ask. Email data is supplementary conte
 
 ## Trello dashboard
 
-The PFC system mirrors to a Trello board (id in `TRELLO_DASHBOARD_BOARD_ID`) so I can see the whole system at a glance from my phone. Repo is canonical; Trello is a rendered cache for read-only lists, with a thin write-back path for cards I check off from the mobile widget.
-
-Three skills + one helper script:
-
-- **`pfc-trello-inbox`** — process the `📥 Inbox` list. I dictate quick captures from a phone widget; the skill walks each card, treats the title as if I'd typed it in chat, runs the natural action, deletes the card.
-- **`pfc-render-trello`** — refresh every dashboard list from current repo state. Idempotent; running twice = 0 changes. Auto-fetches Calendar (primary + work) via MCP; the week surface hides PFC scaffolding, routines and known weekly patterns while keeping their one-off exceptions (`config/trello_calendar_filters.yaml`). Includes `--rebuild` for full re-creation and `--reset-list <name>` for single-list resets, both confirmation-gated. The `📥 Inbox` list is hard-excluded from every render and rebuild. Auto-invoked as a fail-safe step (any error logs 🟡 and continues; never blocks anything) on three triggers:
-  - **Calendar-fetching renders (refresh `🗓️ Week at a Glance` too)** — the two paths that fetch Calendar via MCP before rendering: `pfc-render-trello` (manual/on-demand) and the evening check-in's render step (the daily loop — owns the daily refresh of `🗓️ Week at a Glance`).
-  - **Bare skill-driven renders (skip Calendar 🟡)** — wired as a fail-safe end-step but run the bare `trello_render.py` (no MCP fetch), so they refresh every repo-fed list but leave the one MCP-fed list (`🗓️ Week at a Glance`) untouched: every `pfc-add-*` skill, `pfc-supplement`, `pfc-complete-task`, `pfc-log-habit`, `pfc-log-day`, and `pfc-sync-trello` (when counters show writes).
-  - **Git post-commit hook** — `.githooks/post-commit` (installed at `.git/hooks/post-commit`) catches ad-hoc edits that bypass skills: raw `jq` updates, manual file edits, agent edits, anything else that commits a rendered file. Triggers when any of these change: `1-values/values.md`, `2-areas/_data/*.ndjson`, `2-areas/*/statement.md`, `3-visions/*.md`, `5-projects/_data/projects.ndjson`, `6-actions/_data/{tasks,tasks-archive,daily-focus}.ndjson`, `7-habits/_data/habits-{daily,monthly}.ndjson`, `data/{grounding,insights,findings,hypotheses,supplements,day-tracking}.ndjson`, `4-focus/_data/focus.ndjson`, `config/habit_schema.yaml`. Calendar skips 🟡 (no MCP data in a hook). Opt-out: `PFC_SKIP_TRELLO_RENDER=1 git commit ...`.
-
-  The `🗓️ Week at a Glance` list is skipped 🟡 by the post-commit hook and every bare skill-driven render — only the two Calendar-fetching paths above refresh it. The daily evening check-in keeps it fresh once a day; `/pfc-render-trello` is the on-demand refresh between check-ins. (Email is no longer a rendered list — labeled emails become tasks via `pfc-email-triage` Step 0.)
-- **`pfc-sync-trello`** — process cards I marked complete (`dueComplete: true`). For tasks: marks done in repo, archives card. For habits: appends a habit-log entry, leaves the card to cycle on next render. Idempotent. Wired into `pfc-evening-checkin` Step 4b as a fail-safe step (any error logs 🟡 and continues; never blocks the checkin). When run standalone with non-zero counters, also auto-renders the board so card state catches up.
-
-The dashboard board hosts these lists (user-managed naming, do NOT rename):
-
-- `📥 Inbox` (managed by `pfc-trello-inbox`, never touched by render)
-- `🧠 Front of Mind` — a small, cycling set of grounding anchors to keep front-of-mind right now (the most important things to stay grounded in). Life-wide but **critical-only** — genuinely load-bearing stuff, not trivia/reference. Rendered from `data/grounding.ndjson` (active entries). Soft-capped (`GROUNDING_CAP` in `trello_render.py`): renders all active anchors but logs 🟡 if over cap (curate by retiring, never silent-truncate). Read-only surface; not interactive.
-- `🦸 Superman Pulse` — the levers that drive your best days, as an at-a-glance status board: one card per lever (`{🟢/🟡/🔴} [TIER] {lever}: {value} (target {t})`) plus a verdict card, sorted CRITICAL→MODERATE then red-first. Rendered from the latest `data/day-tracking.ndjson` record by `render_superman_pulse` in `trello_render.py` (lever definitions and thresholds live in `automations/scripts/pulse.py`). The lever set and targets should be grounded in your own good-day-vs-average-day data (see `/pfc-analyze-trends`); a metric that doesn't separate your best days from your average days doesn't earn a card. Read-only mirror of the evening check-in's pulse step. Auto-refreshes whenever day-tracking changes (day-tracking is a post-commit render trigger).
-- `🎯 Current Focus` — the Focus layer (`4-focus/_data/focus.ndjson`), tiered and traffic-lit. Read-only; managed via `/pfc-focus`.
-- `✅ 2+1` and `✅ Actions` — interactive (mark complete from widget). `✅ Actions` shows ONLY standalone tasks (no project linkage); project-linked tasks render to per-project lists below.
-- `🎯 <Project Name>` — one list per **active** project. Each holds that project's open task backlog (excluding tasks pulled into today's 2+1). Created automatically when a project is `active: true` in `projects.ndjson`; archived automatically when the project flips inactive. Tasks linked to inactive/paused/done/missing projects do NOT render to Trello (they stay in NDJSON until the project reactivates). Interactive — mark complete from widget like Actions cards.
-- `☀️ Daily Habits` and `🌙 Monthly Habits` — interactive
-- `🗓️ Week at a Glance` (calendar, sorted chronologically). Answers "what's happening this week that I wouldn't have guessed": recurring commitments DO show (they are most of the week), while PFC scaffolding, personal routines and fixed weekly patterns are hidden — but a **one-off** carrying a pattern's title still shows, because the exception is the point. Four filter lists in `config/trello_calendar_filters.yaml`; the `exclude_prefixes` list is the deterministic escape hatch (rename an event `Task - …` or `Routine - …` and it drops off without a new rule).
-- `⬅ Last 7 Days`, `💎 Values`, `🧭 Areas` (life-wheel surfaces here as a plain color label, not a separate list), `🔭 Visions`, `🛠️ Projects`, `💡 Insights`, `📜 Findings`, `🧪 Hypothesis`, `💊 Supplements`
-
-Key conventions:
-- Card identity lives in description frontmatter: `---\npfc-id: <repo id>\npfc-type: <type>\n---`. The render parses on read-back; user edits to body get overwritten on next render.
-- Project cards carry a `Progress` checklist (Part 1..N, completed_parts checked) for the built-in Trello progress bar. Title also shows `[<percent>%]`.
-- Action / 2+1 / Project cards use plain (unnamed) priority labels in 5 colors — red (AA), orange (AB/BA), yellow (AC/BB/CA), green (BC/CB), purple (CC). The exact 9-tier impact×urgency code stays visible in titles like `AA (M) - <description>` for sorting; the label conveys priority severity only.
-- Tasks/projects with deadlines populate Trello's `due` field at noon UTC; the Mark Complete checkbox is the bidirectional write-back surface.
-- See `automations/scripts/trello_helper.py` (full Trello CRUD), `trello_render.py` (render engine), `trello_writeback.py` (sync engine).
+The PFC system mirrors to a Trello board (`TRELLO_DASHBOARD_BOARD_ID`) for an at-a-glance phone view. Repo is canonical; Trello is a rendered cache, with write-back only for cards checked off from the mobile widget. Skills: `pfc-trello-inbox` (process the `📥 Inbox` captures), `pfc-render-trello` (refresh every list; the only on-demand path that also refreshes `🗓️ Week at a Glance` from a live calendar fetch), `pfc-sync-trello` (apply checked-off cards to the repo). Renders also run as a fail-safe end-step of the write skills and from the git post-commit hook (opt out with `PFC_SKIP_TRELLO_RENDER=1`), and a render never touches `📥 Inbox`. **Before changing anything that renders to Trello, read [`docs/trello-dashboard.md`](docs/trello-dashboard.md)**: the list-by-list reference, the render triggers, and the card conventions.
 
 ## TRMNL e-ink dashboard
 
-TRMNL is the **ambient** surface — a screen in the room — as opposed to Trello on the phone. Plugin sources live in `trmnl/`, one folder per plugin. Repo is canonical; the screen is a rendered cache, read-only (no write-back).
-
-**Before writing or editing any TRMNL Liquid markup, load the `trmnl` skill** — TRMNL's own production agent prompts plus the full framework v3 design system. It ships as a Claude Code plugin (`trmnl@trmnl-agent-skills`), declared in `.claude/settings.json` so it auto-updates and a fresh clone is prompted to install it; on a new machine run `claude plugin install trmnl@trmnl-agent-skills`. The framework has hard rules that fail silently on the device: no inline styles or `<style>` blocks, no emoji anywhere in markup (e-ink has no emoji font — use `[x]` / `[ ]` text), content images need `image-dither`, never wrap markup in a `view view--*` container, and always `trmnl.com` URLs. The PFC-side workflow (what to display, building the payload, previewing, deploying) is `/pfc-trmnl-plugin`. Architecture and setup: [`docs/trmnl-plugins.md`](docs/trmnl-plugins.md). Folder rules: [`trmnl/AGENTS.md`](trmnl/AGENTS.md).
-
-Key conventions:
-- **Polling transport.** TRMNL GETs an HTTPS endpoint on your VPS — `automations/scripts/trmnl_serve.py` behind a reverse proxy, bearer-authenticated, loopback-bound — which runs the payload builder **per request**. TRMNL refreshes a plugin right before showing its screen, so the wall is current as of the moment you look at it. Setup: [`docs/install/trmnl-endpoint.md`](docs/install/trmnl-endpoint.md).
-- **Webhook is the fallback**, kept working for when there is no endpoint: `trmnl_push.py <plugin>` POSTs the same payload. Hard limits there — 12 pushes/hour at 2 KB standard (30/hour, 5 KB on TRMNL+) — which the script enforces.
-- **Every plugin needs a payload builder** registered in `BUILDERS` in `trmnl_push.py`; both transports read that registry. Shape the data in Python, not in Liquid — templates iterate flat lists and print pre-formatted values. After adding a builder, restart the endpoint: `systemctl --user restart pfc-trmnl-serve`.
-- **Neither transport is wired into the git post-commit hook** — unlike the Trello render. Polling does not need it; a webhook push there would burn the hourly quota during an editing session.
-- **Local preview before deploy.** `trmnl/bin/preview <plugin>` refreshes sample data, lints, and renders PNGs; add `--serve` for live reload. **Read the generated PNGs** — lint checks rules, not layout. Previews render at 4-bit to match the TRMNL X panel; `trmnlp`'s 1-bit default misrepresents every gray as a dot pattern.
-- **Private plugins only, and GitHub Sync is deliberately unused** — it syncs one plugin per repo and makes trmnl.com a second writer to markup this repo owns. `trmnlp push` is the only deploy path.
-- **Do not restate TRMNL's own docs in this repo.** The `trmnl` plugin and TRMNL's docs are the authority on the framework, limits, and endpoints — they update themselves. Repo files cover only PFC-specific decisions: which repo data feeds which screen, and the mistakes already paid for. Anything copied out of TRMNL's docs becomes a second source of truth that silently goes stale.
-- Pick what goes on a screen carefully: it must change day to day, or it goes invisible within ~2 days. Do not port the Trello board wholesale — Trello has ~20 lists because tapping is cheap; a screen shows one thing.
+TRMNL is the **ambient** surface, a screen in the room, as opposed to Trello on the phone. Plugin sources live in `trmnl/`; repo is canonical and the screen is read-only. **Before writing or editing any TRMNL Liquid markup, load the `trmnl` skill** (plugin `trmnl@trmnl-agent-skills`, declared in `.claude/settings.json`; on a new machine run `claude plugin install trmnl@trmnl-agent-skills`); its hard rules fail silently on the device (no inline styles, no emoji in markup, `image-dither` on images). The PFC-side workflow is `/pfc-trmnl-plugin`; folder rules, transports, preview and deploy are in [`trmnl/AGENTS.md`](trmnl/AGENTS.md); architecture and setup in [`docs/trmnl-plugins.md`](docs/trmnl-plugins.md). What goes on a screen must change day to day, or it goes invisible within ~2 days.
 
 ## Calendar scheduling
 
@@ -381,6 +346,19 @@ When creating a new project or habit, always ask for area and values if not prov
 
 The `values-alignment` rolling review (evening check-in, or `/pfc-review`) nudges any active project missing a `values` link. For standalone strategic tasks (tasks.ndjson, no project assigned), ask which area they serve.
 
+## Agent delegation — a standard way work leaves the backlog
+
+Handing a task to an agent is a **standard way work leaves the backlog**, not a novelty. Starting is often the hardest part of a task, not the ability to do it, so for a whole class of tasks the cheapest fix is that the user is not the one who does them. A form, a portal, a subscription cancellation, a comparison-and-pick: an agent with a browser finishes these while the user watches, and several can run at once in separate tabs.
+
+Every open task carries `agent_doable`: `yes` (an agent runs it start to finish), `partly` (agent does the setup, the user does the call / signature / conversation / physical step), `no` (only the user: their learning, their body, their relationships, their voice). Definitions, rules, and the batch query: [`6-tasks/AGENTS.md`](6-tasks/AGENTS.md) § Agent delegation.
+
+Two places it shows up:
+
+- **Capture**: `pfc-add-task` sets the field on every new task.
+- **Picking**: `pfc-pick-tasks` offers the hand-off batch *before* suggesting the 2+1. A task an agent can finish must never occupy a 2+1 slot; those slots are for work only the user can do.
+
+**The bar for `no` is "the doing is the point."** "It'd be faster if I just did it" is not a reason to keep a task.
+
 ## System changes — update audit skills
 
 Any change to system machinery (schemas, data files, skill structure, config, workflows) must include a corresponding update to the audit skills:
@@ -399,7 +377,7 @@ Triggers that require a post-change `/pfc-repo-maintenance` run (non-exhaustive)
 - Moving NDJSON or schema files between folders
 - Adding or renaming a skill
 - Changing a schema field that's referenced in multiple skills
-- Restructuring CLAUDE.md or any `docs/*.md`
+- Restructuring AGENTS.md or any `docs/*.md`
 - Any commit whose `git status` touches >5 files
 
 ## Strengths, personality, and core psychology

@@ -30,8 +30,8 @@ from trello_render import (
 REPO_ROOT = SCRIPT_DIR.parents[1]
 LOCAL_TZ = ZoneInfo(os.environ.get("LOCAL_TZ", "America/Denver"))
 
-INTERACTIVE_LISTS = {"✅ 2+1", "✅ Actions", "☀️ Daily Habits", "🌙 Monthly Habits"}
-TASK_LISTS = {"✅ 2+1", "✅ Actions"}
+INTERACTIVE_LISTS = {"✅ 2+1", "✅ Tasks", "☀️ Daily Habits", "🌙 Monthly Habits"}
+TASK_LISTS = {"✅ 2+1", "✅ Tasks"}
 HABIT_DAILY_LIST = "☀️ Daily Habits"
 HABIT_MONTHLY_LIST = "🌙 Monthly Habits"
 
@@ -125,8 +125,8 @@ def complete_task_from_card(api_key, token, card, tasks_path=None, events_path=N
       'already_done' — task was already done; archive triggered (cleans up Trello state).
       'unknown' — task id not found in tasks.ndjson; no changes; no archive.
     """
-    tasks_path = tasks_path or REPO_ROOT / "6-actions/_data/tasks.ndjson"
-    events_path = events_path or REPO_ROOT / "6-actions/_data/task_events.ndjson"
+    tasks_path = tasks_path or REPO_ROOT / "6-tasks/_data/tasks.ndjson"
+    events_path = events_path or REPO_ROOT / "6-tasks/_data/task_events.ndjson"
     log_date = log_date or _local_date_from_iso(card.get("date_completed")) or _today_mt()
 
     tasks = _read_ndjson(tasks_path)
@@ -200,18 +200,18 @@ def log_habit_from_card(api_key, token, card, daily_path=None, monthly_path=None
 
 
 def move_2plus1_from_actions(api_key, token, board_id, focus_task_ids):
-    """Move cards with given pfc_ids from ✅ Actions to ✅ 2+1. Returns count moved."""
+    """Move cards with given pfc_ids from ✅ Tasks to ✅ 2+1. Returns count moved."""
     if not focus_task_ids:
         return 0
     target_ids = set(focus_task_ids)
     lists = list_lists(api_key, token, board_id, filter_="open")
     list_id_to_name = {l["id"]: l["name"] for l in lists}
     name_to_id = {v: k for k, v in list_id_to_name.items()}
-    if "✅ 2+1" not in name_to_id or "✅ Actions" not in name_to_id:
+    if "✅ 2+1" not in name_to_id or "✅ Tasks" not in name_to_id:
         return 0
 
     twoplus1_id = name_to_id["✅ 2+1"]
-    actions_id = name_to_id["✅ Actions"]
+    actions_id = name_to_id["✅ Tasks"]
 
     raw_cards = list_cards_on_board(api_key, token, board_id, filter_="open")
     moved = 0
@@ -226,14 +226,14 @@ def move_2plus1_from_actions(api_key, token, board_id, focus_task_ids):
 
 
 def move_back_uncompleted(api_key, token, board_id):
-    """At evening, move any card still in ✅ 2+1 (and not completed) back to ✅ Actions. Returns count."""
+    """At evening, move any card still in ✅ 2+1 (and not completed) back to ✅ Tasks. Returns count."""
     lists = list_lists(api_key, token, board_id, filter_="open")
     list_id_to_name = {l["id"]: l["name"] for l in lists}
     name_to_id = {v: k for k, v in list_id_to_name.items()}
-    if "✅ 2+1" not in name_to_id or "✅ Actions" not in name_to_id:
+    if "✅ 2+1" not in name_to_id or "✅ Tasks" not in name_to_id:
         return 0
     twoplus1_id = name_to_id["✅ 2+1"]
-    actions_id = name_to_id["✅ Actions"]
+    actions_id = name_to_id["✅ Tasks"]
 
     raw_cards = list_cards_on_board(api_key, token, board_id, filter_="open")
     moved = 0
