@@ -202,6 +202,37 @@ def set_picks(focus: list[dict], day: str, critical: list[str], bonus: str | Non
     return "unchanged" if record == before else "updated"
 
 
+def drop_pick(focus: list[dict], day: str, task_id: str) -> str:
+    """Take a task out of a day's 2+1 (the reMarkable Today page's swap box). The task
+    stays open in the backlog. It is added to `skipped`, so the day's suggestions stop
+    offering it, and to `dropped`, so a second drop of it that day changes nothing and
+    a later pick of the same task stands. A done pick is left alone.
+    Returns 'dropped' | 'unchanged' (dropped once already) | 'unknown'."""
+    record = next((r for r in focus if r.get("date") == day), None)
+    if record is None:
+        return "unknown"
+    critical = record.get("critical") or []
+    open_critical = task_id in critical and task_id not in (record.get("completed") or [])
+    is_bonus = record.get("bonus") == task_id and record.get("bonus_completed") is not True
+    is_project = record.get("project") == task_id and record.get("project_completed") is not True
+    if not (open_critical or is_bonus or is_project):
+        return "unknown"
+    if task_id in (record.get("dropped") or []):
+        return "unchanged"
+    if open_critical:
+        record["critical"] = [t for t in critical if t != task_id]
+    if is_bonus:
+        record["bonus"] = None
+        record["bonus_completed"] = False
+    if is_project:
+        record.pop("project", None)
+        record.pop("project_completed", None)
+    if task_id not in (record.get("skipped") or []):
+        record["skipped"] = [*(record.get("skipped") or []), task_id]
+    record["dropped"] = [*(record.get("dropped") or []), task_id]
+    return "dropped"
+
+
 def stamp_review(ledger: list[dict], review_id: str, day: str) -> str:
     """Set a rolling review's `last_done` to `day`. 'stamped' | 'unchanged' | 'unknown'."""
     row = _find(ledger, review_id)

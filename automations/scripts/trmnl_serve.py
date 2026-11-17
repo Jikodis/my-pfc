@@ -7,6 +7,9 @@ TRMNL polling endpoint — serve plugin payloads over HTTP, built per request.
 Routes:
     GET /healthz        no auth; liveness only, returns "ok"
     GET /p/<plugin>     bearer-authenticated; the plugin's payload as JSON
+    GET /p/pod/<secret>/<file>   the AI News podcast feed and its MP3s (docs/ai-news.md);
+                        the secret in the path is the guard, as a podcast app cannot
+                        send a bearer header. GET and HEAD, with byte ranges.
 
 Payloads are built **per request** from current repo state — that is the whole
 point of the polling transport. TRMNL refreshes a plugin's data right before
@@ -38,6 +41,27 @@ from trmnl_push import BUILDERS, load_env, today_local  # noqa: E402
 DEFAULT_PORT = 8765
 DEFAULT_HOST = "127.0.0.1"
 
+# AI News podcast feed (ai_news.py): static files under data/.ai-news/feed/, served at
+# /p/pod/<AI_NEWS_FEED_SECRET>/<file>. The reverse proxy already forwards /p/* here.
+POD_ROOT = SCRIPT_DIR.parent.parent / "data" / ".ai-news" / "feed"
+POD_TYPES = {".mp3": "audio/mpeg", ".xml": "application/rss+xml; charset=utf-8", ".jpg": "image/jpeg",
+             ".png": "image/png"}
+
+
+def resolve_pod_path(path, secret, root=POD_ROOT):
+    """Map /p/pod/<secret>/<file> to a file under root, or None (wrong secret, traversal, missing)."""
+    prefix = "/p/pod/"
+    if not secret or not path.startswith(prefix):
+        return None
+    given, _, rest = path[len(prefix):].partition("/")
+    if not hmac.compare_digest(given, secret) or not rest:
+        return None
+    root = Path(root).resolve()
+    target = (root / rest).resolve()
+    if root not in target.parents or not target.is_file() or target.suffix not in POD_TYPES:
+        return None
+    return target
+
 
 class PayloadHandler(BaseHTTPRequestHandler):
     server_version = "pfc-trmnl/1.0"
@@ -66,7 +90,52 @@ class PayloadHandler(BaseHTTPRequestHandler):
             return False
         return hmac.compare_digest(header[len(prefix):].strip(), self.token)
 
+    def _serve_pod(self, path, head=False):
+        target = resolve_pod_path(path, self.env.get("AI_NEWS_FEED_SECRET", ""))
+        if target is None:
+            self._error(404, "not found")
+            return
+        size = target.stat().st_size
+        start, end = 0, size - 1
+        rng = self.headers.get("Range", "")
+        if rng.startswith("bytes="):
+            a, _, b = rng[6:].partition("-")
+            try:
+                start = int(a) if a else max(0, size - int(b))
+                end = min(int(b), size - 1) if a and b else end
+            except ValueError:
+                start, end = 0, size - 1
+        partial = bool(rng) and start <= end
+        self.send_response(206 if partial else 200)
+        self.send_header("Content-Type", POD_TYPES[target.suffix])
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(end - start + 1))
+        if partial:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        if head:
+            return
+        with open(target, "rb") as f:
+            f.seek(start)
+            left = end - start + 1
+            while left > 0:
+                buf = f.read(min(65536, left))
+                if not buf:
+                    break
+                self.wfile.write(buf)
+                left -= len(buf)
+
+    def do_HEAD(self):
+        path = self.path.split("?", 1)[0]
+        if path.startswith("/p/pod/"):
+            self._serve_pod(path, head=True)
+        else:
+            self._error(404, "not found")
+
     def do_GET(self):
+        if self.path.split("?", 1)[0].startswith("/p/pod/"):
+            self._serve_pod(self.path.split("?", 1)[0])
+            return
         path = self.path.split("?", 1)[0].rstrip("/")
 
         if path == "/healthz":

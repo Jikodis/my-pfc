@@ -5,7 +5,7 @@ description: Introduce PFC system features one at a time. Use when the user says
 
 # PFC Onboarding
 
-Walk new users through the system one feature at a time. This skill covers the full feature catalog (51 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
+Walk new users through the system one feature at a time. This skill covers the full feature catalog (53 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
 
 ---
 
@@ -54,7 +54,7 @@ When appending a `tried` event, always append it immediately after the user comp
 
 ## Step 3: Feature catalog
 
-51 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
+53 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
 
 | Category | Feature key | Description | Auth-gated? |
 |---|---|---|---|
@@ -100,6 +100,8 @@ When appending a `tried` event, always append it immediately after the user comp
 | integrations | integrations/trello-inbox | Phone widget for fast voice capture | Yes |
 | integrations | integrations/trello-dashboard | Full PFC board + mark-complete sync from phone | Yes |
 | integrations | integrations/trmnl | Build or edit a screen for the TRMNL e-ink display | Yes |
+| integrations | integrations/remarkable | The home page, the due review and the task list as pages to write on, on a reMarkable tablet | Yes |
+| integrations | integrations/ai-news | Followed AI blogs as reMarkable EPUBs and a private podcast feed | Yes |
 | meta | meta/personas | Voice/character overlays for the assistant | No |
 | meta | meta/profile | Personality/brain context (interview + optional assessments) | No |
 | meta | meta/personality | Deep personality reference file (`0-me/personality.md`) | No |
@@ -795,6 +797,43 @@ Builds, previews and pushes a screen for a TRMNL e-ink display from your repo da
 
 ---
 
+### Lesson: integrations/remarkable
+
+**What it is**
+Six pages on a reMarkable tablet: an inbox page for free notes, the web home page's three groups (Today, This quarter, Always), the one due review as a form, and every open task. Circle a rating, tick a habit or a 2+1 task, write a note; a server timer reads the ink every 10 minutes, saves it through the same writer the web page uses, and redraws the pages. Auth-gated: needs a tablet, the `rmapi` sign-in, Trello for notes, and a server for the timer (`docs/remarkable.md`).
+
+**Why use it**
+The system goes where the tablet goes, and paper-like pages get used when a laptop would not be opened.
+
+**Try it now**
+Draw the pages to files first, with nothing uploaded:
+```
+python3 automations/scripts/remarkable_pages.py /tmp/pfc-pages
+```
+Then follow `docs/remarkable.md` § Setup.
+
+**Skip / dismiss:** `/pfc-onboarding skip integrations/remarkable` if you don't have a reMarkable.
+
+---
+
+### Lesson: integrations/ai-news
+
+**What it is**
+A daily job reads the AI blogs listed in `config/ai_news.yaml`, has Claude keep only the posts that fit your criteria, and delivers each as an EPUB in the tablet's `AI News` folder and, with a Google Text-to-Speech key, as an episode in a private podcast feed. Auth-gated: needs the reMarkable setup, a server, and optionally a Google Cloud key (`docs/ai-news.md`).
+
+**Why use it**
+A short, filtered reading list instead of a dozen feeds, readable on paper or heard on a walk.
+
+**Try it now**
+Edit `criteria` in `config/ai_news.yaml`, install the packages from `docs/ai-news.md` § Setup, then see what it would keep without changing anything:
+```
+python3 automations/scripts/ai_news.py --dry-run --limit 10
+```
+
+**Skip / dismiss:** `/pfc-onboarding skip integrations/ai-news`
+
+---
+
 ### Lesson: meta/set-local-timezone
 
 **What it is**
@@ -1097,7 +1136,7 @@ tracking        habits                           ⚫ dismissed
 ...
 ```
 
-At the bottom, show a one-line summary: "X of 51 features tried · Y dismissed · Z not introduced"
+At the bottom, show a one-line summary: "X of 53 features tried · Y dismissed · Z not introduced"
 
 ---
 

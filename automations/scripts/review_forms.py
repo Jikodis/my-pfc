@@ -3,10 +3,11 @@
 
     python3 automations/scripts/review_forms.py [--today YYYY-MM-DD] [--id REVIEW_ID]
 
-Reviews run one at a time, everywhere: the web Review page (`/review`) and
-`/pfc-review` in a Claude Code session show the same review, picked by
-`current_review` (never done first, then most overdue, the order
-`home_data._due_review` uses), as the same form. Answers from either go to
+Reviews run one at a time, everywhere: the web Review page (`/review`), the
+optional reMarkable `4 - Review` page (`remarkable_pages.py`) and `/pfc-review` in a
+Claude Code session show the same review, picked by `current_review` (never done
+first, then most overdue, the order `home_data._due_review` uses), as the same
+form. Answers from any of them go to
 `/pfc-review <id> answers <json>`, which applies them with the owning procedure and
 stamps the review; the next due review then takes its place.
 
@@ -28,7 +29,8 @@ Answers, whatever surface they came from:
 A row or prompt left blank is not an answer; the procedure leaves that item alone.
 Answers also carry `"shown": [<row ids the form showed>]`.
 
-Rows are capped (`MAX_ROWS`) so a form stays short enough to answer in one sitting. A review with more rows
+Rows are capped (`MAX_ROWS`) so a form stays short enough to answer in one sitting
+(and a long row that would run off the tablet page waits for the next form). A review with more rows
 than that is done over several sittings: `--finish <id> --shown <ids>` records the
 rows answered (`seen` on its ledger row) and leaves it due, so the next form starts
 after them; once no rows are left it is stamped and `seen` is cleared.

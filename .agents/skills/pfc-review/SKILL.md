@@ -1,13 +1,13 @@
 ---
 name: pfc-review
-description: Do the one due rolling review as a short form in chat, or apply a form filled on the web UI's Review page, then offer the next one. Use when the user says "review", "do a review", "next review", "catch up on reviews", "run my reviews", "/pfc-review", "what reviews are due", or when the web page sends "/pfc-review <id> answers <json>".
+description: Do the one due rolling review as a short form in chat, or apply a form filled on the web UI's Review page or the reMarkable Review page, then offer the next one. Use when the user says "review", "do a review", "next review", "catch up on reviews", "run my reviews", "/pfc-review", "what reviews are due", or when a surface sends "/pfc-review <id> answers <json>".
 ---
 
 # Reviews, one at a time
 
 The old weekly / monthly / quarterly rituals are a **rolling ledger** (`data/review-ledger.ndjson`), each item with a cadence and a `last_done`. The evening check-in points at up to 2 due items a night (`pfc-evening-checkin` Step 3c). This skill does them: **one review at a time**, shown as a short form the user answers in one reply, applied, stamped, and then the next due review is offered. To clear a backlog, keep saying "next". Never stack several reviews in one message.
 
-**Which review, and its form, come from `automations/scripts/review_forms.py`** (`current_review`): never done first, then most overdue, skipping a due review whose form has nothing to ask (no project is missing values, no task is missing an area). The optional web UI's `/review` page shows the same review from the same script, so chat and the page always agree. The evening check-in's `gate()` block (Step 3c) is a separate, simpler test for its nightly drip of ≤2 (some of its gates always pass); when you add or change a review, change `build_form` in `review_forms.py`, the `gate()` block, and the owning-skill maps together (`automations/scripts/tests/test_review_forms.py` fails when a ledger id has no form or no `REVIEW_SKILLS` entry). What this skill owns is the **apply table** below: what each answer writes.
+**Which review, and its form, come from `automations/scripts/review_forms.py`** (`current_review`): never done first, then most overdue, skipping a due review whose form has nothing to ask (no project is missing values, no task is missing an area). The optional web UI's `/review` page and the optional reMarkable `4 - Review` page ([`docs/remarkable.md`](../../../docs/remarkable.md)) show the same review from the same script, so every surface agrees. The evening check-in's `gate()` block (Step 3c) is a separate, simpler test for its nightly drip of ≤2 (some of its gates always pass); when you add or change a review, change `build_form` in `review_forms.py`, the `gate()` block, and the owning-skill maps together (`automations/scripts/tests/test_review_forms.py` fails when a ledger id has no form or no `REVIEW_SKILLS` entry). What this skill owns is the **apply table** below: what each answer writes.
 
 ## Step 1 — Pick the one review
 
@@ -20,7 +20,9 @@ It prints the review as JSON: `id`, `label`, `tier`, `overdue_days`, `due_count`
 
 **If it prints `null`** → print exactly `No reviews due right now.` and stop. Do not manufacture a review.
 
-**If the message is `/pfc-review <id> answers <json>`** (the web UI's Save button), the user has already answered: skip Step 2, run `review_forms.py --id <id>` so every row id resolves to its record, and go straight to Step 3 with those answers. Do not ask anything. The answers object is `{"review", "choices": {row id: option}, "notes": {row id: text}, "prompts": {prompt id: text}, "shown": [row ids]}`.
+**If the message is `/pfc-review <id> answers <json>`** (the web UI's Save button), the user has already answered: skip Step 2, run `review_forms.py --id <id>` so every row id resolves to its record, and go straight to Step 3 with those answers. Do not ask anything.
+
+**If it ends in `unattended`** (`/pfc-review <id> answers <json> unattended`, from `remarkable_sync.py` reading the tablet's Review page), nobody is there to answer. Carry out every answer, including drops, retirements and renames. Anything that would normally need a yes (a ramp step up, an ambiguous note) is not done: list it at the very end as an `| # | Question | Default if no answer |` table naming what you did instead; the sync shows each row on the tablet page, and the user answers by writing there. An answer that does not fit its row is likely a handwriting misread: skip it and list it. Do not offer the next review (Step 5, item 4): the tablet draws it itself. The answers object is `{"review", "choices": {row id: option}, "notes": {row id: text}, "prompts": {prompt id: text}, "shown": [row ids]}`.
 
 ## Step 2 — Show the form, in one message
 
@@ -100,7 +102,7 @@ jq -c --arg id "$ID" --argjson s "$SHOWN" 'if .id==$id then .seen=((.seen // [])
    ```
 2. Auto-commit (no confirmation needed): every file the answers changed, plus `data/review-ledger.ndjson` when the `jq` fallback wrote it, as `checkin: review <id> YYYY-MM-DD`, then push. Use `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` for the date.
 3. One line per change and one per skipped answer: `🟢 <item> → <what changed>` / `🟡 <item> → skipped: <why>`.
-4. Run Step 1 again and name the next due review in one line ("Next up: Insights review. Want it?"). Stop when the user stops.
+4. Run Step 1 again and name the next due review in one line ("Next up: Insights review. Want it?"). Stop when the user stops. Not in an `unattended` run.
 
 ## The owning skills
 

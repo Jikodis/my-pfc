@@ -1283,6 +1283,16 @@ def test_stamp_review_sets_last_done_to_today(repo):
     assert code == 2 and out["reason"] == "not_found"
 
 
+def test_drop_pick_takes_a_task_out_of_the_days_picks(repo):
+    code, out = run(repo, "drop-pick", TODAY, "task-20250901-001")
+    assert code == 0 and out["changed"] is True
+    today = next(r for r in rows(repo, "6-tasks/_data/daily-focus.ndjson") if r["date"] == TODAY)
+    assert "task-20250901-001" not in today["critical"] and today["dropped"] == ["task-20250901-001"]
+    assert _git(repo, "log", "-1", "--format=%s").strip().startswith("focus: drop pick ")
+    code, out = run(repo, "drop-pick", TODAY, "task-20250901-002")
+    assert (code, out["reason"]) == (2, "not_found")
+
+
 def test_review_seen_keeps_a_long_review_due_and_a_stamp_clears_it(repo):
     code, out = run(repo, "review-seen", "stale-task-triage", "task-20250901-001", "task-20250901-002")
     assert code == 0 and out["changed"] is True

@@ -32,6 +32,8 @@ Local-only web app at `http://127.0.0.1:4323`. Astro in server mode. It reads re
 
 Quick add sits under the last group. Everything the page shows comes from one `getHome()` call (`automations/scripts/home_data.py`); the page only words and lays out what it is handed.
 
+The optional reMarkable pages (`automations/scripts/remarkable_pages.py`, [`docs/remarkable.md`](../docs/remarkable.md)) draw the same three groups from the same `build_home` dict. A band added, removed or reordered here gets the same change there.
+
 - **What you act on today comes first.** Sets that rarely change (household rooms, a day's later events) sit folded in a `<details>` with a count in its summary, and open by themselves when something in them needs a look.
 - **Body first** is a dark strip with the sleep verdict, tonight's move, hours slept and minutes awake, beside last night's sleep levers folded in a `<details>` whose summary counts them by light. The summary names the levers red last night that are not usually red. A lever shows `label_plain` (acronyms spelled out) and `target_words` (the target in words, not `<=`).
 - **Long-running reds fold.** A red that has held two weeks or more (`chronic`, `home_data.CHRONIC_DAYS`: a focus red 2+ weeks, a project idle 28+ days, a lever red on at least half of the last 14 nights) folds into one line right after the worst of its group (`chronic_lead`), which keeps its own row. A red that is not long-running keeps its own row, so a new red stands out. `FocusMeter`, `ProjectRow` and `LeverRow` are the rows, shared by the list and the fold.
@@ -48,7 +50,7 @@ The **Tasks** tab (`src/pages/tasks.astro`) is a list of cards: priority code, t
 
 ## Review page
 
-`/review` (`src/pages/review.astro`) is the one place reviews happen on the web. Reviews run one at a time, so it shows the same review `/pfc-review` would: one `getReview()` call (`web_data.py --review`, which is `review_forms.current_review`), or `No reviews due right now.` when that is null.
+`/review` (`src/pages/review.astro`) is the one place reviews happen on the web. Reviews run one at a time, so it shows the same review `/pfc-review` and the reMarkable `4 - Review` page would: one `getReview()` call (`web_data.py --review`, which is `review_forms.current_review`), or `No reviews due right now.` when that is null.
 
 - It shows the label, how overdue (`reviewDue` in `src/lib/review.ts`: never done, due today, or N days overdue) with the form's intro, and `N reviews due; one at a time.`
 - Each `choices` section is a list of rows with one tap chip per option (one option per row, tap again to clear) and a one-line note box when the section has `note`; a section with no options is answered by the note alone. Each `prompt` is a textarea `lines` tall.

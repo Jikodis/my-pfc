@@ -1,0 +1,13 @@
+[Unit]
+Description=PFC — reMarkable pages sync every 10 minutes
+Documentation=__REPO_URL__
+
+[Timer]
+# Every 10 minutes, all day. A run that finds nothing changed uses no Claude tokens
+# and, with no new commit in the hour, does not redraw: about a second of CPU.
+OnCalendar=*-*-* *:00/10:00 __LOCAL_TZ__
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

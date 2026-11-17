@@ -97,6 +97,7 @@ Fields:
 - `completed` — array of task ids from `critical` that were finished
 - `bonus_completed` — boolean
 - `skipped` — optional array of task ids (same existence rule) the web home page stops suggesting for that date (`web_write.py skip-suggestion`, read by `home_data.py`). A task named here moves to the archive when dropped, like a pick.
+- `dropped` — optional array of task ids swapped out of that day's 2+1 (`web_write.py drop-pick`, the reMarkable Today page's swap box). Each is also in `skipped`; the task stays open.
 - `calendar_events` — optional object written by `pfc-schedule-focus` for manually-placed per-task events; keyed by task id, each value has `event_id`, `start`, `end` (ISO timestamps).
 
 ### `7-habits/_data/habits-daily.ndjson`
@@ -365,6 +366,16 @@ Fields: `id` (stable slug mapped to a gate in `pfc-evening-checkin`, e.g. `stale
 **Due/gate/cap model:** an item is a *candidate* once `today − last_done ≥ cadence_days`. Candidates are then filtered through a per-id **gate** — a small check (in `pfc-evening-checkin`) that returns a reason string only if there's genuinely something to act on (e.g. `tasks-missing-area` gates on an open task with no area); a due-but-empty-gate item silently passes without stamping and re-checks the next night. Gated candidates are sorted most-overdue-first and **capped at 2 surfaced per evening check-in** (`/pfc-review` has no cap — it surfaces everything due at once for a catch-up pass). Only items the user actually engages get `last_done` stamped to today; ignored items are left alone and re-surface on cadence. Seeded with items spanning all three tiers (stale-task triage, missing-area/values checks, focus accuracy, vision relevance, habit rates, day-trend peek, hypotheses review, life wheel, household status, project progress, vision activation, monthly habits, insights review, findings alignment, trend analysis, revive outcomes, usage audit, quarterly focus re-pick, vision brainstorm, strengths refresh).
 
 Canonical schema: [`config/review_ledger_schema.yaml`](../config/review_ledger_schema.yaml). Validated by `scripts/validate.sh` (schema conformance, unique ids, no future `last_done`).
+
+### `data/ai-news.ndjson` — every blog post AI News kept or skipped
+
+One line per post from the blogs in `config/ai_news.yaml`, appended by `automations/scripts/ai_news.py` (the optional daily `pfc-ai-news` timer) once the post is finished: kept and delivered, skipped, or failed after `max_attempts` tries. A post not yet in the file is new on the next run; a web address already here is never fetched again.
+
+```json
+{"url":"https://example.com/blog/agent-memory","source":"anthropic-engineering","title":"Agent memory","published":"2025-01-14","decided":"2025-01-15","decision":"keep","reason":"agent memory design","partial":false,"epub":"2025-01-14 - Agent memory","mp3":"3f2a0c1d9e8b7a65.mp3","seconds":1320,"status":"done"}
+```
+
+`decision` is `keep` | `skip` | `null` (failed before a decision); `status` is `done` | `skipped` | `failed`. `partial` is true when only the feed summary could be fetched (no audio). `mp3_error` says why a kept post has no audio (`monthly voice budget reached`). Agent-only: no web page shows it. Full reference: [`ai-news.md`](ai-news.md).
 
 ### `data/supplements.ndjson`
 

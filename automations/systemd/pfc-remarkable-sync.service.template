@@ -1,0 +1,20 @@
+[Unit]
+Description=PFC — Keep the PFC pages on the reMarkable current and save what was written on them
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# remarkable_sync.py: rmapi checks whether a page changed (no Claude), Claude reads a
+# page only when it has new ink, writes go through web_write.py, then the pages are
+# redrawn and replaced where they changed. See docs/remarkable.md.
+# rmapi and claude live in ~/.local/bin, which a user unit's PATH does not include.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=LOCAL_TZ=__LOCAL_TZ__
+ExecStart=/usr/bin/python3 __REPO_ROOT__/automations/scripts/remarkable_sync.py
+TimeoutStartSec=20min
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-remarkable-sync

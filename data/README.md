@@ -21,6 +21,8 @@ The three files form a maturity ladder: most observations stay as insights, some
 | `day-tracking.ndjson` | Daily energy/mood/focus + derived rating, plus auto-fetched health data (sleep, activity, workouts, recovery metrics) and the derived `qqrt` sleep composite |
 | `health-raw/` | Comprehensive raw health archive, one gzipped JSON per day — the insurance layer behind `day-tracking.ndjson`. See [`health-raw/README.md`](health-raw/README.md) |
 | `supplements.ndjson` | Baseline supplement / medication registry — what you're currently taking and historical changes |
+| `ai-news.ndjson` | Optional AI News log: every blog post it kept or skipped ([`docs/ai-news.md`](../docs/ai-news.md)) |
+| `.remarkable/`, `.ai-news/` | Local state for the optional reMarkable pages and AI News (git-ignored) |
 | `.trello-last-render` | Timestamp of the last Trello dashboard render (used by render-skip logic) |
 | `.jq_update.tmp` | Temp file for atomic NDJSON updates — should never persist between runs |
 

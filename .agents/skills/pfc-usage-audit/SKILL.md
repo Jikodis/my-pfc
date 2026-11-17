@@ -476,6 +476,44 @@ else
   echo "trmnl:not_configured"
 fi
 
+echo "=== REMARKABLE AND AI NEWS ==="
+# reMarkable pages (docs/remarkable.md): each page's last upload, from
+# data/.remarkable/state.json (remarkable_sync.py, every 10 minutes). The Today page
+# changes at least daily, so an upload older than ~26 h means the timer or the rmapi
+# sign-in broke. No state file = not set up, not a finding.
+RMSTATE="data/.remarkable/state.json"
+if [ -f "$RMSTATE" ]; then
+  python3 - "$RMSTATE" <<'PY'
+import json, sys
+from datetime import datetime
+s = json.load(open(sys.argv[1]))
+for name, d in (s.get("docs") or {}).items():
+    up = d.get("uploaded")
+    if not up:
+        print(f"remarkable:{name}:never")
+        continue
+    age = (datetime.now().astimezone() - datetime.fromisoformat(up)).total_seconds() // 3600
+    print(f"remarkable:{name}:uploaded_{int(age)}h_ago")
+print(f"remarkable:last_read={s.get('last_read') or 'none'}")
+PY
+else
+  echo "remarkable:not_configured"
+fi
+
+# AI News (docs/ai-news.md): newest post kept or skipped in data/ai-news.ndjson
+# (ai_news.py, daily). No new record in 14 days means a source broke or the timer
+# stopped. Also list the last 30 days of skipped titles with their reasons, so a
+# wrong filter shows up here.
+if [ -s data/ai-news.ndjson ]; then
+  AN30=$(date -d '30 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-30d '+%Y-%m-%d')
+  jq -rs 'max_by(.decided) | "ainews:last_decided=\(.decided)"' data/ai-news.ndjson
+  jq -rs --arg c "$AN30" '[.[] | select(.decided >= $c)] |
+    "ainews:30d kept=\([.[]|select(.status=="done")]|length) skipped=\([.[]|select(.status=="skipped" and .reason!="older than the first-run window")]|length) failed=\([.[]|select(.status=="failed")]|length) audio=\([.[]|select(.mp3)]|length)"' data/ai-news.ndjson
+  jq -r --arg c "$AN30" 'select(.decided >= $c and .status=="skipped" and .reason!="older than the first-run window") | "ainews:skipped:\(.title) — \(.reason)"' data/ai-news.ndjson
+else
+  echo "ainews:not_configured"
+fi
+
 echo "=== SURFACE USE ==="
 # Which parts of the system are actually being used. There is no invocation
 # log, so last-write is the only available proxy — report it as a proxy, not
@@ -556,6 +594,8 @@ Use this table to determine status for each result:
 | Superman Pulse renderable | `pulse_renderable:yes` | `pulse_renderable:no` (the pulse board and TRMNL screen render empty, silently) | `pulse_renderable:error` (the builder itself is broken — surface the message) |
 | Orphaned labeled emails | 0, or Gmail connector unavailable (skip) | 1–4 labeled inbox emails with no linked task | 5+ (the email→task pipeline is not running) |
 | TRMNL endpoint | `trmnl:not_configured` (skip), or `trmnl_endpoint:ok` | `trmnl_repo_sync_timer:not-found` while the endpoint is up (live endpoint, stale clone) | `trmnl_endpoint:unreachable` while `TRMNL_SERVE_TOKEN` is set (every screen is frozen) |
+| reMarkable pages freshness | `remarkable:not_configured` (skip), or every page uploaded ≤ 26h ago | a page uploaded 26–72h ago | a page uploaded > 72h ago, or `never` (the timer or the rmapi sign-in broke; the tablet shows stale pages) |
+| AI News freshness | `ainews:not_configured` (skip), or `last_decided` ≤ 3d ago | 4–13d ago | ≥ 14d ago (a source broke or the timer stopped). Always print the `ainews:skipped:` lines under the table so the user can spot a wrong skip |
 | Health tokens | present | — | missing |
 | Active insights | — | > 20 unreviewed for 30+ days | — (no hard cap) |
 | Insight freshness | last created ≤ 14d ago, or zero ever | 14–30d ago | > 30d ago (likely capture has stalled) |
@@ -719,6 +759,8 @@ This turns audit data into an actionable suggestion rather than a flat report. D
 | Superman Pulse renders empty | No recent day-tracking record carries a `health` block. Check the health fetch (`python3 automations/scripts/google_health_fetch.py`) and its timer; until one lands, the Trello pulse list and the pfc-pulse screen are blank with no error shown anywhere |
 | Orphaned labeled emails | Run /pfc-email-triage — Step 0 reconciles both directions and creates the missing tasks. Recurring orphans mean the evening check-in's Step 0c is not running |
 | TRMNL endpoint unreachable | `systemctl --user status pfc-trmnl-serve.service`, then `journalctl --user -u pfc-trmnl-serve -n 30`. Every screen is frozen on its last payload until it comes back |
+| reMarkable pages stale | `journalctl --user -u pfc-remarkable-sync -n 50`. "rmapi ls failed" means the sign-in expired: redo `docs/remarkable.md` § Setup step 2 |
+| AI News silent | `journalctl --user -u pfc-ai-news -n 50`; a `SOURCE ERROR` line names the blog whose page or feed changed (fix its entry in `config/ai_news.yaml`). Wrong skips: tighten `criteria` in the same file |
 | TRMNL repo-sync timer not found | `systemctl --user list-timers pfc-repo-sync.timer`. The endpoint builds payloads from the local clone, so a missing sync timer means live screens rendering stale repo state |
 | Insight capture stalled | Run `/pfc-insights` to review; capture is bottlenecked — nothing's been noticed lately, or capture habit has lapsed |
 | Many old active insights | Run `/pfc-insights` to triage — archive what's gone stale, graduate what's actionable |

@@ -1,0 +1,21 @@
+[Unit]
+Description=PFC — AI News: new blog posts to the reMarkable AI News folder and the private podcast feed
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# ai_news.py: list posts on the blogs in config/ai_news.yaml, one Claude call to keep
+# or skip, EPUBs via rmapi, MP3s via Google Text-to-Speech, feed served by
+# pfc-trmnl-serve at /p/pod/<secret>/feed.xml. See docs/ai-news.md.
+# rmapi, claude and the --user Python packages live under ~/.local.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=LOCAL_TZ=__LOCAL_TZ__
+ExecStart=/usr/bin/python3 __REPO_ROOT__/automations/scripts/ai_news.py
+# A backlog run speaks about 2 minutes per post.
+TimeoutStartSec=3h
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-ai-news
