@@ -497,6 +497,28 @@ Verify the machinery and docs are clean, accurate, and coherent. Fix trivial dri
 
    A unit template under `automations/systemd/` that is absent from the `UNITS` array in `install.sh` is 🔴, not 🟡 — the reconcile pass at the top of `install.sh` stops, disables, and deletes any deployed `pfc-*` unit not in `UNITS`, so the next install silently tears down a service the docs tell users to rely on.
 
+8b. **Web UI plumbing** (skip when `web/` is absent):
+
+   ```bash
+   # The twelve writer actions: web_write.py and the routes in web/src/pages/api/write/
+   # agree on the same set. review-seen is CLI-only on purpose (review_forms.py --finish).
+   writer=$(grep -oE '"[a-z]+-[a-z]+": \((TASK_ID|HABIT_ID|FOCUS_ID|DAY|RATING_KEY|GROUND_ID|PROJECT_ID)' automations/scripts/web_write.py | cut -d'"' -f2 | grep -vx 'review-seen' | sort -u)
+   routes=$(ls web/src/pages/api/write | sed 's/\.ts$//' | sort -u)
+   [ "$writer" = "$routes" ] && echo "web_write_actions:OK" || echo "web_write_actions:FAIL"
+
+   # The writer's lock is ignored, and a dry run of an id that does not exist exits 2
+   # with a JSON error and changes nothing.
+   git check-ignore -q data/.web-write.lock && echo "web_write_lock_ignored:OK" || echo "web_write_lock_ignored:FAIL"
+   before=$(git status --porcelain)
+   out=$(python3 automations/scripts/web_write.py --dry-run complete-task task-00000000-000); code=$?
+   { [ "$code" = 2 ] && echo "$out" | grep -q '"ok": false' && [ "$(git status --porcelain)" = "$before" ]; } \
+     && echo "web_write_dry_run:OK" || echo "web_write_dry_run:FAIL"
+
+   # Every ledger review has a form and a home-page pointer.
+   python3 -m pytest -q automations/scripts/tests/test_review_forms.py automations/scripts/tests/test_web_write.py \
+     automations/scripts/tests/test_home_data.py >/dev/null && echo "web_python_tests:OK" || echo "web_python_tests:FAIL"
+   ```
+
 9. **Report:**
 
    Output a table sorted by severity:

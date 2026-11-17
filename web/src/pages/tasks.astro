@@ -1,0 +1,253 @@
+---
+import ActionButton from '../components/ActionButton.astro'
+import Base from '../layouts/Base.astro'
+import { getSlipping } from '../lib/computed'
+import { daysBetween, deadlineLabel, formatDateLong, todayLocal } from '../lib/dates'
+import { PROMPTS, chatPrompt } from '../lib/chat/prompts'
+import { idTooltip } from '../lib/format'
+import { NO_PRIORITY, byPriority, code } from '../lib/priority'
+import { getArchivedTasks, getDailyFocus, getProjects, getTasks } from '../lib/repo'
+import { safe } from '../lib/safe'
+import { TASK_SORTS } from '../lib/sort'
+import { areaLabel } from '../lib/text'
+
+const NO_PROJECT = 'none'
+const q = Astro.url.searchParams
+const pick = (k: string) => q.get(k) ?? ''
+const archive = pick('archive') === '1'
+const today = todayLocal()
+
+// One call per script per render: this starts a Python process. When it fails the
+// slipping filter is simply not offered, and the rest of the page is unaffected.
+const slipping = safe(getSlipping)
+const slippingIds = new Set(
+  slipping.ok ? slipping.value.filter((s) => s.item_type === 'task').map((s) => s.item_id) : [],
+)
+const slippingOnly = slipping.ok && pick('slipping') === '1'
+
+const projectName = new Map(getProjects().map((p) => [p.id, p.name]))
+const all = archive ? getArchivedTasks() : getTasks().filter((t) => t.status === 'open')
+const words = pick('text').toLowerCase()
+const rows = byPriority(all.filter((t) =>
+  (!pick('area') || t.area === pick('area')) &&
+  (!pick('agent') || t.agent_doable === pick('agent')) &&
+  (!pick('size') || t.size === pick('size')) &&
+  // `none` is the filter's own word for a task with no project; a task stores no project or the word `none`.
+  (!pick('project') || (pick('project') === NO_PROJECT ? !t.project || t.project === 'none' : t.project === pick('project'))) &&
+  (!pick('priority') || code(t) === pick('priority')) &&
+  (!slippingOnly || slippingIds.has(t.id)) &&
+  (!words || t.description.toLowerCase().includes(words)),
+))
+
+const uniq = (vals: (string | undefined | null)[]) =>
+  [...new Set(vals.filter((v): v is string => Boolean(v) && v !== 'none'))].sort()
+const codes = [...new Set(all.map((t) => code(t)))].filter((c) => c !== NO_PRIORITY).sort()
+const selects: [string, string, readonly string[]][] = [
+  ['priority', 'Priority', codes],
+  ['area', 'Area', uniq(all.map((t) => t.area))],
+  ['agent', 'Agent can do it', ['yes', 'partly', 'no']],
+  ['size', 'Size', uniq(all.map((t) => t.size))],
+  ['project', 'Project', uniq(all.map((t) => t.project))],
+]
+
+// Handing a task to an agent is a standard way work leaves the backlog, so the
+// count of those tasks is a link, not a footnote.
+const agentCount = all.filter((t) => t.agent_doable === 'yes').length
+const projectOf = (id: string | undefined) =>
+  id && id !== 'none' ? (projectName.get(id) ?? id) : ''
+const tip = (t: { id: string; notes?: string | null }) => idTooltip(t.id, t.notes)
+// What the row buttons put in the chat box. The title is the task's description.
+const ask = (template: string, t: { id: string; description: string }) =>
+  chatPrompt(template, { title: t.description, id: t.id })
+// Today's stored 2+1, so Pull into today adds to the picks already set rather than replacing them.
+const todayRecord = getDailyFocus().find((r) => r.date === today)
+const todayPicks = JSON.stringify(todayRecord
+  ? { critical: todayRecord.critical ?? [], completed: todayRecord.completed ?? [], bonus: todayRecord.bonus ?? null }
+  : null)
+---
+<Base
+  title={archive ? 'Completed tasks' : 'Open tasks'}
+  lede={`${rows.length} of ${all.length} shown, strongest priority code first.`}
+>
+  <form method="get" class="task-filters panel">
+    <input type="search" name="text" value={pick('text')} placeholder="Filter by words" aria-label="Filter by words" />
+    <div class="filter-row">
+      {selects.map(([key, label, opts]) => (
+        <select name={key} aria-label={label} class={pick(key) ? 'filter-on' : undefined}>
+          <option value="">{label}: all</option>
+          {key === 'project' && <option value={NO_PROJECT} selected={pick(key) === NO_PROJECT}>Not in a project</option>}
+          {opts.map((o) => (
+            <option value={o} selected={pick(key) === o}>
+              {key === 'project' ? (projectName.get(o) ?? o) : key === 'size' ? o : areaLabel(o)}
+            </option>
+          ))}
+        </select>
+      ))}
+      {slipping.ok && (
+        <label class="check"><input type="checkbox" name="slipping" value="1" checked={slippingOnly} /> Slipping only</label>
+      )}
+      <label class="check"><input type="checkbox" name="archive" value="1" checked={archive} /> Completed</label>
+      <button type="submit" class="btn-primary">Apply</button>
+      <a href={archive ? '/tasks?archive=1' : '/tasks'}>Clear</a>
+    </div>
+  </form>
+
+  <div class="task-bar">
+    {!archive && agentCount > 0 && (
+      <a class="agent-link" href="/tasks?agent=yes">{agentCount} tasks an agent can finish for you</a>
+    )}
+    {!archive && pick('project') !== NO_PROJECT && <a href="/tasks?project=none">Not in a project</a>}
+    {rows.length > 1 && (
+      <label class="sort">Sort by{' '}
+        <select id="task-sort" aria-label="Sort tasks by">
+          {TASK_SORTS.map(([key, label]) => <option value={key}>{label}</option>)}
+        </select>
+      </label>
+    )}
+  </div>
+
+  {rows.length === 0 ? <p class="muted">No tasks match those filters.</p> : (
+    <ul id="task-table" class="task-list" data-today={today} data-today-picks={todayPicks}>
+      {rows.map((t, i) => (
+        <li class="task" data-id={t.id} data-priority={i} data-deadline={t.deadline ?? ''} data-area={t.area ?? ''}
+          data-size={t.size ?? ''} data-created={t.created ?? ''}>
+          <span class={`prio prio-${code(t).charAt(0).toLowerCase()}`} title="Priority code: impact, then urgency">{code(t) === NO_PRIORITY ? '–' : code(t)}</span>
+          <div class="task-main">
+            <p class="task-title" title={tip(t)}>
+              {t.description}
+              {!archive && slippingIds.has(t.id) && <> <span class="tag flag">slipping</span></>}
+            </p>
+            <p class="task-meta">
+              {t.area && <span class="tag">{areaLabel(t.area)}</span>}
+              {t.size && <span class="tag">{t.size}</span>}
+              {projectOf(t.project) && <span class="sub">{projectOf(t.project)}</span>}
+              {t.agent_doable === 'yes' && <span class="tag tag-agent">An agent can do it</span>}
+              {t.agent_doable === 'partly' && <span class="tag">Agent can do part</span>}
+              {/* The label is what a person acts on; the date itself is in the tooltip. */}
+              {t.deadline && (
+                <span class={daysBetween(today, t.deadline) < 0 ? 'overdue' : 'sub'} title={formatDateLong(t.deadline)}>{deadlineLabel(today, t.deadline)}</span>
+              )}
+              <span class="sub" title={`Created ${formatDateLong(t.created)}`}>
+                {archive ? (t.dropped ? `Dropped ${formatDateLong(t.dropped)}` : `Completed ${formatDateLong(t.completed ?? '')}`) : `${daysBetween(t.created, today)} days old`}
+              </span>
+            </p>
+          </div>
+          {!archive && (
+            <div class="task-acts">
+              {t.agent_doable === 'yes' ? (
+                <button type="button" class="hand-off" data-chat-prompt={ask(PROMPTS.handOff, t)} aria-label={`Hand to agent: ${t.description}`}>Hand to agent</button>
+              ) : (
+                <span class="pull">
+                  <button type="button" class="act act-write pull-main" data-pull-id={t.id} aria-label={`Pull into today: ${t.description}`}>Pull into today</button>
+                  <span class="pull-status sub" role="status" aria-live="polite"></span>
+                </span>
+              )}
+              <ActionButton action="complete-task" id={t.id} label="Done" name={t.description} confirm="Mark done?">
+                <button type="button" class="act" data-chat-prompt={ask(PROMPTS.complete, t)} aria-label={`Done in chat: ${t.description}`}>Done in chat</button>
+                {/* Inside Done's row of buttons, so it wraps with them. */}
+                <ActionButton action="drop-task" id={t.id} label="Drop" name={t.description} confirm="Drop it? (won't do)" />
+              </ActionButton>
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  )}
+</Base>
+
+<script>
+  /**
+   * The sort control and Pull into today. Sorting reorders the rows by the stored
+   * fields the server wrote on each one (`sortTaskRows` in src/lib/sort.ts). Pull into
+   * today posts set-picks for today with the picks already set (done ones included) plus
+   * this task, and refuses in words when two picks are still open (`pullIntoToday` in
+   * src/lib/write-ui.ts).
+   */
+  import { sortTaskRows, type TaskSort } from '../lib/sort'
+  import { PENDING, WRITE_HEADERS, outcome, pullIntoToday } from '../lib/write-ui'
+
+  const table = document.getElementById('task-table')
+  const body = table
+
+  document.getElementById('task-sort')?.addEventListener('change', (event) => {
+    if (!body) return
+    const key = (event.target as HTMLSelectElement).value as TaskSort
+    const rows = [...body.querySelectorAll<HTMLLIElement>(':scope > li')].map((tr) => ({
+      tr, id: tr.dataset.id ?? '', priority: Number(tr.dataset.priority ?? 0), deadline: tr.dataset.deadline ?? '',
+      area: tr.dataset.area ?? '', size: tr.dataset.size ?? '', created: tr.dataset.created ?? '',
+    }))
+    for (const r of sortTaskRows(rows, key)) body.append(r.tr)
+  })
+
+  document.addEventListener('click', async (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-pull-id]')
+    if (!button || button.disabled || !table) return
+    const status = button.parentElement?.querySelector<HTMLElement>('.pull-status')
+    const show = (text: string, tone: string) => {
+      if (!status) return
+      status.textContent = text
+      status.className = `pull-status sub write-${tone}`
+    }
+    let today: { critical: string[]; completed?: string[]; bonus?: string | null } | null = null
+    try {
+      today = JSON.parse(table.dataset.todayPicks ?? 'null')
+    } catch {
+      today = null
+    }
+    const plan = pullIntoToday(table.dataset.today ?? '', today, button.dataset.pullId ?? '')
+    if (!plan.ok) {
+      show(plan.message, 'error')
+      return
+    }
+    button.disabled = true
+    button.textContent = PENDING
+    let code: number | null = null
+    let reply: unknown = null
+    try {
+      const response = await fetch('/api/write/set-picks', { method: 'POST', headers: WRITE_HEADERS, body: plan.body })
+      code = response.status
+      reply = await response.json().catch(() => null)
+    } catch {
+      code = null
+    }
+    const result = outcome(code, reply)
+    show(result.text, result.tone)
+    if (result.reloadAfterMs !== null) {
+      button.textContent = 'Saved'
+      setTimeout(() => window.location.reload(), result.reloadAfterMs)
+      return
+    }
+    button.textContent = 'Pull into today'
+    button.disabled = false
+  })
+</script>
+
+<style is:global>
+  .task-filters { display:flex; flex-direction:column; gap:10px; margin:0 0 14px; }
+  .task-filters input[type=search] { width:100%; min-height:42px; font-size:16px; }
+  .filter-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .filter-row select { max-width:220px; }
+  .filter-row select.filter-on { border-color:var(--ink); border-width:2px; font-weight:700; }
+  .check { font-size:14px; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
+  .task-bar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin:0 0 12px; }
+  .agent-link { font-weight:700; }
+  .sort { font-size:14px; margin-left:auto; }
+  .task-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .task { display:grid; grid-template-columns:44px minmax(0, 1fr) auto; gap:14px; align-items:start; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  @container (max-width: 760px) { .task { grid-template-columns:44px minmax(0, 1fr); } .task-acts { grid-column:2; justify-content:flex-start; } }
+  /* The priority code, strongest drawn strongest: A filled, B outlined, C and none quiet. */
+  .prio { width:44px; height:36px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; letter-spacing:.04em; border:1px solid var(--border); color:var(--sub); background:var(--bg); }
+  .prio-a { background:var(--ink); border-color:var(--ink); color:var(--bg); }
+  .prio-b { border:2px solid var(--ink); color:var(--ink); background:var(--card); }
+  .task-title { margin:0 0 6px; font-size:16px; font-weight:600; line-height:1.35; text-wrap:pretty; }
+  .task-meta { margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:13px; }
+  .task-meta .sub, .task-meta .overdue { font-size:13px; }
+  .tag-agent { background:var(--blue-t); border-color:var(--blue-t); color:var(--card); }
+  .task-acts { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:flex-end; gap:6px; max-width:360px; }
+  button.hand-off { background:var(--blue-t); border-color:var(--blue-t); color:var(--card); font-weight:700; font-size:13px; padding:5px 12px; }
+  button.pull-main { background:var(--ink); color:var(--bg); }
+  .task-acts button.act-write[data-write-action="drop-task"] { border-color:var(--border); color:var(--sub); font-weight:500; }
+  .pull { display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px 6px; }
+  .pull-status { flex-basis:100%; width:0; min-width:max(100%, 12em); white-space:normal; font-size:13px; }
+  .pull-status:empty { display:none; }
+</style>

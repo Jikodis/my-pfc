@@ -65,7 +65,7 @@ grep "$(date +%Y-%m-%d)" 6-tasks/_data/daily-focus.ndjson | tail -1
 
 - Show the 2 critical items and 1 bonus item
 - For each, show completion status
-- If no focus set today, say "No daily focus set — tomorrow's 2+1 gets picked at the evening check-in. Run /pfc-pick-tasks if you want something to work on now."
+- If no focus set today, say "No daily focus set — tomorrow's 2+1 gets picked at the evening check-in (or on the web home page, if you run it). Run /pfc-pick-tasks if you want something to work on now."
 
 ### 4. Daily Habits — This Week
 
@@ -134,6 +134,16 @@ TASKS=$(jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson | wc -l)
 ```
 
 Show: "X open tasks" as a single line. Don't list them — that's what /pfc-status and /pfc-pick-tasks are for.
+
+### 9. Open the web UI (optional, last line)
+
+If the optional web UI is installed ([`docs/install/web-ui.md`](../../../docs/install/web-ui.md)), open its home page behind the current window:
+
+```bash
+scripts/open-web-ui.sh --background
+```
+
+It opens `http://127.0.0.1:4323/` and prints one line saying so. It opens nothing, and says why, when this is not a Mac, when the web server is not answering, or when the summary was started from the web page's own chat; it always exits 0. Print its one line as the last line of the summary.
 
 ## Formatting Rules
 

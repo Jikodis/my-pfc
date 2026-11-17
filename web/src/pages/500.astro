@@ -1,0 +1,25 @@
+---
+/**
+ * The page Astro renders when something throws during a request. One malformed line
+ * in an NDJSON file makes repo.ts throw, and without this page the server answers
+ * 500 with an empty body, which reads as a dead server rather than a bad line.
+ *
+ * Base is safe to use here: it imports nothing and reads no file, so rendering it
+ * cannot throw a second error inside the error page.
+ *
+ * Only the message is printed, never the stack, and never through set:html.
+ */
+import Base from '../layouts/Base.astro'
+
+interface Props { error?: { message?: string } }
+const { error } = Astro.props
+---
+<Base title="This page could not load">
+  <section class="panel">
+    <p class="prose mono">{error?.message}</p>
+    <p class="sub">
+      If the message names a data file and a line number, that line is not valid JSON.
+      Fix or remove it, then reload.
+    </p>
+  </section>
+</Base>

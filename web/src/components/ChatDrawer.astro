@@ -1,0 +1,242 @@
+---
+/**
+ * The chat panel, mounted once on every page by `src/layouts/Base.astro`.
+ *
+ * The markup here is the frame: a header that always says where the conversation
+ * stands, a scrolling transcript, and a composer that stays put at the bottom so the
+ * Stop button is reachable however far the transcript has been scrolled. Everything
+ * that moves is in `src/scripts/chat-client.ts`, which Astro bundles and serves from
+ * this app, so the policy needs no exception for it.
+ *
+ * Hide only slides the drawer away: the conversation, and any reply still running,
+ * stay, and the tab at the right edge (shown while a conversation exists) brings it
+ * back. On a wide screen the page narrows beside the open drawer
+ * (`html.chat-docked`) so the page stays readable behind it.
+ *
+ * The styles are global rather than scoped, because the transcript's own elements
+ * are built in the browser and a scoped style would not reach them.
+ */
+---
+<aside id="chat-drawer" class="chat-drawer" hidden aria-label="Claude Code">
+  <div class="chat-head">
+    <div class="chat-head-name">
+      <strong>Claude Code</strong>
+      <span id="chat-status" class="chat-status" role="status" aria-live="polite">
+        <span id="chat-dot" class="chat-dot chat-dot-ready"></span>
+        <span id="chat-status-text">Ready</span>
+      </span>
+    </div>
+    <div class="chat-head-buttons">
+      <button type="button" id="chat-new">New chat</button>
+      <button type="button" id="chat-hide" aria-label="Hide chat; the conversation is kept" title="Hide the chat. The conversation is kept; bring it back with the Chat tab or Cmd+K.">Hide &rsaquo;</button>
+    </div>
+  </div>
+
+  <div id="chat-confirm" class="chat-confirm" hidden>
+    <span>Start over?</span>
+    <button type="button" id="chat-confirm-yes">Yes</button>
+    <button type="button" id="chat-confirm-no">No</button>
+  </div>
+
+  <div id="chat-scroll" class="chat-scroll">
+    <div id="chat-items" class="chat-items"></div>
+    <p id="chat-empty" class="muted chat-empty">Ask a question, or pick a skill below. Claude Code runs in this repo.</p>
+  </div>
+
+  <button type="button" id="chat-jump" class="chat-jump" hidden>New content below</button>
+
+  <div class="chat-foot">
+    <div id="chat-after" class="chat-after"></div>
+
+    <div id="chat-skills" class="chat-skills" hidden>
+      <input type="search" id="chat-skill-filter" placeholder="Filter skills" aria-label="Filter skills" />
+      <div id="chat-skill-pinned" class="chat-skill-pinned"></div>
+      <p id="chat-skill-divider" class="chat-skill-divider" hidden>All skills</p>
+      <div id="chat-skill-rest" class="chat-skill-rest"></div>
+    </div>
+
+    <div id="chat-queue" class="chat-queue" aria-live="polite" hidden></div>
+
+    <textarea id="chat-text" class="chat-text" rows="1" placeholder="Message Claude Code" aria-label="Message"></textarea>
+
+    <div class="chat-buttons">
+      <button type="button" id="chat-skills-toggle" aria-expanded="false" aria-controls="chat-skills">Skills</button>
+      <span class="chat-spacer"></span>
+      <button type="button" id="chat-stop" class="chat-stop" disabled>Stop</button>
+      <button type="button" id="chat-send" class="chat-send">Send</button>
+    </div>
+  </div>
+</aside>
+
+<button type="button" id="chat-tab" class="chat-tab" hidden aria-controls="chat-drawer" title="Show the chat (Cmd+K)">
+  <span id="chat-tab-dot" class="chat-dot chat-dot-ready"></span>
+  <span>Chat</span>
+</button>
+
+<style is:global>
+  .chat-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100%;
+    display: flex; flex-direction: column; z-index: 20;
+    background: var(--card); border-left: 1px solid var(--border);
+    box-shadow: -10px 0 30px rgba(7, 54, 66, .14);
+    font-size: 15px;
+  }
+  /* The attribute and the class carry the same weight, so the class has to say it too. */
+  .chat-drawer[hidden] { display: none; }
+  @media (max-width: 700px) { .chat-drawer { width: 100%; } }
+  /* Wide screens: the page makes room for the open drawer instead of sitting under it. */
+  @media (min-width: 1100px) { html.chat-docked body { margin-right: 480px; } }
+
+  /* The hidden drawer's handle: a tab on the right edge, there only while a conversation exists. */
+  .chat-tab {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 19;
+    display: inline-flex; align-items: center; gap: 8px; padding: 14px 8px; writing-mode: vertical-rl;
+    background: var(--ink); color: var(--bg); font: inherit; font-size: 14px; font-weight: 700;
+    border: 0; border-radius: 10px 0 0 10px; cursor: pointer;
+    box-shadow: -3px 0 12px rgba(7, 54, 66, .2);
+  }
+  .chat-tab[hidden] { display: none; }
+  /* Room for the tab, so it never sits on top of a row's buttons. */
+  html.chat-tabbed main { padding-right: 48px; }
+
+  /* The head is the one dark bar of the drawer: who is answering, and where the reply stands. */
+  .chat-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--ink); color: var(--bg); }
+  .chat-head-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .chat-head-name strong { color: var(--bg); font-size: 16px; letter-spacing: -.01em; }
+  .chat-status { display: inline-flex; align-items: center; gap: 7px; background: var(--bg); color: var(--ink); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-head-buttons { margin-left: auto; display: flex; gap: 6px; }
+  .chat-head-buttons button { font-size: 13px; background: transparent; color: var(--bg); border-color: var(--line); }
+  .chat-head-buttons button:hover:not(:disabled) { border-color: var(--bg); }
+  .chat-confirm button, .chat-buttons button { font-size: 14px; }
+
+  /* The same reading as the rest of the app: the dot carries the color, the word
+     carries the meaning, so the status never rests on color alone. */
+  .chat-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted); }
+  .chat-dot-ready { background: var(--green); }
+  .chat-dot-refused, .chat-dot-not-sent { background: var(--yellow); }
+  .chat-dot-error { background: var(--red); }
+  .chat-dot-stopped { background: var(--muted); }
+  .chat-dot-thinking, .chat-dot-running { background: var(--blue); animation: chat-pulse 1.2s infinite ease-in-out; }
+  @keyframes chat-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+  .chat-confirm { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); color: var(--ink); font-weight: 600; }
+  .chat-confirm[hidden] { display: none; }
+
+  .chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px; }
+  .chat-items { display: flex; flex-direction: column; gap: 14px; }
+  .chat-empty { margin: 28px 8px 0; font-size: 16px; line-height: 1.5; color: var(--sub); text-align: center; }
+
+  /* What you said: a filled bubble on the right. What came back: plain text, full width. */
+  .chat-user { align-self: flex-end; max-width: 85%; background: var(--ink); color: var(--bg); border-radius: 16px 16px 4px 16px; padding: 9px 14px; white-space: pre-wrap; }
+
+  .chat-assistant { position: relative; line-height: 1.55; }
+  .chat-copy { position: absolute; top: 0; right: 0; font-size: 12px; padding: 1px 8px; border-color: var(--border); color: var(--sub); background: var(--card); }
+  .chat-copy:hover { color: var(--ink); }
+  .chat-md { padding-right: 56px; }
+  .chat-md > :first-child { margin-top: 0; }
+  .chat-md > :last-child { margin-bottom: 0; }
+  .chat-md :is(h1, h2, h3, h4) { color: var(--ink); font-size: 16px; margin: 14px 0 6px; }
+  .chat-md p, .chat-md ul, .chat-md ol { margin: 8px 0; }
+  .chat-md li { margin: 3px 0; }
+  .chat-md ul, .chat-md ol { padding-left: 22px; }
+  .chat-md blockquote { background: var(--bg); border-radius: 8px; margin: 8px 0; padding: 8px 12px; }
+  /* A table keeps the app's own look and scrolls inside itself, so a wide one
+     cannot push the drawer wider than it is. */
+  .chat-md table { display: block; max-width: 100%; overflow-x: auto; margin: 10px 0; font-size: 13px; }
+  .chat-md pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; max-width: 100%; }
+  .chat-md code { font: 13px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  .chat-md :not(pre) > code { background: var(--panel); border-radius: 4px; padding: 1px 5px; }
+
+  /* A tool call reads as two things: what was asked for, on its own header row, and
+     what came back, in the body color underneath. */
+  .chat-tool { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .chat-tool > summary { list-style: none; cursor: pointer; display: flex; gap: 8px; align-items: center; padding: 6px 10px; color: var(--sub); font: 12px ui-monospace, Menlo, monospace; }
+  .chat-tool[open] > summary { border-bottom: 1px solid var(--border); }
+  .chat-tool > summary::-webkit-details-marker { display: none; }
+  .chat-tool-tag { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; color: var(--ink); background: var(--panel); white-space: nowrap; }
+  /* A result with no call of its own has no tool name, and an empty pill is worse
+     than none. The class sets display, so the class has to unset it too. */
+  .chat-tool-tag[hidden] { display: none; }
+  .chat-tool-sum { color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-tool-body { padding: 8px 10px 10px; }
+  .chat-tool-out { margin: 0; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); max-height: 480px; overflow-y: auto; }
+  /* Six lines of output, which is enough to see what came back without the reply
+     itself being pushed off the screen. */
+  .chat-tool-out.chat-clamped { max-height: 9em; overflow: hidden; }
+  .chat-tool-more { margin-top: 6px; font-size: 13px; }
+  .chat-mark-ok { color: var(--green-t); }
+  .chat-mark-failed { color: var(--red-t); }
+  .chat-mark-refused { color: var(--yellow-t); }
+
+  .chat-dots { display: inline-flex; gap: 4px; align-items: center; }
+  .chat-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--ink); animation: chat-dot 1.1s infinite ease-in-out; }
+  .chat-dots i:nth-child(2) { animation-delay: .18s; }
+  .chat-dots i:nth-child(3) { animation-delay: .36s; }
+  @keyframes chat-dot { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-dots i { animation: none; opacity: .7; }
+    .chat-dot-thinking, .chat-dot-running { animation: none; }
+  }
+
+  .chat-refusals { background: var(--bg); border: 2px solid var(--yellow); border-radius: 10px; padding: 10px 12px; }
+  .chat-refusals p { margin: 0 0 4px; color: var(--ink); font-weight: 600; }
+  .chat-refusals ul { margin: 0; padding-left: 20px; }
+  .chat-refusals li { font: 13px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+  .chat-error { background: var(--bg); border: 2px solid var(--red); border-radius: 10px; padding: 10px 12px; color: var(--ink); font-weight: 600; white-space: pre-wrap; }
+  .chat-note { color: var(--sub); font-size: 14px; background: var(--bg); border-radius: 8px; padding: 6px 10px; }
+  /* The done line carries information, so it reads in the body color, not the pale one. */
+  .chat-done { color: var(--sub); font-size: 13px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border-top: 1px solid var(--panel); padding-top: 8px; }
+
+  /* In the flow between the transcript and the composer, so it never has to guess
+     where the composer's top edge is as the textarea grows. */
+  .chat-jump { border: 0; border-top: 1px solid var(--border); border-radius: 0; background: var(--panel); color: var(--ink); font-size: 13px; font-weight: 600; padding: 6px; }
+  .chat-jump[hidden] { display: none; }
+
+  .chat-foot { border-top: 1px solid var(--border); background: var(--bg); padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-after:empty { display: none; }
+  .chat-after { display: flex; gap: 10px; align-items: center; font-size: 14px; flex-wrap: wrap; }
+
+  /* Messages waiting for the reply in progress, one line each, with its own Remove. */
+  .chat-queue[hidden] { display: none; }
+  .chat-queue { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 8px 10px; font-size: 14px; }
+  .chat-queue-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; color: var(--sub); }
+  .chat-queue ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .chat-queue li { display: flex; gap: 8px; align-items: center; }
+  .chat-queue-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--strong); }
+  .chat-queue-remove, .chat-queue-next { font-size: 13px; padding: 2px 8px; }
+  .chat-text { width: 100%; min-height: 48px; resize: none; font: inherit; font-size: 16px; line-height: 1.45; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); overflow-y: hidden; }
+  .chat-text:focus { outline: 2px solid var(--ink); outline-offset: 0; border-color: var(--ink); }
+  .chat-buttons { display: flex; gap: 8px; align-items: center; }
+  .chat-spacer { flex: 1; }
+
+  /* Send is the one that acts, so it looks like it. Stop is an escape hatch: it
+     reads red while there is something to stop and plainly dead when there is not. */
+  .chat-send { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 700; padding: 7px 22px; }
+  .chat-send:disabled { opacity: .45; cursor: not-allowed; }
+  .chat-stop { background: var(--card); border-color: var(--red-t); color: var(--red-t); font-weight: 600; }
+  .chat-stop:disabled { border-color: var(--border); color: var(--muted); opacity: .6; cursor: not-allowed; }
+
+  .chat-skills[hidden] { display: none; }
+  .chat-skills { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .chat-skill-pinned { display: flex; flex-direction: column; gap: 2px; }
+  .chat-skill-divider { margin: 2px 0 0; color: var(--sub); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border-top: 1px solid var(--border); padding-top: 6px; }
+  .chat-skill-divider[hidden] { display: none; }
+  /* The rest scrolls; the border at its foot says there is more below. */
+  .chat-skill-rest { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; border-bottom: 1px solid var(--border); }
+  .chat-skill-rest:empty { border-bottom: 0; }
+  /* Every skill reads as a button. Unboxed rows under the boxed pinned ones look
+     disabled, so all of them get the same box. */
+  .chat-skill { text-align: left; border: 1px solid var(--border); background: var(--card); padding: 6px 10px; border-radius: 8px; color: var(--ink); font: inherit; cursor: pointer; }
+  .chat-skill:hover:enabled { border-color: var(--ink); }
+  .chat-skill:disabled { opacity: .5; cursor: not-allowed; }
+  .chat-skill .chat-skill-desc { display: block; color: var(--sub); font-size: 13px; }
+  .chat-skill-pinned .chat-skill { font-weight: 600; }
+  .chat-skill-pinned .chat-skill .chat-skill-desc { font-weight: 400; }
+  .chat-skill-note { color: var(--sub); font-size: 12px; margin: 4px 0 0; }
+
+  .chat-open[aria-expanded="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+</style>
+
+<script>
+  import '../scripts/chat-client'
+</script>

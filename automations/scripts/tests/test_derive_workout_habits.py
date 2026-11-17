@@ -134,7 +134,7 @@ class TestLoadHabits:
     def test_picks_active_daily_habits_with_a_workout_rule(self):
         schema = {"daily_habits": [
             {"id": "row", "started": "2025-01-01", "workout": {"types": ["WALKING"], "min_minutes": 10}},
-            {"id": "piano"},
+            {"id": "stretch-daily"},
             {"id": "old", "active": False, "workout": {"types": ["RUNNING"]}},
             {"id": "empty", "workout": {"types": []}},
         ]}

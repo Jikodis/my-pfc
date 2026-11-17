@@ -1,0 +1,50 @@
+---
+/**
+ * One day's set 2+1 on the home page, one card per pick: the critical picks, then the bonus, each with
+ * the line saying why it matters. `doneButtons` adds Done and Done in chat to every
+ * pick not yet done; the page passes it for today's picks only, because tomorrow's
+ * cannot be finished yet. `done` comes from the daily-focus record (`home_data.py`).
+ */
+import type { HomePick } from '../lib/computed'
+import { PROMPTS, chatPrompt } from '../lib/chat/prompts'
+import { formatDate } from '../lib/dates'
+import ActionButton from './ActionButton.astro'
+import WhyLine from './WhyLine.astro'
+
+interface Props {
+  picks: { critical: HomePick[]; bonus: HomePick | null }
+  doneButtons: boolean
+}
+const { picks, doneButtons } = Astro.props
+// The first pick not yet done is the one drawn strongest.
+const firstOpen = doneButtons ? picks.critical.findIndex((t) => !t.done) : -1
+const donePrompt = (t: HomePick) => chatPrompt(PROMPTS.complete, { title: t.title, id: t.id })
+---
+<ul class="plain picks">
+  {picks.critical.map((t, i) => (
+    <li class:list={['pick', i === firstOpen && 'pick-first', t.done && 'pick-done']} title={t.id}>
+      <span class="pick-kicker">Pick {i + 1}{t.done && ' · done'}</span>
+      <span class={t.done ? 'pick-title done' : 'pick-title'}>{t.title}</span>
+      {t.flag && <span class="overdue pick-flag">{t.flag.why} {formatDate(t.flag.date)}</span>}
+      <WhyLine why={t.why} />
+      {doneButtons && !t.done && (
+        <span class="pick-actions">
+          <ActionButton action="complete-task" id={t.id} label="Done" name={t.title} confirm="Mark done?">
+            <button type="button" class="act" data-chat-prompt={donePrompt(t)} aria-label={`Done in chat: ${t.title}`}>Done in chat</button>
+          </ActionButton>
+        </span>
+      )}
+    </li>
+  ))}
+  {picks.bonus && (
+    <li class:list={['pick', 'pick-bonus', picks.bonus.done && 'pick-done']} title={picks.bonus.id}>
+      <span class="pick-kicker">Bonus{picks.bonus.done && ' · done'}</span>
+      <span class={picks.bonus.done ? 'pick-title done' : 'pick-title'}>{picks.bonus.title}</span>
+      {picks.bonus.flag && <span class="overdue pick-flag">{picks.bonus.flag.why} {formatDate(picks.bonus.flag.date)}</span>}
+      <WhyLine why={picks.bonus.why} />
+      {doneButtons && !picks.bonus.done && (
+        <span class="pick-actions"><ActionButton action="complete-task" id={picks.bonus.id} label="Done" name={picks.bonus.title} confirm="Mark done?" /></span>
+      )}
+    </li>
+  )}
+</ul>

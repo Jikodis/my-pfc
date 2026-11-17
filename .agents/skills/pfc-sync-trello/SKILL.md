@@ -52,6 +52,14 @@ Verify `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`. If unset, this skill is a n
 
    On error: print `🟡 Trello render failed (non-blocking): <error>` and continue. Skip the render if the counters block was all-zero (nothing to reflect).
 
+5. **Commit what the sync changed** (skip when the counters were all zero). A data file left modified blocks the web UI's writer, which refuses to commit over uncommitted edits:
+
+   ```bash
+   git add 6-tasks/_data/tasks.ndjson 6-tasks/_data/task_events.ndjson 6-tasks/_data/daily-focus.ndjson \
+     7-habits/_data/habits-daily.ndjson 7-habits/_data/habits-monthly.ndjson
+   git commit -m "track: trello sync $(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')" && git push
+   ```
+
 ## Behavioral rules
 
 - Idempotent: running twice has no extra effect.

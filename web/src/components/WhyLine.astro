@@ -1,0 +1,10 @@
+---
+/**
+ * The line under a pick that says why it matters: the focus, vision, and value its
+ * record links to, in that order, as `home_data.py` follows the links. Nothing is
+ * added here; a pick with no links shows no line.
+ */
+interface Props { why: string[] }
+const { why } = Astro.props
+---
+{why.length > 0 && <span class="sub why">&#8627; {why.join(' → ')}</span>}

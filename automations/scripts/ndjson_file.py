@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """One NDJSON file, rewritten so that only the lines that changed change.
 
-For any script that rewrites a data file in place (for example the Trello sync).
-Existing lines keep their exact bytes (older lines may mix `jq -c` and `json.dumps`
-spacing), so a commit's diff shows the record that changed and nothing else. A
-changed or new line is written the way `jq -c` writes it. A write goes through a
+Both writers that rewrite data files in place use it: the web UI's writer
+(`web_write.py`) and the Trello sync (`trello_writeback.py`). Existing lines keep
+their exact bytes (older lines may mix `jq -c` and `json.dumps` spacing), so a
+commit's diff shows the record that changed and nothing else. A changed or new line is written the way `jq -c` writes it. A write goes through a
 temp file in the same folder and `os.replace`, so a reader never sees half a file,
 and it refuses when the file on disk is no longer the one that was read.
 """

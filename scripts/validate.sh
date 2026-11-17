@@ -10,7 +10,7 @@
 #      per date (a duplicate row would count a habit twice in every rate)
 #   5. projects.ndjson has required fields and id format
 #   6. Cross-file integrity:
-#      - daily-focus critical/bonus task ids exist in tasks.ndjson or tasks-archive.ndjson
+#      - daily-focus critical/bonus/skipped task ids exist in tasks.ndjson or tasks-archive.ndjson
 #      - daily-focus uses the canonical string-array schema (no legacy object shape)
 #      - project.area values exist as lowercase folders in 2-areas/
 #      - habit_schema.yaml habit.area values exist as folders in 2-areas/
@@ -128,6 +128,21 @@ if [ -s "$HABITS" ] && [ -f "$SCHEMA" ]; then
   fi
 fi
 
+# Two rows for the same habit on the same date make the surfaces disagree: the run in
+# web_data.py keeps the last row for a date, while focus_status.habit_rate counts every
+# completed row, so a duplicate raises the rate without lengthening the run.
+for f in 7-habits/_data/habits-daily.ndjson 7-habits/_data/habits-monthly.ndjson; do
+  [ -s "$f" ] || continue
+  dupes=$(jq -r '[.habit_id, .date] | @tsv' "$f" | sort | uniq -d)
+  if [ -n "$dupes" ]; then
+    while IFS=$'\t' read -r hid hdate; do
+      fail "$(basename "$f") — two rows for $hid on $hdate (keep one; the rate and the run read duplicates differently)"
+    done <<< "$dupes"
+  else
+    ok "$(basename "$f") (one row per habit per date)"
+  fi
+done
+
 # Two rows for the same habit on the same date make readers disagree: a reader that
 # keeps the last row for a date sees one rep, while focus_status.habit_rate counts
 # every completed row, so a duplicate raises the rate.
@@ -184,13 +199,18 @@ FOCUS=6-tasks/_data/daily-focus.ndjson
 ARCHIVE=6-tasks/_data/tasks-archive.ndjson
 
 # 6a. daily-focus schema: critical is string-array, bonus is string or null,
-#     calendar_events is an optional object of {task_id: {event_id, start, end}}.
+#     skipped is an optional string-array, calendar_events is an optional object of
+#     {task_id: {event_id, start, end}}.
 if [ -s "$FOCUS" ]; then
   bad_shape=$(jq -c '
     select(
       (.critical | type != "array") or
       ([.critical[]? | type] | unique | . != [] and . != ["string"]) or
       ((.bonus // null) != null and (.bonus | type) != "string") or
+      ((.skipped // null) != null and (
+        (.skipped | type) != "array" or
+        ([.skipped[] | type] | unique | . != [] and . != ["string"])
+      )) or
       ((.calendar_events // null) != null and (
         (.calendar_events | type) != "object" or
         ([.calendar_events | to_entries[] | .value
@@ -201,7 +221,7 @@ if [ -s "$FOCUS" ]; then
   ' "$FOCUS")
   if [ -n "$bad_shape" ]; then
     while IFS= read -r d; do
-      fail "daily-focus.ndjson — record dated $d has non-canonical shape (critical must be string[], bonus string or null, calendar_events object or absent)"
+      fail "daily-focus.ndjson — record dated $d has non-canonical shape (critical must be string[], bonus string or null, skipped string[] or absent, calendar_events object or absent)"
     done <<< "$bad_shape"
   else
     ok "daily-focus.ndjson — all records use canonical string schema"
@@ -209,7 +229,7 @@ if [ -s "$FOCUS" ]; then
 
   # 6b. daily-focus task_ids must resolve to a task in live or archive
   jq -r '.id' 6-tasks/_data/tasks.ndjson "$ARCHIVE" 2>/dev/null | sort -u > /tmp/.validate-task-ids
-  dangling=$(jq -r '(.critical[]?), (.bonus // empty)' "$FOCUS" \
+  dangling=$(jq -r '(.critical[]?), (.bonus // empty), (.skipped[]?)' "$FOCUS" \
              | sort -u \
              | while read -r tid; do
                  [ -z "$tid" ] && continue
@@ -514,15 +534,19 @@ if [ -s 6-tasks/_data/task_events.ndjson ]; then
   fi
 fi
 
-# daily-focus.ndjson — date must not be > today_MT
+# daily-focus.ndjson — date must not be > tomorrow_MT.
+# The 2+1 may be pre-staged one night ahead (the web home page sets tomorrow's picks
+# in the evening), so the ceiling is today+1, not today.
+TOMORROW_MT=$(TZ="$LOCAL_TZ" date -d 'tomorrow' '+%Y-%m-%d' 2>/dev/null \
+  || TZ="$LOCAL_TZ" date -v+1d '+%Y-%m-%d')
 if [ -s 6-tasks/_data/daily-focus.ndjson ]; then
-  future=$(jq -r --arg t "$TODAY_MT" 'select((.date // "") > $t) | .date' 6-tasks/_data/daily-focus.ndjson)
+  future=$(jq -r --arg t "$TOMORROW_MT" 'select((.date // "") > $t) | .date' 6-tasks/_data/daily-focus.ndjson)
   if [ -n "$future" ]; then
     while IFS= read -r d; do
-      fail "daily-focus.ndjson — future-dated record: $d (today is $TODAY_MT MT)"
+      fail "daily-focus.ndjson — date $d is beyond tomorrow ($TOMORROW_MT MT); the 2+1 can be pre-staged at most one day ahead"
     done <<< "$future"
   else
-    ok "daily-focus.ndjson — no future-dated records"
+    ok "daily-focus.ndjson — no record beyond tomorrow"
   fi
 fi
 

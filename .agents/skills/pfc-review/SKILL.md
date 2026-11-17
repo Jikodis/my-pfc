@@ -1,25 +1,32 @@
 ---
 name: pfc-review
-description: Do the one due rolling review as a short form in chat, apply the answers, then offer the next one. Use when the user says "review", "do a review", "next review", "catch up on reviews", "run my reviews", "/pfc-review", or "what reviews are due".
+description: Do the one due rolling review as a short form in chat, or apply a form filled on the web UI's Review page, then offer the next one. Use when the user says "review", "do a review", "next review", "catch up on reviews", "run my reviews", "/pfc-review", "what reviews are due", or when the web page sends "/pfc-review <id> answers <json>".
 ---
 
 # Reviews, one at a time
 
 The old weekly / monthly / quarterly rituals are a **rolling ledger** (`data/review-ledger.ndjson`), each item with a cadence and a `last_done`. The evening check-in points at up to 2 due items a night (`pfc-evening-checkin` Step 3c). This skill does them: **one review at a time**, shown as a short form the user answers in one reply, applied, stamped, and then the next due review is offered. To clear a backlog, keep saying "next". Never stack several reviews in one message.
 
-**This skill does not define its own gate table or owning-skill map.** Which reviews are due, and which of them have something to act on, comes from the `gate()` block and due-computation in [`pfc-evening-checkin`](../pfc-evening-checkin/SKILL.md) Step 3c. Read that section each run and use it verbatim; do not paste a second copy of `gate()` here. What this skill owns is the **form table** below: the rows each review shows, the options per row, and what each answer writes.
+**Which review, and its form, come from `automations/scripts/review_forms.py`** (`current_review`): never done first, then most overdue, skipping a due review whose form has nothing to ask (no project is missing values, no task is missing an area). The optional web UI's `/review` page shows the same review from the same script, so chat and the page always agree. The evening check-in's `gate()` block (Step 3c) is a separate, simpler test for its nightly drip of ≤2 (some of its gates always pass); when you add or change a review, change `build_form` in `review_forms.py`, the `gate()` block, and the owning-skill maps together (`automations/scripts/tests/test_review_forms.py` fails when a ledger id has no form or no `REVIEW_SKILLS` entry). What this skill owns is the **apply table** below: what each answer writes.
 
 ## Step 1 — Pick the one review
 
-Run the Step 3c block with two changes: drop the final `| head -2`, and keep only the **first** line. That is the most overdue due review whose gate is not empty (the never-done `2000-01-01` seeds sort first, because they are the most overdue). A named review (`/pfc-review life-wheel`) skips the pick and uses that id.
+```bash
+python3 automations/scripts/review_forms.py              # the current one
+python3 automations/scripts/review_forms.py --id <id>    # a named one (/pfc-review life-wheel), due or not
+```
 
-**If the output is empty** → print exactly `No reviews due right now.` and stop. Do not manufacture a review.
+It prints the review as JSON: `id`, `label`, `tier`, `overdue_days`, `due_count`, `intro`, and `sections`, each either `choices` (rows with `id`, `title`, `detail`; the `options`; whether a note is allowed; a `hint`; `more` rows held back) or a `prompt` (`id`, `question`). The never-done `2000-01-01` seeds sort first, because they are the most overdue.
+
+**If it prints `null`** → print exactly `No reviews due right now.` and stop. Do not manufacture a review.
+
+**If the message is `/pfc-review <id> answers <json>`** (the web UI's Save button), the user has already answered: skip Step 2, run `review_forms.py --id <id>` so every row id resolves to its record, and go straight to Step 3 with those answers. Do not ask anything. The answers object is `{"review", "choices": {row id: option}, "notes": {row id: text}, "prompts": {prompt id: text}, "shown": [row ids]}`.
 
 ## Step 2 — Show the form, in one message
 
-1. One line: the review's label and why it is up (the gate's reason, and how many days overdue).
-2. If the ledger row has a `seen` list (rows done in an earlier sitting, see Step 4), say so ("Carrying on: 6 rows done last time") and leave those rows out.
-3. Each **choices** section as a numbered table: `# | Item | Detail | Options`, with the options for that review from the form table. Show **at most 14 rows**; if there are more, say how many are left for next time.
+1. One line: the review's label and why it is up (`intro`, and how many days overdue).
+2. The script already leaves out rows in the ledger row's `seen` list (rows done in an earlier sitting, see Step 4); `intro` says so ("Carrying on: 6 rows done earlier this round").
+3. Each **choices** section as a numbered table: `# | Item | Detail | Options`, with the hint under it. The script caps a form at 14 rows; when `more` is above 0, say how many are left for next time.
 4. Each **prompt** as a plain question.
 5. One line on how to answer: by number ("1 keep, 2 drop, 3 park: too much right now"), skip any row, or say "skip this review" to stamp it without changes.
 
@@ -40,8 +47,8 @@ Turn the reply into one answer per row or prompt. A row left blank is not an ans
 | `habit-rate`, `monthly-habits` | each habit with its rate (trailing 7 days, or this month) → Keep / Reword / Easier / Drop, optional note | Keep → nothing. Reword → the note becomes `description` in `config/habit_schema.yaml`. Easier → `frequency` down by 1 (or to the note's number), never below `ramp.starter`. Drop → move the habit to `deprecated_habits` in the same file. Then the ramp rules below |
 | `values-alignment` | active projects with no `values` → a note | The note's values → `values` on the project (names from `1-values/values.md`) |
 | `project-progress` | active projects with percent and velocity → On track / Stuck / Park / Done, optional note | The note → a progress note on the project. Stuck → also offer `/pfc-revive` for it. Park → `active: false`, `status: parked`. Done → archive it (`/pfc-add-project`) |
-| `life-wheel` | the area check-in (procedure below) → Good / Okay / Rough, optional note | Append to `2-areas/_data/area-checkins.ndjson` |
-| `household-status` | each house area with its last rating → Green / Yellow / Red, optional note | One new record in `2-areas/_data/household-status.ndjson` (`{date, ratings, notes}`, `docs/data-model.md`); offer a task for each red |
+| `life-wheel` | the area check-in (procedure below) → Good / Okay / Rough, optional note; with no area items yet, each area → Green / Yellow / Red, optional note | Good / Okay / Rough → append to `2-areas/_data/area-checkins.ndjson`. Green / Yellow / Red → one new record in `2-areas/_data/life-wheel.ndjson` (`{date, ratings, notes}`, keys are the row ids) |
+| `household-status` | each house area with its last rating → Green / Yellow / Red, optional note; with no snapshot yet, a `rooms` prompt naming each area and its light | One new record in `2-areas/_data/household-status.ndjson` (`{date, ratings, notes}`, `docs/data-model.md`); offer a task for each red |
 | `insights-review` | active insights → Keep / Archive / Make a task | Archive → `status: archived`. Make a task → `/pfc-add-task` from it, then `status: graduated` with `graduated_to` and `graduated_date` set |
 | `hypotheses-review` | active hypotheses, oldest look first → Still testing / It holds / Doesn't hold, optional note | Still testing → `last_reviewed` today. It holds → graduate to a finding (`data/AGENTS.md`). Doesn't hold → `status: resolved-rejected` with the note. Never archive on your own judgment |
 | `findings-alignment` | active findings → Still holds / Superseded, optional note | Superseded → `status: superseded`, `superseded_by` from the note (a new finding if needed) |
@@ -57,6 +64,12 @@ Turn the reply into one answer per row or prompt. A row left blank is not an ans
 All NDJSON writes use the `jq` temp-file pattern from the owning folder's `AGENTS.md`. `config/habit_schema.yaml` is YAML: edit it with the file tools, never `jq`.
 
 ## Step 4 — Finish it: stamp, or carry over
+
+```bash
+python3 automations/scripts/review_forms.py --finish <id> --shown <row ids the form showed, comma-separated>
+```
+
+It stamps the review when no rows are left this round, and otherwise records the rows shown in `seen` and leaves it due, so the next sitting starts after them. It writes through `web_write.py` (`stamp-review` / `review-seen`), which commits and pushes the ledger itself; that needs the git hooks installed and the repo on its write branch. When it refuses (its JSON says why), fall back to the two `jq` writes below.
 
 **No rows left** (everything shown was answered or skipped, and nothing was held back by the 14-row cap) → stamp `last_done` and clear `seen`:
 
@@ -85,9 +98,13 @@ jq -c --arg id "$ID" --argjson s "$SHOWN" 'if .id==$id then .seen=((.seen // [])
    ```bash
    python3 automations/scripts/trello_render.py 2>&1 || echo "🟡 render failed (non-blocking)"
    ```
-2. Auto-commit (no confirmation needed): `data/review-ledger.ndjson` plus every file the answers changed, as `checkin: review <id> YYYY-MM-DD`, then push. Use `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` for the date.
+2. Auto-commit (no confirmation needed): every file the answers changed, plus `data/review-ledger.ndjson` when the `jq` fallback wrote it, as `checkin: review <id> YYYY-MM-DD`, then push. Use `TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d'` for the date.
 3. One line per change and one per skipped answer: `🟢 <item> → <what changed>` / `🟡 <item> → skipped: <why>`.
 4. Run Step 1 again and name the next due review in one line ("Next up: Insights review. Want it?"). Stop when the user stops.
+
+## The owning skills
+
+`REVIEW_SKILLS` in `automations/scripts/home_data.py` is the one-line pointer the web home page shows beside the due review; it carries the same map as the owning-skill table in `pfc-evening-checkin` Step 3c. Change both together.
 
 ## Procedures the answers use
 
@@ -149,10 +166,10 @@ Each life area can carry items in `2-areas/_data/area-items.ndjson` (Time items 
 
 ## Optional: a monthly budget check
 
-If you keep a budget, a monthly budget review fits the ledger. It is not in the seed ledger. To turn it on, add a ledger row (`{"id":"budget-check","label":"Monthly budget check","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}`), a `budget-check) echo "monthly budget check" ;;` branch to the Step 3c `gate()` block, a row to its owning-skill map, and a `budget-check` row to the form table above (rows: the budget lines; prompt: the one below; answers: changes made in the budgeting tool after approval). `/pfc-repo-maintenance` flags a ledger id missing from any of the three.
+If you keep a budget, a monthly budget review fits the ledger. It is not in the seed ledger. To turn it on, add a ledger row (`{"id":"budget-check","label":"Monthly budget check","tier":"monthly","cadence_days":30,"weekday_hint":null,"last_done":"2000-01-01"}`), a `budget-check) echo "monthly budget check" ;;` branch to the Step 3c `gate()` block, a row to its owning-skill map and to `REVIEW_SKILLS` in `home_data.py`, a `budget-check` form in `build_form` in `review_forms.py` (a prompt; without one the review gets the generic "What do you want to change here?" prompt), and a `budget-check` row to the apply table above (rows: the budget lines; prompt: the one below; answers: changes made in the budgeting tool after approval). `automations/scripts/tests/test_review_forms.py` fails when a ledger id has no form or no `REVIEW_SKILLS` entry.
 
 The form: pull last month's planned and actual amounts per budget line from your budgeting tool (through its connector when one is available; otherwise ask the user to paste or export them), plus the 3-month average per line. Show one table, worst first: `Line | Planned | Actual | 3-month average`. Propose new planned amounts, conservatively: never below the 3-month average for fixed bills; a flexible line may go below it only as a deliberate cut, said as such. Flag lines budgeted at zero that got spending, and debts paid off since last month. Prompt: "Anything that surprised you, and any line to change?" Changes are made in the budgeting tool only after the user approves them; this repo stores no money data.
 
 ## Out of scope
 
-Running several reviews in one message, re-implementing a review workflow that belongs to an owning skill, and owning the `gate()` definition or the owning-skill map (both stay canonical in `pfc-evening-checkin` Step 3c).
+Running several reviews in one message, and re-implementing a review workflow that belongs to an owning skill. The pick and the forms belong to `review_forms.py`; the nightly drip and its `gate()` block belong to `pfc-evening-checkin` Step 3c.

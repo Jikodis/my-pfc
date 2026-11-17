@@ -1,6 +1,6 @@
 ---
 name: pfc-plan-open-day
-description: Plan a wide-open day (Saturday, holiday, PTO) as a chained sequence of calendar blocks. Use when the user says "plan my Saturday", "plan my day", "open day", "wide open day", "I have a whole day free", "help me plan tomorrow", or when the evening check-in detects a wide-open day tomorrow.
+description: Plan a wide-open day (Saturday, holiday, PTO) as a chained sequence of calendar blocks. Use when the user says "plan my Saturday", "plan my day", "open day", "wide open day", "I have a whole day free", "help me plan tomorrow", or when the evening check-in detects a wide-open day tomorrow, or when the web home page's `Plan tomorrow as an open day` button opens it.
 ---
 
 # Plan Open Day
@@ -220,6 +220,9 @@ python3 automations/scripts/trello_render.py
 2. **The evening check-in the night before** — `pfc-evening-checkin` detects a wide-open tomorrow and
    offers to build the plan then. This is the real fix: a morning intention to run this skill goes
    invisible overnight, while a plan built the evening before already exists at wake-up.
+3. **The web UI's home page, Friday or Saturday after 6 PM** (optional, [`docs/install/web-ui.md`](../../../docs/install/web-ui.md)):
+   the 2+1 band shows a `Plan tomorrow as an open day` button that opens this skill in the chat drawer.
+   The page cannot read the calendar, so it offers rather than detects.
 
 ## What this skill does NOT reuse
 

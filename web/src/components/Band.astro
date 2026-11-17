@@ -1,0 +1,19 @@
+---
+/**
+ * One band of the home page. `band` is its `data-band` name and the end of its `id`
+ * (`band-<name>`). `error` is a failed Python call's message: the band then
+ * says it could not load, and every other band still renders.
+ */
+/** `size` is the band's width in arrangement A (`half`, `third`, `two-thirds`; full when unset). `bare` drops the card, for a band that lays out cards of its own. */
+interface Props { band: string; title: string; error?: string; size?: string; bare?: boolean; hideTitle?: boolean }
+const { band, title, error, size, bare = false, hideTitle = false } = Astro.props
+---
+<section class:list={['band', bare ? 'band-bare' : 'panel', size]} id={`band-${band}`} data-band={band}>
+  <h2 class={hideTitle ? 'vh' : undefined}>{title}</h2>
+  {error !== undefined ? (
+    <>
+      <p class="muted">Could not load this panel.</p>
+      <details><summary>Why</summary><p class="prose mono">{error}</p></details>
+    </>
+  ) : <slot />}
+</section>

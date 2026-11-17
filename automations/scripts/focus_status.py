@@ -121,8 +121,17 @@ def _habit_index(schema):
     idx = {}
     for block, cadence in (("daily_habits", "daily"), ("monthly_habits", "monthly")):
         for h in schema.get(block) or []:
-            idx[h["id"]] = (h["frequency"], cadence, h.get("started"))
+            idx[h["id"]] = (h["frequency"], cadence, _started(h.get("started")))
     return idx
+
+
+def _started(value):
+    """A real YYYY-MM-DD start date, or None for an unset one or the schema's
+    `YYYY-MM-DD` placeholder, which would otherwise sort after every date."""
+    try:
+        return date.fromisoformat(str(value)).isoformat() if value else None
+    except ValueError:
+        return None
 
 
 def compute(focuses, daily_logs, monthly_logs, schema, end_date,

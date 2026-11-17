@@ -6,6 +6,7 @@ Automation scripts and scheduling configurations for the productivity system.
 
 - `scripts/` — Python scripts for automated workflows
 - `systemd/` — systemd service and timer unit files for VPS scheduling
+- `launchd/` — macOS launch agent template for the local web UI (`com.pfc.web.plist`)
 - `templates/prompts/` — Reusable prompt templates for Claude Code CLI automation
 - `templates/messages/` — Notification message templates
 
@@ -43,6 +44,13 @@ Runs once daily at **12:05 AM in your local timezone** (`$LOCAL_TZ`, default `Am
 
 The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email lists skip 🟡 since this runs without MCP data; cadence checkins still refresh those.
 
+### `com.pfc.web` — the local web UI (optional, macOS)
+
+**Script:** `scripts/run-web.sh`
+**Agent:** `launchd/com.pfc.web.plist` (a template: fill in `__REPO_ROOT__`, `__USER__`, `__PATH__`, `__PYTHON__`)
+
+Serves the web UI in `web/` at `http://127.0.0.1:4323`, starting at login and restarting if it stops. It rebuilds by itself when the web source changes and swaps the new build in once no chat reply or save is running. The page reads the repo through `scripts/web_data.py` and writes it through `scripts/web_write.py`. Full setup in [`docs/install/web-ui.md`](../docs/install/web-ui.md).
+
 ---
 
 ## Scripts
@@ -66,6 +74,16 @@ The render is idempotent: a no-change render is a 0-diff no-op. Calendar + Email
 | `derive_calendar_habits.py` | Log `auto_derived` habits with a `calendar:` rule from `data/calendar-cache.json` (source `calendar-derived`). `--dry-run`, `--events FILE` for a backfill |
 | `area_items.py` | Area item lights, the weighted area rollup, and the plate (committed vs free weekly hours) from `2-areas/_data/area-items.ndjson` + `area-checkins.ndjson`. Prints JSON; `--today YYYY-MM-DD` |
 | `ndjson_file.py` | Rewrite an NDJSON file so only changed lines change; atomic replace that refuses when the file changed underneath |
+| `web_data.py` | The web UI's reader: `--home` prints the home page data as JSON (`home_data.build_home`); `--review [--id ID]` prints the one due review as a form, or `null`. Also the habit rows and habit titles the page shows |
+| `home_data.py` | Every rule behind a number on the web home page: the 2+1 and its suggestions, what needs you, the why-chain, areas, focuses, projects, the pulse, trends, the week |
+| `web_write.py` | The one program that writes the repo for the web UI: one action per button, under the lock `data/.web-write.lock`; pulls, writes only the changed lines, commits only those paths, pushes. `--dry-run` changes nothing |
+| `pfc_writes.py` | The record changes the web writer and the Trello sync share: complete or drop a task, log a habit, rate a day, set picks, park a focus, stamp a review |
+| `repo_sync.py` | Level the branch with its upstream before a write or push: rebase on a clean tree, fast-forward with uncommitted edits, never a stash |
+| `review_forms.py` | The one due rolling review as a fill-in form (web `/review` page and `/pfc-review`); `--finish ID --shown IDS` stamps it or records the rows done |
+| `project_gauges.py` | Project velocity (pace, finish date, days late, light) and days idle: one home for the rules `/pfc-revive` and the web UI both read |
+| `feature_use.py` | Feature scorecard for `/pfc-usage-audit`: real use of each feature over the last 30 days and the 60 before, with a suggested verdict. `--json` |
+| `with_write_lock.py` | Run a command under the web writer's lock; a busy lock skips the run (exit 0). For a scheduled job that commits to the repo |
+| `run-web.sh` | Serve the web UI and keep its build current (the `com.pfc.web` launch agent) |
 
 ---
 

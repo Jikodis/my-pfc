@@ -1,0 +1,136 @@
+---
+import ChatDrawer from '../components/ChatDrawer.astro'
+import { COMMANDS } from '../lib/chat/prompts'
+import { BUILD_ID } from '../lib/build'
+import { META_POLICY } from '../lib/csp'
+
+/** `heading` is the page's visible h1 when it differs from the tab title (the home page shows the date). */
+interface Props { title: string; lede?: string; heading?: string }
+const { title, lede, heading } = Astro.props
+const path = Astro.url.pathname
+// Three tabs: the one page, the task list, and the one due review.
+const tabs: [string, string][] = [['/', 'Now'], ['/tasks', 'Tasks'], ['/review', 'Review']]
+const pageTitle = title === 'PFC' ? title : `${title} | PFC`
+---
+<!doctype html>
+<html lang="en" data-build={BUILD_ID}>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Defense in depth for the chat drawer, which renders sanitized markdown replies.
+     The policy itself lives in src/lib/csp.ts, which src/middleware.ts also
+     reads, so the tag and the response header cannot drift apart. The header carries
+     one directive this tag cannot, frame-ancestors, because a browser ignores that one
+     inside a meta tag and logs an error on every page. -->
+<meta http-equiv="content-security-policy" content={META_POLICY} />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<title>{pageTitle}</title>
+<!-- Before the first paint, so a page opened with the chat docked does not jump sideways. -->
+<script is:inline>try { if (localStorage.getItem('pfc.chat.open') === '1') document.documentElement.classList.add('chat-docked') } catch {}</script>
+<style is:global>
+  /* Solarized Light. Text is the palette's dark tone (base02), which reads at 12:1 on the
+     ground; the mid greys (base00, base1) fail 4.5:1 there and are not used for text.
+     The -t colors are darker status shades for words; the plain ones are for fills and shapes. */
+  :root { --bg:#fdf6e3; --panel:#eee8d5; --card:#fffdf5; --ink:#073642; --text:#073642; --strong:#073642; --sub:#4f656c; --muted:#657b83;
+    --border:#dcd4bc; --line:#93a1a1;
+    --blue:#268bd2; --green:#859900; --yellow:#b58900; --red:#dc322f; --violet:#6c71c4; --cyan:#2aa198; --orange:#cb4b16; --magenta:#d33682;
+    --blue-t:#1a6aa6; --green-t:#5f6e00; --yellow-t:#7d5f00; --red-t:#b0221f; --magenta-t:#a32063; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; overflow-wrap:break-word; }
+  a { color:var(--blue-t); }
+  header.top { background:var(--card); border-bottom:1px solid var(--border); }
+  .top-in { max-width:1240px; margin:0 auto; padding:10px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .brand { font-weight:800; font-size:17px; letter-spacing:-.01em; margin-right:6px; }
+  header nav { display:flex; gap:4px; flex-wrap:wrap; }
+  header nav a { text-decoration:none; color:var(--ink); padding:8px 16px; border-radius:8px; font-weight:500; }
+  header nav a[aria-current="page"] { background:var(--ink); color:var(--bg); font-weight:700; }
+  .top-tools { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .top-tools button { min-height:38px; }
+  main { max-width:1240px; margin:0 auto; padding:24px 24px 56px; container-type:inline-size; }
+  h1 { color:var(--ink); font-size:30px; line-height:1.15; letter-spacing:-.02em; margin:0 0 4px; }
+  h2 { color:var(--ink); font-size:18px; letter-spacing:-.01em; margin:28px 0 10px; }
+  .lede { color:var(--sub); margin:0 0 18px; }
+  .muted { color:var(--muted); }
+  /* Secondary text that carries information: about 6:1 on the ground and on a card. */
+  .sub { color:var(--sub); font-size:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 20px; min-width:0; }
+  .panel h2 { margin-top:0; }
+  .panel ul { margin:0; padding-left:20px; }
+  .panel li { margin-bottom:6px; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; border:1px solid var(--border); border-radius:999px; padding:1px 9px; color:var(--ink); background:var(--panel); white-space:nowrap; }
+  .scroll-x { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--ink); background:var(--panel); position:sticky; top:0; white-space:nowrap; }
+  /* A heading with a light beside it. Astro drops the whitespace between an element
+     and an expression on separate lines, so the gap has to come from the layout. */
+  .heading-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  /* A status is a shape, a color and a word: square red, triangle yellow, circle green. */
+  .light { white-space:nowrap; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+  .light-red { color:var(--red-t); } .light-yellow { color:var(--yellow-t); } .light-green { color:var(--green-t); }
+  /* No data: the secondary text tone, about 6:1 (the muted grey is 4.4:1). */
+  .light.muted { color:var(--sub); }
+  .light-red svg { color:var(--red); } .light-yellow svg { color:var(--yellow); } .light-green svg { color:var(--green); }
+  .done { text-decoration:line-through; color:var(--muted); }
+  .overdue { color:var(--red-t); font-weight:600; }
+  td.wide { min-width:260px; max-width:520px; }
+  td.nowrap { white-space:nowrap; }
+  select, button, input[type=search], input[type=text] { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 12px; color:var(--ink); font:inherit; }
+  button { cursor:pointer; font-weight:500; }
+  button:hover:not(:disabled) { border-color:var(--ink); }
+  :focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+  /* Three kinds of button. Filled: the one main action of a card. Outlined in ink
+     (.act-write): changes the repo now. Underlined blue (data-chat-prompt): puts a
+     prompt in the chat box and waits there. */
+  .btn-primary, button.btn-primary { background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:700; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0 2px; }
+  button.act { font-size:13px; padding:4px 11px; }
+  button.act[data-chat-prompt], .actions > button[data-chat-prompt] { border-color:transparent; background:transparent; color:var(--blue-t); text-decoration:underline; text-underline-offset:3px; padding-left:4px; padding-right:4px; font-weight:600; }
+  td.acts { white-space:nowrap; }
+  li .act { margin-left:6px; }
+  /* A small label over a second list inside one card. */
+  .panel-label { margin:14px 0 6px; color:var(--sub); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  .quick-add { display:flex; gap:8px; margin-top:12px; }
+  .quick-add input { flex:1; min-width:0; min-height:42px; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0; }
+  .filters label { font-size:14px; white-space:nowrap; }
+  progress { width:100%; height:8px; vertical-align:middle; -webkit-appearance:none; appearance:none; border:0; border-radius:4px; background:var(--panel); }
+  progress::-webkit-progress-bar { background:var(--panel); border-radius:4px; }
+  progress::-webkit-progress-value { background:var(--ink); border-radius:4px; }
+  progress::-moz-progress-bar { background:var(--ink); border-radius:4px; }
+  /* A bar for a count against its target; the fill's width is set inline from a stored rate. */
+  .bar { display:block; height:8px; background:var(--panel); border-radius:4px; overflow:hidden; }
+  .bar > span { display:block; height:8px; background:var(--ink); border-radius:4px; }
+  details > summary { cursor:pointer; color:var(--ink); }
+  .prose { white-space:pre-wrap; margin:6px 0 0; }
+  code, .mono { font:13px ui-monospace,Menlo,monospace; }
+  .vh { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  /* Shown by src/scripts/update-client.ts when a newer build is up but a reload would lose typed text. */
+  .update-note { position:fixed; left:16px; bottom:16px; max-width:min(420px, calc(100vw - 32px)); background:var(--card); color:var(--ink); border:1px solid var(--ink); border-radius:10px; padding:10px 12px; z-index:50; }
+  .update-note button { margin-left:6px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <span class="brand">PFC</span>
+    <nav>{tabs.map(([href, label]) => <a href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}</nav>
+    <div class="top-tools">
+      {/* A bare skill name has nothing to check first, so it sends at once. */}
+      <button type="button" data-chat-prompt={COMMANDS.stuck} data-chat-send="1">Stuck</button>
+      <button type="button" id="chat-open" class="chat-open" aria-expanded="false" aria-controls="chat-drawer" title="Chat with Claude Code (Cmd+K)">Chat</button>
+    </div>
+  </div>
+</header>
+<main>
+  <h1>{heading ?? title}</h1>
+  {lede && <p class="lede">{lede}</p>}
+  <slot />
+</main>
+<ChatDrawer />
+<script>
+  import '../scripts/update-client'
+</script>
+</body>
+</html>

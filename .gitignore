@@ -39,3 +39,21 @@ trmnl/*/_build/
 
 # Agent scratch pages (HTML reading pages, not canonical)
 .claude/scratch/
+
+# Web UI build output
+web/dist/
+web/.astro/
+
+# The conversations the web UI's chat panel started on this machine, so a resume
+# can only reach its own (web/src/lib/chat/sessions.ts). Local state, not canonical.
+web/.chat-sessions.json
+
+# The web UI writer's lock (automations/scripts/web_write.py)
+data/.web-write.lock
+
+# The web UI launcher's second build folder and its build stamps (automations/scripts/run-web.sh)
+web/dist-next/
+web/dist-*/
+web/.dist*-served
+web/.dist*-started
+web/.dist*-failed
