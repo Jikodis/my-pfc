@@ -22,7 +22,6 @@ cd "$PROJECT_DIR" 2>/dev/null || exit 0
 # files (skills, agents, settings, docs).
 canonical_paths=(
   "AGENTS.md"
-  "CLAUDE.md"
   ".claude/skills"
   ".claude/agents"
   ".claude/settings.json"
@@ -30,7 +29,7 @@ canonical_paths=(
   "2-areas"
   "3-visions"
   "5-projects"
-  "6-actions"
+  "6-tasks"
   "7-habits"
   "data"
   "0-me"

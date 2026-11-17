@@ -50,7 +50,7 @@ Trello is highly recommended for the visualization benefit — externalizing the
 
 ## What's in the box
 
-The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus → Projects → Actions → Habits.
+The system follows a **VAVFPTH** model: Values → Areas → Visions → Focus → Projects → Tasks → Habits.
 
 | Folder | What it holds |
 |---|---|
@@ -60,7 +60,7 @@ The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus �
 | `3-visions/` | Long-term direction tied to an area (no deadlines) |
 | `4-focus/` | Current Focus — the capped, traffic-lit set of what you're on this quarter |
 | `5-projects/` | Short-term projects (1-3 months; backstop of 12 active) |
-| `6-actions/` | Tasks, daily focus picks, event log |
+| `6-tasks/` | Tasks, daily focus picks, event log |
 | `7-habits/` | Daily + monthly habit tracking |
 | `data/` | Day tracking, insights, hypotheses, findings, supplements, review ledger |
 | `config/` | Schemas + integration config |
@@ -72,7 +72,7 @@ The system follows a **VAVFPAH** model: Values → Areas → Visions → Focus �
 
 ## Working with other agents
 
-The canonical instruction file is `AGENTS.md` — read by Codex and most other agents that follow the AGENTS.md convention. `CLAUDE.md` is a one-line `@AGENTS.md` import for Claude Code's own loader. The skills work with any agent that has a Skill-equivalent invocation pattern; the slash commands work natively in Claude Code.
+The only instruction file is `AGENTS.md`, read natively by Claude Code (v2.1.277 and later), Codex, and most other agents that follow the AGENTS.md convention. There is no `CLAUDE.md`; don't add one, because a `CLAUDE.md` switches off Claude Code's native `AGENTS.md` reading. The skills work with any agent that has a Skill-equivalent invocation pattern; the slash commands work natively in Claude Code.
 
 ## Pulling upstream template updates (optional)
 

@@ -313,7 +313,7 @@ one to the playlist, check its source has real content:
 
 | Plugin | Needs |
 |---|---|
-| `pfc-today` | `6-actions/_data/daily-focus.ndjson` — set a 2+1 |
+| `pfc-today` | `6-tasks/_data/daily-focus.ndjson` — set a 2+1 |
 | `pfc-habits` | habits defined in `config/habit_schema.yaml`, plus a few days of logs |
 | `pfc-pulse`, `pfc-pulse-trend`, `pfc-trends` | `data/day-tracking.ndjson` with `health` populated — a wearable connector, or manual entry |
 | `pfc-focus` | `4-focus/_data/focus.ndjson` |

@@ -1,6 +1,6 @@
 # Visions
 
-Visions sit between **Areas** and **Focus** in the system (V → A → **V** → F → P → A → H, "VAVFPAH"). They're the layer that lets you express direction without forcing a SMART goal or deadline.
+Visions sit between **Areas** and **Focus** in the system (V → A → **V** → F → P → A → H, "VAVFPTH"). They're the layer that lets you express direction without forcing a SMART goal or deadline.
 
 A vision answers: *what does this look like when it's true, and what habits/projects increase the probability of getting there?*
 

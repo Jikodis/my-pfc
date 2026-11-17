@@ -54,6 +54,7 @@ daily_habits:
     area: health
     values: [Health]
     started: "YYYY-MM-DD"
+    auto_derived: true  # filled from watch sleep data by derive_sleep_habit.py; remove if you log it by hand
 
 monthly_habits:
   - id: system-review

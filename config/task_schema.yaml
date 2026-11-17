@@ -1,4 +1,4 @@
-# Task schema for 6-actions/_data/tasks.ndjson.
+# Task schema for 6-tasks/_data/tasks.ndjson.
 # All tasks — strategic and operational — live in one list.
 
 task:
@@ -13,7 +13,7 @@ task:
   deferred:
     type: boolean
     default: false
-    description: "Parked by the user — still open, but deliberately out of the daily-pick rotation until they say otherwise. Hidden from pick pools, the Trello Actions list, and pfc-revive slippage signals. NOT a status: a deferred task is still open work, just not being offered right now. Clear it (set false / remove) when the user asks for it back."
+    description: "Parked by the user — still open, but deliberately out of the daily-pick rotation until they say otherwise. Hidden from pick pools, the Trello Tasks list, and pfc-revive slippage signals. NOT a status: a deferred task is still open work, just not being offered right now. Clear it (set false / remove) when the user asks for it back."
   deferred_reason:
     type: string
     nullable: true
@@ -41,6 +41,20 @@ task:
     type: string
     enum: ["high", "medium", "low"]
     required: true
+  agent_doable:
+    type: string
+    enum: ["yes", "partly", "no"]
+    nullable: true
+    description: >
+      Who can actually execute this. "yes" — an agent with a browser can drive it
+      start to finish (research, forms, purchases, portal paperwork, drafting a
+      reply); the user only approves the result. "partly" — an agent does the setup
+      and the user does one irreducibly human step (a phone call, a signature, being
+      physically somewhere, a conversation with a person). "no" — only the user can
+      do it: their learning, their body, their relationships, their creative voice.
+      Null means unclassified. Why it exists: starting is often the hardest part of
+      a task, so the cheapest way through a stalled task is often to not be the one
+      doing it. See 6-tasks/AGENTS.md § Agent delegation.
   project:
     type: string
     default: "none"

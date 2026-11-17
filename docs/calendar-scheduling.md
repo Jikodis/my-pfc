@@ -194,6 +194,6 @@ A 15-minute floor applies to every placement (`MIN_SLOT_MINUTES` in `find_focus_
 
 **Color:** all PFC-scheduled events use banana (`colorId: "5"`). One color is the visual signature that an event came from the PFC system — never vary by tier. The title prefix (`⭐ ` for critical, `Bonus: ` for bonus) carries the tier distinction.
 
-**Event IDs** are persisted in `6-actions/_data/daily-focus.ndjson` under `calendar_events`, so carry-forwards can move the same event rather than duplicate it.
+**Event IDs** are persisted in `6-tasks/_data/daily-focus.ndjson` under `calendar_events`, so carry-forwards can move the same event rather than duplicate it.
 
 When in doubt, re-run `pfc-schedule-focus` — it's idempotent: updates existing events, creates missing ones, deletes orphans of swapped-out tasks.

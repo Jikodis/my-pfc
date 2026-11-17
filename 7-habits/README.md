@@ -1,11 +1,11 @@
 # Habits
 
-Recurring practices, daily and monthly. The "maintenance" layer of VAVFPAH — the small things that compound when done consistently.
+Recurring practices, daily and monthly. The "maintenance" layer of VAVFPTH — the small things that compound when done consistently.
 
 ## What lives here
 
 - **Daily habits** (`_data/habits-daily.ndjson`) — one entry per habit per day. Max 5 tracked at a time; frequency 1–7 per week per habit.
-- **Monthly habits** (`_data/habits-monthly.ndjson`) — one entry per habit per month. Max 5 tracked; frequency 1–4 per month per habit.
+- **Monthly habits** (`_data/habits-monthly.ndjson`) — one entry per habit per rep date. Max 5 tracked; frequency 1–4 per month per habit.
 
 Habit *definitions* (name, target frequency, area, area-statement link) live in `config/habit_schema.yaml`. This folder holds only the *logs*.
 

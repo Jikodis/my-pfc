@@ -16,6 +16,11 @@ project:
     type: boolean
     required: true
     constraint: "runaway backstop of 12 active; not a focus cap"
+  status:
+    type: string
+    enum: ["active", "on-deck", "parked", "done", "dropped"]
+    required: false
+    note: "on-deck = wanted next, not started (active false); parked = deliberately stopped (active false). Absent reads as active when active is true, on-deck otherwise."
   excitement:
     type: string
     enum: ["low", "medium", "high"]

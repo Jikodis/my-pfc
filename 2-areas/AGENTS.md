@@ -10,6 +10,8 @@ Folder-scoped operational rules for any agent reading or writing in `2-areas/`. 
 | `<area>/statement.md` | Built up over time | Mutable |
 | `_data/life-wheel.ndjson` | Monthly area ratings | Append-only per month |
 | `_data/household-status.ndjson` | Monthly household-area ratings | Append-only per month |
+| `_data/area-items.ndjson` | The Time and Status items under each life area (schema `config/area_item_schema.yaml`) | Mutable via `jq`; retire with `active: false` |
+| `_data/area-checkins.ndjson` | Check-in answers per item: `{date, item_id, answer: good\|okay\|rough, note}` | Append-only |
 
 ## Hard rules
 
@@ -18,7 +20,7 @@ Folder-scoped operational rules for any agent reading or writing in `2-areas/`. 
 2. **Before deleting an area folder**, check for inbound references:
    ```bash
    AREA="legal"
-   echo "tasks:"; jq -c --arg a "$AREA" 'select(.area == $a)' 6-actions/_data/tasks.ndjson
+   echo "tasks:"; jq -c --arg a "$AREA" 'select(.area == $a)' 6-tasks/_data/tasks.ndjson
    echo "projects:"; jq -c --arg a "$AREA" 'select(.area == $a)' 5-projects/_data/projects.ndjson
    echo "insights:"; jq -c --arg a "$AREA" 'select(.area == $a)' data/insights.ndjson
    echo "habits:"; grep -c "area: $AREA" config/habit_schema.yaml || echo 0
@@ -51,9 +53,9 @@ Write a markdown file at `<area>/<kebab-slug>.md`. Lead with a title and a **`Ca
 
 ### Index
 
-Add a row to that area's `<area>/CLAUDE.md` Contents table (`File | Title | What it is`). **That table is the area's retrieval index — a note that isn't in the table is effectively lost**, because the first thing any agent reads when asked "what did I save about X" is the table, not the directory listing.
+Add a row to that area's `<area>/AGENTS.md` Contents table (`File | Title | What it is`). **That table is the area's retrieval index — a note that isn't in the table is effectively lost**, because the first thing any agent reads when asked "what did I save about X" is the table, not the directory listing.
 
-Area folders ship without a `CLAUDE.md`. Create it lazily, the first time a note lands in that area:
+Area folders ship without an `AGENTS.md`. Create it lazily, the first time a note lands in that area:
 
 ```markdown
 # <Area> — notes index
@@ -65,18 +67,33 @@ Second-brain notes for this area. Every note file gets a row here.
 | `<slug>.md` | <title> | <one line> |
 ```
 
-These are directory READMEs, not `@AGENTS.md` import shims — the area folders have no `AGENTS.md` of their own, and the folder-scoped rules you're reading now cover all of them.
+That file is the area's notes index. The folder-scoped rules you're reading now still cover every area; an area's own `AGENTS.md` adds only its index and any rules specific to that area.
+
+### Explainers
+
+An interactive HTML page an agent builds to explain something (animated diagrams, sliders, the user's own numbers) lives at `<area>/<subfolder>/explainers/<kebab-slug>.html`, self-contained in one file, and gets a row in the area's index under an `explainers` heading. The `grep` retrieval below only searches `.md`, so that index row is how an explainer is found.
 
 ### Retrieve
 
 When the user asks for something they stored:
 
-- **Area known** → read that area's `CLAUDE.md` Contents table first, then open the matching file.
+- **Area known** → read that area's `AGENTS.md` Contents table first, then open the matching file.
 - **Area unknown** → search across all areas, then read the hits:
   ```bash
   grep -ril "<term>" 2-areas/*/*.md
   ```
 - **Nothing matches** → say so plainly and offer to search adjacent areas, rather than reconstructing an answer from general knowledge. A confidently-invented "note" is worse than a miss.
+
+## Area items and their lights
+
+Each area can carry **items**: Time items (hours every week, like a job or a commute) and Status items (a state to keep in mind, like an emergency fund in place), each weighted 1 to 3. Lights are computed, never stored: `python3 automations/scripts/area_items.py` prints every area with its items, lights and hours, and the plate (the rules and their reasons are in that file's docstring). The check-in that answers the item questions is the `life-wheel` step of `/pfc-review`, which appends:
+
+```bash
+TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
+jq -cn --arg d "$TODAY" --arg i "item-learning-reading" --arg a "good" --arg n "" \
+  '{date:$d, item_id:$i, answer:$a} + (if $n == "" then {} else {note:$n} end)' \
+  >> 2-areas/_data/area-checkins.ndjson
+```
 
 ## Append patterns
 
@@ -90,4 +107,4 @@ jq -cn --arg m "$THIS_MONTH" --arg a "career" --argjson r 7 \
 ## See also
 
 - [`README.md`](README.md) — human-facing intro + customization recipes.
-- Repo-root [`AGENTS.md`](../AGENTS.md) § System structure — VAVFPAH framing.
+- Repo-root [`AGENTS.md`](../AGENTS.md) § System structure — VAVFPTH framing.

@@ -2,7 +2,7 @@
 
 Visual documentation of how the productivity system works. Diagrams use Mermaid syntax.
 
-## System Flow — Values to Actions
+## System Flow — Values to Tasks
 
 ```mermaid
 flowchart TD

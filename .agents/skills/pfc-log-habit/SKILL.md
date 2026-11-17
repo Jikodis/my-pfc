@@ -7,10 +7,12 @@ description: Log daily or monthly habit completion. Use when the user says "did 
 
 ## Rules
 
-- **Exactly one entry per (habit_id, date)** for daily, or per (habit_id, month) for monthly. Never append a duplicate.
+- **Exactly one entry per (habit_id, date)**, daily and monthly alike (a monthly habit gets one row per rep). Never append a duplicate.
 - If an entry already exists for that slot, **update it in place** (do not append a second record).
 - All writes go through `jq` — never `echo >>` for structured data.
 - Use the field name `habit_id` (not `habit`) for new entries.
+- **Don't ask about a habit that logs itself.** A habit whose rows a deriver writes from wearable data (`sleep-on-time`, written by `automations/scripts/derive_sleep_habit.py`) needs no question. If the user reports one anyway, log it as usual: a row from chat wins over the derived one, and the deriver never overwrites it.
+- **Workout habits are filled in from the watch but stay hand-loggable.** An active habit with a `workout:` block in `config/habit_schema.yaml` gets a row from `automations/scripts/derive_workout_habits.py` when the watch recorded a matching session. Check for an existing row before asking, and log normally when the user reports a session the watch missed.
 - **Unlogged days count as missed in rate math.** A day inside a review window with no entry for a habit is counted as a miss, the same as `completed: false`. That makes recording part of the habit, not an optional extra. Two guardrails: never *backfill* `completed: false` onto blank past days (absence is interpreted at compute time, not written into the data), and use `skipped: true` for days the habit genuinely couldn't happen — those drop out of both numerator and denominator. Full rule and how to flip the default: [`7-habits/AGENTS.md`](../../../7-habits/AGENTS.md) § Hard rules.
 
 ## Steps
@@ -85,26 +87,29 @@ fi
 
 ## Monthly habit — write or update
 
+One row per habit **per date**, never per month: a month holds as many rows as reps (a habit at 2× a month done twice = two rows, each dated the day it happened). A single row per month could only ever count one rep, so any habit with `frequency` above 1 would read as behind no matter what.
+
 ```bash
 HID="HABIT_ID"
 DATE="YYYY-MM-DD"
-MONTH="${DATE:0:7}"   # YYYY-MM
 
-# One entry per (habit_id, month) — check presence, then update or append
-if jq -e --arg h "$HID" --arg m "$MONTH" \
-    'select((.habit_id // .habit) == $h and (.month == $m or (.date[:7] == $m)))' \
+# A row for this habit and date already exists → mark it done in place; otherwise append.
+if jq -e --arg h "$HID" --arg d "$DATE" \
+    'select((.habit_id // .habit) == $h and .date == $d)' \
     7-habits/_data/habits-monthly.ndjson > /dev/null; then
-  jq -c --arg h "$HID" --arg m "$MONTH" --arg d "$DATE" \
-    'if (.habit_id // .habit) == $h and (.month == $m or (.date[:7] == $m))
-     then . + {habit_id:$h, month:$m, date:$d, completed:true}
+  jq -c --arg h "$HID" --arg d "$DATE" \
+    'if (.habit_id // .habit) == $h and .date == $d
+     then (. + {completed:true}) | del(.skipped, .skip_reason)
      else . end' \
     7-habits/_data/habits-monthly.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 7-habits/_data/habits-monthly.ndjson
 else
-  jq -cn --arg h "$HID" --arg m "$MONTH" --arg d "$DATE" \
-    '{habit_id:$h, month:$m, date:$d, completed:true}' \
+  jq -cn --arg h "$HID" --arg d "$DATE" \
+    '{habit_id:$h, date:$d, completed:true}' \
     >> 7-habits/_data/habits-monthly.ndjson
 fi
 ```
+
+Never write `completed: false` for a monthly habit: a monthly rep is counted, not streaked, so a "no" is simply no row.
 
 ## Queries
 

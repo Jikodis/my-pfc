@@ -3,10 +3,10 @@
 ## Principles
 
 - Automations are defined in repo files and executed by scripts
-- Automated changes follow the commit policy in CLAUDE.md
+- Automated changes follow the commit policy in AGENTS.md
 - Important automated changes must be legible and understandable
 
-See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for quick reference.
+See `AGENTS.md` for the canonical commit-policy lists. This doc mirrors them for quick reference.
 
 ## Auto-commit operations (no confirmation needed)
 
@@ -23,7 +23,7 @@ See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for
 
 - Structural repo changes
 - Skill or agent definition edits
-- CLAUDE.md changes
+- AGENTS.md changes
 - Large planning or reorganization sessions
 
 ## Execution on VPS
@@ -44,5 +44,5 @@ See `CLAUDE.md` for the canonical commit-policy lists. This doc mirrors them for
 
 - Daily check-in prompt (systemd timer, evening)
 - Weekly review prompt (systemd timer, end of week)
-- Task archival (when `6-actions/_data/tasks.ndjson` exceeds ~200 lines)
+- Task archival (when `6-tasks/_data/tasks.ndjson` exceeds ~200 lines)
 - Report generation (on demand or scheduled)

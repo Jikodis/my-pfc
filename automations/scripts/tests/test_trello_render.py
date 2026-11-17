@@ -64,11 +64,11 @@ class TestCardDataclass(unittest.TestCase):
     def test_card_holds_all_fields(self):
         c = Card(
             pfc_id="task-001", pfc_type="task",
-            list_name="✅ Actions", name="Do thing", body="impact:high",
+            list_name="✅ Tasks", name="Do thing", body="impact:high",
             label_names=["AA"], due="2026-05-10T12:00:00.000Z", due_complete=False,
         )
         self.assertEqual(c.pfc_id, "task-001")
-        self.assertEqual(c.list_name, "✅ Actions")
+        self.assertEqual(c.list_name, "✅ Tasks")
         self.assertEqual(c.label_names, ["AA"])
 
     def test_card_equality(self):
@@ -128,7 +128,7 @@ class TestDiff(unittest.TestCase):
         self.assertEqual(len(ops["updates"]), 1)
 
     def test_update_on_list_change(self):
-        old = _card("t1", list_name="✅ Actions")
+        old = _card("t1", list_name="✅ Tasks")
         new = _card("t1", list_name="✅ 2+1")
         ops = compute_diff(desired=[new], current=[(old, "tcid")])
         self.assertEqual(len(ops["updates"]), 1)
@@ -268,7 +268,7 @@ class TestRenderers(unittest.TestCase):
         }
         cards = render_actions(state, plain_color_labels={"red": "lab_red"})
         self.assertEqual([c.pfc_id for c in cards], ["t1"])
-        self.assertEqual(cards[0].list_name, "✅ Actions")
+        self.assertEqual(cards[0].list_name, "✅ Tasks")
 
     def test_render_project_actions_groups_by_active_project(self):
         from trello_render import render_project_actions
@@ -298,7 +298,7 @@ class TestRenderers(unittest.TestCase):
         short = _project_list_name("My Project")
         self.assertEqual(short, "🎯 My Project")
         self.assertTrue(_is_project_list_name(short))
-        self.assertFalse(_is_project_list_name("✅ Actions"))
+        self.assertFalse(_is_project_list_name("✅ Tasks"))
         long_name = "A" * 100
         truncated = _project_list_name(long_name)
         self.assertLessEqual(len(truncated), PROJECT_LIST_NAME_MAX)
@@ -820,7 +820,7 @@ class TestRebuildMode(unittest.TestCase):
             ll.return_value = [
                 {"id": "L_inbox", "name": "📥 Inbox", "closed": False},
                 {"id": "L1", "name": "💎 Values", "closed": False},
-                {"id": "L2", "name": "✅ Actions", "closed": False},
+                {"id": "L2", "name": "✅ Tasks", "closed": False},
             ]
             # 4 cards on Inbox, 3 cards on dashboard lists
             lc.return_value = [

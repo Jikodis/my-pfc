@@ -8,7 +8,7 @@ Schemas and configuration files that define the *shape* of every typed record in
 
 | File | Defines the shape of |
 |---|---|
-| `task_schema.yaml` | Tasks in `6-actions/_data/tasks.ndjson` |
+| `task_schema.yaml` | Tasks in `6-tasks/_data/tasks.ndjson` |
 | `habit_schema.yaml` | Habit definitions (referenced by daily/monthly habit logs) |
 | `project_schema.yaml` | Projects in `5-projects/_data/projects.ndjson` |
 | `supplement_schema.yaml` | Supplements in `data/supplements.ndjson` |
@@ -18,6 +18,7 @@ Schemas and configuration files that define the *shape* of every typed record in
 | `revive_event_schema.yaml` | Revive-watchlist events in `data/revive-events.ndjson` |
 | `focus_schema.yaml` | Current Focus records in `4-focus/_data/focus.ndjson` |
 | `onboarding_schema.yaml` | Onboarding state in `config/onboarding.ndjson` |
+| `area_item_schema.yaml` | Area items in `2-areas/_data/area-items.ndjson` and their check-in answers in `2-areas/_data/area-checkins.ndjson` |
 
 ### Runtime state
 
@@ -28,7 +29,7 @@ Schemas and configuration files that define the *shape* of every typed record in
 | `onboarding.ndjson` | Event log of what onboarding lessons you've tried/dismissed |
 | `automation_config.yaml` | Settings for automation scripts (cadences, thresholds) |
 | `focus.yaml` | Tier labels and caps for the Current Focus layer (Foundations · Active Pursuits max 6 · Currently Consuming) |
-| `trello_calendar_filters.yaml` | Calendar names to exclude when rendering the Trello dashboard |
+| `trello_calendar_filters.yaml` | Which calendar events to leave out of the Trello and TRMNL week views |
 
 ## Habit schema — the one to actually edit by hand
 
@@ -44,9 +45,9 @@ See `personas.md` for the registry of available personas and what each one sound
 
 ## Trello calendar filters
 
-If you've set up the Trello dashboard, `trello_calendar_filters.yaml` controls which calendars are excluded from the `🗓️ Week at a Glance` list (e.g. US Holidays, shared community calendars).
+If you've set up the Trello dashboard, `trello_calendar_filters.yaml` controls which events are left out of the `🗓️ Week at a Glance` list and the TRMNL week screen (e.g. US Holidays, PFC scaffolding blocks, known weekly patterns).
 
-**Recurring events are filtered automatically** — anything with a Google Calendar `recurringEventId` is dropped from the Week at a Glance list without needing any rule here. The yaml file is only for two edge cases recurring-filtering doesn't cover: title-based filtering for one-off events you want hidden ("OOO", "PTO") and calendar-name filtering for subscribed/shared calendars. Both lists ship empty or near-empty; edit only if you find noise that survives the recurring-filter.
+**Recurring events are not dropped for being recurring**, because most real commitments are recurring series. The file's four lists (prefixes, titles, titles when recurring, calendars) say what to hide; its header explains each one.
 
 ## See also
 

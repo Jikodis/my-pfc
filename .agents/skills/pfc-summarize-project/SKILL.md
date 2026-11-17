@@ -17,12 +17,12 @@ When summarizing a project:
    - `notes.md` for running context
 4. Find related tasks:
    ```bash
-   grep '"project":"[project-name]"' 6-actions/_data/tasks.ndjson | grep '"status":"open"'
-   grep '"project":"[project-name]"' 6-actions/_data/tasks.ndjson | grep '"status":"done"'
+   grep '"project":"[project-name]"' 6-tasks/_data/tasks.ndjson | grep '"status":"open"'
+   grep '"project":"[project-name]"' 6-tasks/_data/tasks.ndjson | grep '"status":"done"'
    ```
 5. Present a concise summary:
    - Project purpose and which life area it relates to
-   - Active status, excitement, impact, urgency
+   - Status (`active`, `on-deck`, `parked`, `done`, or `dropped`), excitement, impact, urgency
    - **Completion percentage** (completed_parts / total_parts)
    - **Velocity** (parts/week and estimated completion date based on observed pace; flag 🟢 / 🟡 / 🔴 vs deadline — see below)
    - Open tasks count
@@ -38,7 +38,7 @@ When summarizing a project:
 - Use velocity to surface drift early. If 🔴, the user uses this to decide between resetting the deadline, reducing scope, or speeding up — do NOT pre-schedule extra calendar events to "catch up"; that's churn.
 6. **If the project feels stalled or overwhelming, offer to break it down:**
    - Each part should be completable in 1–3 sessions
-   - Create parts as tasks in `6-actions/_data/tasks.ndjson` linked via the `project` field
+   - Create parts as tasks in `6-tasks/_data/tasks.ndjson` linked via the `project` field
    - Completing tasks drives the completion percentage (completed_parts / total_parts)
    - ADHD context: overwhelm usually means the task definition is too big, not that motivation is lacking — break it down into 15-minute chunks
 7. Ask if the user wants to update any project files or adjust the project metadata

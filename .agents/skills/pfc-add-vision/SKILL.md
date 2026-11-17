@@ -5,7 +5,7 @@ description: Add a new vision to 3-visions/. Use when the user says "add vision"
 
 # Add Vision
 
-A **vision** sits between Areas and the Focus layer in VAVFPAH. It expresses direction without a SMART deadline. See [`../../../3-visions/README.md`](../../../3-visions/README.md) and [`../../../0-me/working-with-me.md`](../../../0-me/working-with-me.md) § Long-term vision for the why.
+A **vision** sits between Areas and the Focus layer in VAVFPTH. It expresses direction without a SMART deadline. See [`../../../3-visions/README.md`](../../../3-visions/README.md) and [`../../../0-me/working-with-me.md`](../../../0-me/working-with-me.md) § Long-term vision for the why.
 
 ## When to use
 

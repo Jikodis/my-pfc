@@ -15,7 +15,7 @@ Canonical reference for data files and their schemas. Keep this in sync with `co
 
 ## NDJSON files
 
-### `6-actions/_data/tasks.ndjson` — canonical task storage
+### `6-tasks/_data/tasks.ndjson` — canonical task storage
 
 ```json
 {"id":"task-20250101-001","status":"open","description":"…","size":"S","location":"PC","impact":"high","urgency":"medium","project":"proj-20250101-002","deadline":"2025-02-01","created":"2025-01-01","source":"daily-planning","notes":"optional free text"}
@@ -32,19 +32,20 @@ Required: `id`, `status`, `description`, `created`. Canonical schema: [`config/t
 - `deadline`, `created`, `completed` — `YYYY-MM-DD`
 - `source` — where the task was captured (`daily-planning`, `phone`, `email-triage`, etc.)
 - `notes` — optional free text
+- `agent_doable` — optional `"yes"` | `"partly"` | `"no"` | `null`: who can actually do the work (an agent start to finish, an agent plus one human step, or only the user). See `6-tasks/AGENTS.md` § Agent delegation.
 - `area` — optional; lowercase, must match a folder in `2-areas/`. Used for standalone strategic tasks with no project (see the values-alignment section of `AGENTS.md`).
 - `depends_on` — optional array of task IDs (`["task-20250101-004", ...]`). The task is considered "blocked" until every listed task has `status == "done"`. `pfc-pick-tasks` hides blocked tasks from suggestions; `scripts/validate.sh` checks each ID resolves and rejects self-references.
-- `deferred` — optional boolean, default `false`. **Parked by the user: still open work, just deliberately out of rotation until they ask for it back.** Not a status — a deferred task is neither done nor abandoned. Set it when the user says "take it off the rotation", "park it", "stop offering it". Deferred tasks are hidden from `pfc-pick-tasks`, the evening check-in's 2+1 pool, the Trello `✅ Actions` list, and `pfc-revive`'s slippage signals (so the system stops nagging about something the user consciously set down). They stay visible in `/pfc-list-tasks` under `⏸️ Parked (not in rotation)` — that is the only surface they appear on. Un-park by setting it to `false`. Why this exists: without it, the only ways to stop a task recurring in picks were to delete it or fake-complete it, both of which lose real work.
+- `deferred` — optional boolean, default `false`. **Parked by the user: still open work, just deliberately out of rotation until they ask for it back.** Not a status — a deferred task is neither done nor abandoned. Set it when the user says "take it off the rotation", "park it", "stop offering it". Deferred tasks are hidden from `pfc-pick-tasks`, the evening check-in's 2+1 pool, the Trello `✅ Tasks` list, and `pfc-revive`'s slippage signals (so the system stops nagging about something the user consciously set down). They stay visible in `/pfc-list-tasks` under `⏸️ Parked (not in rotation)` — that is the only surface they appear on. Un-park by setting it to `false`. Why this exists: without it, the only ways to stop a task recurring in picks were to delete it or fake-complete it, both of which lose real work.
 - `deferred_reason` — optional string, nullable. Why it was parked, in the user's own words. Shown alongside the task in `/pfc-list-tasks` so the reason is in view at un-park time.
 - `sequence` — optional 1-based integer. Used on project tasks where order matters (course curricula, ordered method books). `pfc-pick-tasks` and the evening check-in's 2+1 pick only surface the lowest-sequence open task per project — higher-sequence siblings stay hidden until the prior is done. Standalone tasks (`project: "none"`) leave this null.
 - `source_email_thread_id` — optional Gmail thread ID. Set when `source: "email-triage"`. Primary dedup key for the email-surfacing skills (`pfc-email-triage`, evening check-in): before creating a task from an email, those skills query `tasks.ndjson` + `tasks-archive.ndjson` by this field. Encodes the "labeled email = at least one linked task" principle.
 - `source_email_subject` — optional raw subject line (including any `Re:` / `Fwd:` prefix). Fallback dedup key when the thread ID is missing or no match is found; also surfaced to the user during dedup confirmation.
 
-### `6-actions/_data/tasks-archive.ndjson`
+### `6-tasks/_data/tasks-archive.ndjson`
 
-Same shape as `tasks.ndjson`. Done tasks are moved here during the `stale-task-triage` review pass (or when the live file exceeds ~200 lines).
+Same shape as `tasks.ndjson`. Done tasks are moved here during the `stale-task-triage` review pass (or when the live file exceeds ~200 lines). A task dropped without being done (for example by `pfc-revive`) also moves here, with a `dropped` date (`YYYY-MM-DD`) and an `archived` event in `task_events.ndjson`.
 
-### `6-actions/_data/task_events.ndjson` — append-only audit log
+### `6-tasks/_data/task_events.ndjson` — append-only audit log
 
 ```json
 {"task_id":"task-20250101-001","event":"created","timestamp":"2025-01-01","source":"daily-planning"}
@@ -72,7 +73,7 @@ Fields:
 - `id` — `proj-YYYYMMDD-NNN`
 - `name`, `description`, `goal` — human-readable project context
 - `active` — boolean; backstop of 12 active at a time
-- `status` — optional lifecycle tag (e.g. `"planned"`, `"in-progress"`, `"paused"`)
+- `status` — optional lifecycle tag: `"active"`, `"on-deck"` (wanted next, not started; `active: false`), `"parked"` (deliberately stopped for now; `active: false`), `"done"`, or `"dropped"`. A row with no `status` reads as `active` when `active` is true and `on-deck` otherwise.
 - `excitement`, `impact`, `urgency` — `"low"` | `"medium"` | `"high"` (per schema)
 - `estimated_months` — optional, 1–3 typical
 - `area` — lowercase, must match a folder in `2-areas/`
@@ -82,7 +83,7 @@ Fields:
 - `priority_order` — optional ordered array of sub-parts
 - `created`, `deadline`, `completed` — `YYYY-MM-DD`
 
-### `6-actions/_data/daily-focus.ndjson` — the 2+1 picks
+### `6-tasks/_data/daily-focus.ndjson` — the 2+1 picks
 
 ```json
 {"date":"2025-01-16","critical":["task-20250101-002","task-20250115-003"],"bonus":"task-20250101-017","completed":[],"bonus_completed":false}
@@ -104,7 +105,7 @@ Fields:
 
 - `habit_id` — must match an `id` in `config/habit_schema.yaml` (active) or `deprecated_habits` (historical only)
 - `completed` — boolean; did the habit happen that day
-- `source` — `"google_health_auto"` | `"manual"` | `"fitbit"` | `"evening-checkin"` | `"chat"` | `"trello"`
+- `source` — `"google_health_auto"` | `"manual"` | `"fitbit"` | `"evening-checkin"` | `"chat"` | `"trello"` | `"fitbit-derived"` (`derive_sleep_habit.py`) | `"calendar-derived"` (`derive_calendar_habits.py`) | `"health-derived"` (`derive_workout_habits.py`)
 - `value` — optional measurement (e.g. active-minutes count, bedtime)
 - `skipped` — optional boolean; `true` means the day was structurally unavailable (e.g. travel, illness, a family-time habit on a night the family is away). A skipped day is **not a miss** — habit-rate math excludes it from both numerator and denominator: `rate = completed / max(1, target_frequency - skipped_count)`.
 - `skip_reason` — optional free-text string; required when `skipped: true`. Short, human-readable.
@@ -117,9 +118,13 @@ When `skipped: true`, `completed` must be `false`. The fields coexist so queries
 
 Caps: **14 daily, 6 monthly.** The daily cap is enforced in `scripts/validate.sh` and documented in the schema comment — keep both in sync (`pfc-repo-maintenance` checks for drift between them).
 
+**`auto_derived` + `calendar:` on the habit definition.** A habit with `auto_derived: true` is logged by the system, never by hand: the sleep-timing habit from the wearable (`derive_sleep_habit.py`), and any habit with a `calendar: {match, exclude}` rule from `data/calendar-cache.json` (`derive_calendar_habits.py`; `match` and `exclude` are case-insensitive regexes on the event title). A row from any other source for the same habit and date wins.
+
+**`workout:` on the habit definition.** A daily habit with `workout: {types: [...], min_minutes: N}` is logged from the watch's exercise sessions (`health.workouts[].type` on the day's record) by `automations/scripts/derive_workout_habits.py`, run by every health fetch. It is not `auto_derived`: hand logs still count and win. Details: [`habit-mechanics.md`](habit-mechanics.md) § "Habits that log themselves".
+
 ### `7-habits/_data/habits-monthly.ndjson`
 
-Same shape as daily; `date` may be the first of the month.
+Same shape as daily: one row per habit per date, `date` the day of the rep.
 
 ### `data/day-tracking.ndjson` — daily day tracker
 
@@ -157,6 +162,8 @@ Written by `pfc-log-day` (minimal entry) or updated in place by the evening chec
   - `active_zone_minutes` — passive active-zone minutes + logged-exercise minutes combined. Both endpoints paginate: they are read with `api_get_all` (follows `nextPageToken`), because a single unpaginated page silently truncates a busy day's total.
   - `workouts` — array of tracked exercise sessions, ordered by start: `{"type": "ROWING_MACHINE", "name": "Rowing machine", "start": ISO-8601-local, "minutes": int, "azm": int, "avg_hr_bpm": int, "vigorous_minutes": int, "calories": int}`. `vigorous_minutes` = vigorous + peak heart-rate zone time. Reduction lives once in `automations/scripts/exercise_reduce.py`, imported by both fetch and backfill. `[]` on a day with no tracked session; `null` only if the fetch failed.
   - `workout_count`, `workout_minutes`, `workout_azm`, `workout_vigorous_minutes` — day sums over `workouts`
+  - **`minutes` / `workout_minutes`, `calories`, and `avg_hr_bpm` come from the watch timer and run long when Stop is forgotten.** Prefer the heart-rate-derived fields below for duration.
+  - `workouts[].real_minutes` and the day sum `workout_real_minutes` — session length derived from the per-minute heart-rate stream rather than the timer, by `automations/scripts/row_duration.py` (stamped by `auto_fetch_health.py`). Absent when the raw heart-rate data is missing.
   - `first_workout_time` — start of the day's first tracked session, ISO 8601 local. The timing variable `active_zone_minutes` cannot express: a 6:30 AM workout and a 12:30 PM workout are otherwise identical in the data.
   - `azm_outside_workouts` — `active_zone_minutes` minus `workout_azm`. **This is not a stress measure.** It holds untracked workouts, walking, yard work, and chores as well as elevated resting heart rate — a day with no tracked session is not evidence of a day with no exercise. Only the `workouts` fields describe deliberate exercise.
   - `awakenings` — array of `{"start": ISO-8601-local, "minutes": int}`, one per real awakening (an AWAKE stage ≥ 4 minutes; shorter ones are micro-arousals and excluded). The **full-night** list is stored unwindowed so analysis can re-window it (e.g. "after 2 AM") without re-fetching. Sleep reduction (awakenings, stage totals, awake-gap accounting) lives once in `automations/scripts/sleep_reduce.py`, imported by both fetch and backfill — single source of truth, no drift. `null` until fetched; `[]` if the night had no qualifying awakening.
@@ -194,9 +201,37 @@ Periodic snapshots — one record per rating pass. Same shape:
 
 For `life-wheel`, area keys come from `2-areas/` folder names. For `household-status`, area keys come from rooms/spaces (Kitchen, Garage, etc.).
 
+A life-wheel rating is each area's **manual fallback light**: when an area has items (below), its light is computed from them, and the manual rating is used only while none of its items has data.
+
+### `2-areas/_data/area-items.ndjson` and `2-areas/_data/area-checkins.ndjson` — the items under each area
+
+Schema: [`config/area_item_schema.yaml`](../config/area_item_schema.yaml), checked by `scripts/validate.sh`. Every rule (item lights, the area rollup, the hours and the plate) lives in `automations/scripts/area_items.py`; run it to print them. Nothing computed is stored.
+
+`area-items.ndjson`, one record per item, edited in place with `jq`:
+
+```json
+{"id":"item-career-commute","area":"career","title":"Commute","kind":"time","weight":2,"hours":5,"question":"Has the commute felt manageable?","active":true}
+```
+
+- `id` — `item-<area>-<slug>`; `area` — a `2-areas/` folder or life-wheel key; `title` — short name
+- `kind` — `time` (takes hours every week) or `status` (a state to keep in mind)
+- `weight` — 1, 2 or 3 (3 = breaks if dropped; also what comes out first)
+- `hours` — time items: hours per week, or per occurrence when `every` is set
+- `every` — Upkeep: `week` | `month` | `quarter` | `year`; `ends` — Season end date, after which the item leaves the hours and the light
+- exactly one of `question` (the check-in question) or `source` (`fitbit:sleep`, `habit:<habit-id>`, or `calendar:<calendar name>`, which supplies hours only, matched on each cached event's `organizer.displayName`; the calendar cache must record `organizer` for these hours to be non-zero)
+- `active` — false = retired
+
+`area-checkins.ndjson`, append-only, written by the `life-wheel` step of `/pfc-review`:
+
+```json
+{"date":"2025-01-06","item_id":"item-career-commute","answer":"good","note":"optional"}
+```
+
+The newest answer per item is its light (`good` / `okay` / `rough` → green / yellow / red); an answer older than 31 days shows as stale.
+
 ### `3-visions/_data/vision-brainstorm.ndjson` — the brainstorm that feeds visions
 
-One record per brainstormed idea — the generative dump upstream of the whole VAVFPAH chain. Each idea carries a lifecycle and a lineage so it can be triaged and promoted. Written via `/pfc-vision-brainstorm` (never hand-authored).
+One record per brainstormed idea — the generative dump upstream of the whole VAVFPTH chain. Each idea carries a lifecycle and a lineage so it can be triaged and promoted. Written via `/pfc-vision-brainstorm` (never hand-authored).
 
 ```json
 {"id":"vb-20250101-001","text":"Run a marathon","created":"2025-01-01","area":"health","status":"promoted","became":{"type":"vision","ref":"run-a-marathon"},"note":null}
@@ -383,6 +418,7 @@ Read by `build_pfc_week` in `automations/scripts/trmnl_push.py` — the TRMNL `p
 - [`config/revive_event_schema.yaml`](../config/revive_event_schema.yaml) — revive-watchlist event schema (enforced by `scripts/validate.sh`)
 - [`config/grounding_schema.yaml`](../config/grounding_schema.yaml) — Front-of-Mind anchor schema (enforced by `scripts/validate.sh`)
 - [`config/focus_schema.yaml`](../config/focus_schema.yaml) — Current Focus record schema (enforced by `scripts/validate.sh`)
+- [`config/area_item_schema.yaml`](../config/area_item_schema.yaml) — area items and area check-in answers (`2-areas/_data/area-items.ndjson`, `area-checkins.ndjson`; enforced by `scripts/validate.sh`)
 - [`config/focus.yaml`](../config/focus.yaml) — Current Focus tier labels + caps (🧱 Foundations soft ~4 · 🎯 Active Pursuits hard 6 · 🎧 Currently Consuming per-medium); read by `automations/scripts/trello_render.py` and `/pfc-focus`
 - [`config/review_ledger_schema.yaml`](../config/review_ledger_schema.yaml) — Rolling Reviews ledger record schema (enforced by `scripts/validate.sh`)
 - [`config/onboarding_schema.yaml`](../config/onboarding_schema.yaml) — schema for the append-only onboarding event log at `config/onboarding.ndjson` (one record per `{feature, status, date}` event, where `status` is `introduced`/`tried`/`dismissed`; most-recent event wins). Enforced by `scripts/validate.sh`. Drives the `/pfc-onboarding` skill's feature-coverage tracking.
@@ -398,13 +434,13 @@ Read by `build_pfc_week` in `automations/scripts/trmnl_push.py` — the TRMNL `p
 
 ```bash
 # Open tasks
-jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson
 
 # Tasks by project
-jq -c 'select(.project == "proj-20250101-002" and .status == "open")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.project == "proj-20250101-002" and .status == "open")' 6-tasks/_data/tasks.ndjson
 
 # Count open tasks
-jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l
+jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson | wc -l
 ```
 
 ## Write patterns (always jq, never echo/sed)
@@ -413,13 +449,13 @@ jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l
 # Append
 jq -cn --arg id "task-YYYYMMDD-NNN" --arg desc "…" \
   '{id:$id, status:"open", description:$desc, created:"YYYY-MM-DD"}' \
-  >> 6-actions/_data/tasks.ndjson
+  >> 6-tasks/_data/tasks.ndjson
 
 # Update in place
 jq -c 'if .id == "task-YYYYMMDD-NNN" then . + {status:"done", completed:"YYYY-MM-DD"} else . end' \
-  6-actions/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-actions/_data/tasks.ndjson
+  6-tasks/_data/tasks.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-tasks/_data/tasks.ndjson
 
 # Archive done tasks
-jq -c 'select(.status == "done")' 6-actions/_data/tasks.ndjson >> 6-actions/_data/tasks-archive.ndjson
-jq -c 'select(.status != "done")' 6-actions/_data/tasks.ndjson > data/.tasks.tmp && mv data/.tasks.tmp 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "done")' 6-tasks/_data/tasks.ndjson >> 6-tasks/_data/tasks-archive.ndjson
+jq -c 'select(.status != "done")' 6-tasks/_data/tasks.ndjson > data/.tasks.tmp && mv data/.tasks.tmp 6-tasks/_data/tasks.ndjson
 ```

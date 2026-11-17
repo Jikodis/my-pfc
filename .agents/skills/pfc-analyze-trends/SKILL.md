@@ -106,6 +106,8 @@ AZM is one daily number that mixes a hard workout with a stressful afternoon at 
 10. **Timing** — `health.first_workout_time`. A 6:30 AM session and a 12:30 PM session are indistinguishable in AZM and may not be equivalent for the rest of the day.
 11. **Type** — `health.workouts[].type`, so one modality can be separated from movement generally.
 
+**The timer is not a variable; the derived duration is.** A watch timer runs on whenever Stop is forgotten, so `workout_minutes` (and `calories`, and `avg_hr_bpm`, which idle time drags down) can turn a 30-minute session into a 90-minute one. `workout_minutes` is deliberately left out of the analysis; do not add it back. In its place is **`workout_real_minutes`**: the block where heart rate was actually elevated, derived from the per-minute stream by `automations/scripts/row_duration.py` and stamped onto each day record. That one is a legitimate exercise variable alongside `workout_azm`, `workout_vigorous_minutes`, and `first_workout_time`. A duration quoted from the timer says when a button was pressed, not what was done.
+
 **Never read a no-session day as a rest day.** Working out without starting a session on the watch is common, so the self-reported `exercised` field and a tracked session measure different things — intent versus what the device recorded. Keep both, and say which one a finding rests on. By the same rule, **`azm_outside_workouts` is not a stress measure**: it holds untracked workouts, walking, and chores alongside an elevated resting heart rate. Never present it as anxiety AZM.
 
 Session coverage only starts when workout tracking starts. Treat earlier nulls as a data gap, not as rest.

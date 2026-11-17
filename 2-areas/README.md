@@ -72,6 +72,10 @@ Each `<area>/statement.md` answers: *what does success look like in this area?* 
 
 Run `/pfc-onboarding areas/area-statements` for a guided walkthrough.
 
+## Area items
+
+Each area can carry **items** in `_data/area-items.ndjson`: Time items (hours every week, like a job, a commute or a standing class) and Status items (a state to keep in mind, like an emergency fund in place), each weighted 1 to 3 (3 is a glass ball that breaks if dropped, 1 is a rubber ball that bounces). The `life-wheel` rolling review (`/pfc-review`) asks each item's question, Good / Okay / Rough, and appends the answers to `_data/area-checkins.ndjson`; some items light themselves from data (sleep, a habit). An area's light is the weighted rollup of its items' lights, and the **plate** compares the Time items' hours with your free waking hours, so you can see when a week is over-committed. `python3 automations/scripts/area_items.py` prints all of it. Schema: [`../config/area_item_schema.yaml`](../config/area_item_schema.yaml).
+
 ## The Life Wheel
 
 `_data/life-wheel.ndjson` holds monthly ratings for each area (typically 1–10). It feeds the `life-wheel` rolling review and gives you a longitudinal view of which areas are thriving vs. starving. The Trello dashboard surfaces it as a colored label on each area card.

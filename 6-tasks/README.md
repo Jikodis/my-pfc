@@ -1,6 +1,6 @@
-# Actions
+# Tasks
 
-The "do" layer of VAVFPAH. Concrete next steps — tasks, daily focus picks, and an event log of what actually happened.
+The "do" layer of VAVFPTH. Concrete next steps — tasks, daily focus picks, and an event log of what actually happened.
 
 ## What lives here
 

@@ -66,7 +66,7 @@ If the tools ARE available, proceed.
 ## Step 1 — Read today's focus record
 
 ```bash
-jq -c --arg d "$DATE" 'select(.date == $d)' 6-actions/_data/daily-focus.ndjson
+jq -c --arg d "$DATE" 'select(.date == $d)' 6-tasks/_data/daily-focus.ndjson
 ```
 
 If no record exists, stop and tell the user the day has no 2+1 yet — it gets picked at the evening check-in (`pfc-evening-checkin` Step 4d).
@@ -83,7 +83,7 @@ Capture:
 For each of the 3 task IDs, pull the full task record:
 
 ```bash
-jq -c --arg id "$TASK_ID" 'select(.id == $id)' 6-actions/_data/tasks.ndjson
+jq -c --arg id "$TASK_ID" 'select(.id == $id)' 6-tasks/_data/tasks.ndjson
 ```
 
 Collect per task: `id`, `description`, `notes`, `size`, `impact`, `urgency`, `project`.
@@ -108,7 +108,7 @@ Normalize the result: drop events that are all-day (no `start.dateTime`), drop `
 Always pass the current local time as `now` so the scheduler never picks slots in the past. Derive it with the same TZ as `$DATE`:
 
 ```bash
-NOW=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%dT%H:%M:%S%:z')
+NOW=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%dT%H:%M:%S%z')
 ```
 
 Build the payload:
@@ -226,7 +226,7 @@ Build the new `calendar_events` map: one entry per scheduled task, dropping any 
 ```bash
 jq -c --arg d "$DATE" --argjson evs "$NEW_MAP" \
   'if .date == $d then .calendar_events = $evs else . end' \
-  6-actions/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-actions/_data/daily-focus.ndjson
+  6-tasks/_data/daily-focus.ndjson > data/.jq_update.tmp && mv data/.jq_update.tmp 6-tasks/_data/daily-focus.ndjson
 ```
 
 Where `$NEW_MAP` is the JSON object:
@@ -242,7 +242,7 @@ Where `$NEW_MAP` is the JSON object:
 ## Step 10 — Commit
 
 ```bash
-git add 6-actions/_data/daily-focus.ndjson
+git add 6-tasks/_data/daily-focus.ndjson
 git commit -m "focus: schedule $DATE"
 git push
 ```

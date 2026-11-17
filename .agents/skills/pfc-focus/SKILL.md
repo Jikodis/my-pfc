@@ -5,7 +5,7 @@ description: View, add, park, or retire Current Focus items — the capped, traf
 
 # Current Focus
 
-Manage `4-focus/_data/focus.ndjson` — the **Focus** altitude of VAVFPAH. Four altitudes stack under each Area (Area → Vision → Focus → Habit); this skill owns Focus: the scarce, capped, traffic-lit set of what's actively being pursued **this quarter**. Human-facing intro: [`../../../4-focus/README.md`](../../../4-focus/README.md).
+Manage `4-focus/_data/focus.ndjson` — the **Focus** altitude of VAVFPTH. Four altitudes stack under each Area (Area → Vision → Focus → Habit); this skill owns Focus: the scarce, capped, traffic-lit set of what's actively being pursued **this quarter**. Human-facing intro: [`../../../4-focus/README.md`](../../../4-focus/README.md).
 
 ## Model (hold this exactly)
 

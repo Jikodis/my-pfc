@@ -65,7 +65,7 @@ Pull the freshest health data for `$TARGET_DATE` **now**, at check-in time, so S
 python3 automations/scripts/auto_fetch_health.py "$TARGET_DATE" 2>&1 | tail -4
 ```
 
-The fetch **updates the day's row in place, keyed by date** — it never duplicates a row, and an unchanged fetch returns without committing. It also recomputes the record's `qqrt` sleep composite (via `backfill_qqrt.py`) after writing.
+The fetch **updates the day's row in place, keyed by date** — it never duplicates a row, and an unchanged fetch returns without committing. It also recomputes the record's `qqrt` sleep composite (via `backfill_qqrt.py`) after writing, then writes the habit rows the watch can answer (`derive_sleep_habit.py` for `sleep-on-time`, `derive_workout_habits.py` for habits with a `workout:` block), so Step 2 finds them already logged.
 
 **Fail-safe:** on any error (health connector not configured, credentials unset, network/API failure), print `🟡 On-demand health fetch skipped (non-blocking): <reason>` and continue — the check-in reads whatever is already on the record. If no health connector is set up at all, skip this step silently.
 
@@ -100,10 +100,45 @@ Print one-line summaries (`📧 reconciled N task(s)` / `📧 auto-created N tas
 
 ---
 
+## Step 0d — Catch a missed check-in from a previous day
+
+A day that isn't written down within about a day is hard to recall accurately later. The `scripts/hook-missing-checkin.sh` SessionStart hook is the primary catch; this step is the backstop for sessions that start *inside* the check-in (the hook already fired and was declined, or the session started before the gap).
+
+**Window is yesterday and the day before, nothing older.** Past about two days the day can't be recalled well enough to rate, so an older offer can only be declined.
+
+```bash
+python3 - <<'PY'
+import json, os, subprocess
+from datetime import date, timedelta
+tz = os.environ.get("LOCAL_TZ", "America/Denver")
+today = subprocess.run(["date", "+%Y-%m-%d"], env={**os.environ, "TZ": tz},
+                       capture_output=True, text=True).stdout.strip()
+rated = set()
+with open("data/day-tracking.ndjson") as f:
+    for line in f:
+        if line.strip():
+            r = json.loads(line)
+            if r.get("rating") is not None:
+                rated.add(r["date"])
+t = date.fromisoformat(today)
+gaps = [str(t - timedelta(days=i)) for i in range(1, 3)
+        if str(t - timedelta(days=i)) not in rated]
+print(" ".join(gaps) if gaps else "none")
+PY
+```
+
+If the output is `none`, say nothing and continue. Otherwise surface **only the most recent gap**, in one line, and offer to do it right after tonight's: *"You didn't check in Friday either — want to do that one after this?"* One offer, no stacking, no comment on the gap itself.
+
+On a yes, finish tonight's check-in first, then re-run this skill for that date via the Step 0 backfill branch. On a no, drop it; the hook raises it again next session.
+
+**Never fabricate `energy` / `mood` / `focus` for a day the user can't recall.** Leave them null and write what the records actually show (health data, completed tasks, calendar, git log) to `evening_notes`, labeled as reconstructed. A guessed rating silently skews every trend the system computes.
+
+---
+
 ## Step 1 — Focus review
 
 ```bash
-FOCUS=$(jq -c 'select(.date == "YYYY-MM-DD")' 6-actions/_data/daily-focus.ndjson)
+FOCUS=$(jq -c 'select(.date == "YYYY-MM-DD")' 6-tasks/_data/daily-focus.ndjson)
 ```
 
 **If `$FOCUS` is empty (no 2+1 was staged for today):** output one line — `No focus set today.` — and skip to Step 1b. Do not fabricate a checklist.
@@ -111,7 +146,7 @@ FOCUS=$(jq -c 'select(.date == "YYYY-MM-DD")' 6-actions/_data/daily-focus.ndjson
 **Otherwise,** for each task (critical1, critical2, bonus, project if present), check completion status:
 
 ```bash
-jq -c 'select(.id == "TASK-ID")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.id == "TASK-ID")' 6-tasks/_data/tasks.ndjson
 ```
 
 Show as a checklist — done or still open. Include the optional `.project` slot if it's set. Surface unfinished tasks without pressure.
@@ -167,7 +202,22 @@ Show each **due-today** daily habit and whether it's been logged today. For any 
 
 - `frequency >= 5`/week → show every night.
 - `frequency < 5`/week → show only if the week's reps are not yet met, counting from Monday. On the last night of the week with reps still owed, show it regardless.
-- Monthly habits → show on the last 5 days of the month if the month's reps are not yet met, otherwise not at all.
+- Monthly habits → see the Sunday sweep below.
+
+**Monthly habits get a Sunday sweep, not a once-a-month scramble.** On **every Sunday**, and on **each of the last 5 days of the month**, show every monthly habit whose month reps are not yet met. Otherwise don't show them. Surfacing them only at month-end lets weeks of real reps go unlogged, and an unlogged rep reads the same as a missed one at compute time.
+
+```bash
+TZ="${LOCAL_TZ:-America/Denver}" date -d "$TARGET_DATE" '+%u'   # 7 = Sunday
+TZ="${LOCAL_TZ:-America/Denver}" date -d "$TARGET_DATE +5 days" '+%d'  # <= 05 means last 5 days of month
+awk '/^monthly_habits:/,/^deprecated_habits:/' config/habit_schema.yaml | grep -E '^  - id:|^    frequency:'
+jq -r --arg m "$(echo "$TARGET_DATE" | cut -c1-7)" \
+  'select((.date // "") | startswith($m)) | select(.completed) | .habit_id' \
+  7-habits/_data/habits-monthly.ndjson | sort | uniq -c
+```
+
+Render them in the same table as the daily habits, tagged `(monthly)`, with the month's rep count so the question is answerable (`social-time (monthly) — 0 of 1 this month`). Log each rep with the monthly block in `pfc-log-habit` (one row per rep date), dated the day it actually happened when the user names one, otherwise `$TARGET_DATE`. **Never write `completed: false` for a monthly habit:** a monthly rep is counted, not streaked, so a "no" is simply no row.
+
+**Use the calendar to PRE-FILL candidate dates, never to log a rep.** If a monthly habit tends to land on the calendar, `list_events` the month and offer the matching dates as a checklist ("Game night shows on 1/4 and 1/18 — which ones did you make?"). That turns an unanswerable "how many times this month?" into a yes/no per row. **The calendar is a candidate list, not evidence:** an event does not mean it happened (a recurring event is the weakest evidence, since it repeats whether or not anyone shows up), and people do things they never put on the calendar. Auto-log nothing from the calendar; every candidate needs the user's yes. An event the user explicitly marked as missed in its title counts as a no without asking.
 
 A habit not shown is simply absent from the log — absence is interpreted as a miss at compute time, never written as one (`7-habits/AGENTS.md`). Do NOT write `completed: false` for a habit that was never shown. The "anything unmentioned in an active check-in logs as `completed: false`" convention applies only to habits that were actually shown.
 
@@ -198,6 +248,8 @@ For each habit that comes back, print **one line** offering its `ramp.two_minute
 ```bash
 YESTERDAY=$(TZ="${LOCAL_TZ:-America/Denver}" date -d "$TARGET_DATE -1 day" '+%Y-%m-%d')
 ```
+
+**Exception: a habit that logs itself is never asked.** `sleep-on-time` is written by `derive_sleep_habit.py` from the watch's sleep data during Step 0a, so by Step 2 its row for the night is already there. Show it in the table like any other row (`done` / `missed`, or absent when the watch recorded no sleep that night) and do not ask about it or log it by hand. The same goes for any other habit a deriver writes. Habits with a `workout:` block are pre-filled from the watch but stay askable, because a workout done without starting the watch still counts.
 
 Phrase the questions in the past tense ("Phone out of the bedroom last night?"). Guard against double-logging: skip either habit for the yesterday date if it's already present in `habits-daily.ndjson`. Do NOT log these for tonight's date — tonight's get asked at tomorrow's check-in.
 
@@ -253,7 +305,7 @@ If the user answers, append the answer to `evening_notes` (concatenated with the
 
 ## Step 3c — Rolling reviews
 
-The old weekly / monthly / quarterly ritual check-ins are gone. Their review work is a **rolling ledger** (`data/review-ledger.ndjson`) that drips through the evening check-in — at most **2 items per night**, and only when something is genuinely due AND has something to act on. A no-review night stays as fast as any other; the ledger just re-checks tomorrow. `/pfc-review` runs the same ledger with no cap when reviews have piled up.
+The old weekly / monthly / quarterly ritual check-ins are gone. Their review work is a **rolling ledger** (`data/review-ledger.ndjson`) that drips through the evening check-in — at most **2 items per night**, and only when something is genuinely due AND has something to act on. A no-review night stays as fast as any other; the ledger just re-checks tomorrow. `/pfc-review` runs the same ledger one review at a time when reviews have piled up.
 
 **Never surface more than 2. Never surface a due item whose gate is empty.** A due-but-empty-gate item silently passes (not shown, not stamped) and re-checks next night.
 
@@ -269,7 +321,7 @@ TODAY=$(TZ="${LOCAL_TZ:-America/Denver}" date '+%Y-%m-%d')
 gate() {  # echoes a short reason if there's something to act on; empty otherwise
   case "$1" in
     stale-task-triage) python3 automations/scripts/revive_watchlist.py --today "$TODAY" 2>/dev/null | jq -e 'length > 0' >/dev/null 2>&1 && echo "slipped items" ;;
-    tasks-missing-area) jq -c 'select(.status=="open" and ((.area//null)==null) and ((.project//"none")=="none"))' 6-actions/_data/tasks.ndjson 2>/dev/null | grep -q . && echo "tasks missing area" ;;
+    tasks-missing-area) jq -c 'select(.status=="open" and ((.area//null)==null) and ((.project//"none")=="none"))' 6-tasks/_data/tasks.ndjson 2>/dev/null | grep -q . && echo "tasks missing area" ;;
     focus-accuracy) jq -c 'select(.tier=="pursuit" and .retired_date==null and ((.landing//"")==""))' 4-focus/_data/focus.ndjson 2>/dev/null | grep -q . && echo "pursuit missing landing" || echo "weekly focus eyeball" ;;
     vision-relevance) ls 3-visions/*.md 2>/dev/null | grep -qv "README\|_template\|AGENTS\|CLAUDE" && echo "eyeball one vision" ;;
     habit-rate) echo "check trailing-7 habit rates" ;;
@@ -352,18 +404,6 @@ Do not stamp an item the user ignored, and never stamp a due-but-empty-gate item
 
 ---
 
-## Step 3d — Pulse readout (optional, fast)
-
-If day-tracking has health data for today, show the lever pulse so the rating lands with context:
-
-```bash
-python3 automations/scripts/trello_render.py --pulse-history 7
-```
-
-One compact table (lever · today's value · target · 🟢/🟡/🔴 · 7-day trend). The trend prints a **days-on-target count** per lever — high is good (AGENTS.md § "Metrics point one direction"; never report these as miss-counts) — and flags chronic misses (on target ≤3 of 7) with the concrete fix. Surface at most the top 2 chronic misses; if there are none, one line ("pulse is holding") and move on. Skip silently if there's no health data yet — never block the check-in on it.
-
----
-
 ## Step 4 — Update record
 
 First check whether a record already exists for the target date:
@@ -431,11 +471,11 @@ jq -cn \
 
 ## Step 4b — Refresh Trello dashboard (fail-safe)
 
-The completion-pull half of the Trello sync already ran in **Step 0b**. This step handles the post-record half: move uncompleted 2+1 cards back to ✅ Actions, then re-render so the board reflects today's writes.
+The completion-pull half of the Trello sync already ran in **Step 0b**. This step handles the post-record half: move uncompleted 2+1 cards back to ✅ Tasks, then re-render so the board reflects today's writes.
 
 **This step is fail-safe:** any error here is logged but does not block the commit step. If Trello is down, the check-in still records normally.
 
-1. Move any uncompleted 2+1 cards back to ✅ Actions for tomorrow:
+1. Move any uncompleted 2+1 cards back to ✅ Tasks for tomorrow:
    ```bash
    python3 automations/scripts/trello_writeback.py move-back-uncompleted 2>&1
    ```
@@ -502,7 +542,7 @@ One line if nothing's off; note in a single line if a pursuit is 🔴 or has no 
 ### Guard — already staged
 
 ```bash
-jq -c --arg d "$TOMORROW" 'select(.date == $d)' 6-actions/_data/daily-focus.ndjson
+jq -c --arg d "$TOMORROW" 'select(.date == $d)' 6-tasks/_data/daily-focus.ndjson
 ```
 
 If a record exists, show it and skip straight to Step 5 (Commit) — do not duplicate or re-pick.
@@ -512,7 +552,7 @@ If a record exists, show it and skip straight to Step 5 (Commit) — do not dupl
 If not already set, check for carry-forwards from tonight's date — the record reviewed in Step 1 (`$TARGET_DATE`) is the "yesterday" relative to `$TOMORROW`:
 
 ```bash
-jq -c --arg d "$TARGET_DATE" 'select(.date == $d)' 6-actions/_data/daily-focus.ndjson
+jq -c --arg d "$TARGET_DATE" 'select(.date == $d)' 6-tasks/_data/daily-focus.ndjson
 ```
 
 **Carry-forward rule:** unfinished tasks from `$TARGET_DATE` auto-carry to `$TOMORROW`. Show them pre-selected and ask to confirm or swap. Only prompt for fresh picks if no carry-forwards exist.
@@ -520,7 +560,7 @@ jq -c --arg d "$TARGET_DATE" 'select(.date == $d)' 6-actions/_data/daily-focus.n
 Pull candidates, **excluding project tasks** (they get the optional 4th slot):
 
 ```bash
-jq -c 'select(.status == "open" and (.project // "none") == "none" and (.deferred // false) == false)' 6-actions/_data/tasks.ndjson | head -15
+jq -c 'select(.status == "open" and (.project // "none") == "none" and (.deferred // false) == false)' 6-tasks/_data/tasks.ndjson | head -15
 ```
 
 Project tasks are pre-planned work and do NOT compete with standalone tasks for the 2 critical slots.
@@ -541,7 +581,7 @@ jq -cs '
   | group_by(.project)
   | map(sort_by(.sequence // 999999) | .[0])
   | .[]
-' 6-actions/_data/tasks.ndjson
+' 6-tasks/_data/tasks.ndjson
 ```
 
 This surfaces one task per project — the one that's actually next given dependency order. Skip the prompt if the result is empty.
@@ -559,7 +599,7 @@ jq -cn \
   --arg proj "TASK-ID-4-or-empty" \
   '{date: $date, critical: [$c1, $c2], bonus: $bonus, completed: [], bonus_completed: false}
    + (if $proj == "" then {} else {project: $proj, project_completed: false} end)' \
-  >> 6-actions/_data/daily-focus.ndjson
+  >> 6-tasks/_data/daily-focus.ndjson
 ```
 
 Never pull tasks from the calendar — calendar events are already built into the day.
@@ -620,7 +660,7 @@ Rule: bend the running state into the first task. A lost slot stays lost.
 ## Step 5 — Commit
 
 ```bash
-git add data/day-tracking.ndjson 7-habits/_data/habits-daily.ndjson 6-actions/_data/daily-focus.ndjson data/review-ledger.ndjson
+git add data/day-tracking.ndjson 7-habits/_data/habits-daily.ndjson 6-tasks/_data/daily-focus.ndjson data/review-ledger.ndjson
 git commit -m "checkin: record YYYY-MM-DD"
 git push
 ```

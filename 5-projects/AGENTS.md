@@ -49,7 +49,7 @@ Surface this in `pfc-summarize-project`, `pfc-status`, `pfc-daily-summary`, `pfc
 
 `pfc-evening-checkin` must show, for each active project: name, completion %, today's project task (if any), estimated completion date based on observed velocity, and an OK/WARN flag if velocity slipped past the project deadline. Goal: keep multiple active projects in view daily so the user can shift effort instead of rediscovering drift at the next review pass.
 
-The optional 4th daily-focus slot is reserved for a pre-planned active-project task — see `../6-actions/AGENTS.md` § Daily focus.
+The optional 4th daily-focus slot is reserved for a pre-planned active-project task — see `../6-tasks/AGENTS.md` § Daily focus.
 
 ## Slippage intervention — pfc-revive
 

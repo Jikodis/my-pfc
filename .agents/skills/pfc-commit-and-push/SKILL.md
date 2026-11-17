@@ -23,10 +23,17 @@ When committing and pushing:
    - `goal: ...` for goal updates
    - `report: ...` for generated reports
    - `system: ...` for structural changes
-6. Push to origin:
+6. Bring the branch level with origin, then push. Another clone (a second computer,
+   or a server running the automations) may have pushed since this session started;
+   a plain push would be rejected and the commit would sit here unseen:
    ```bash
+   git pull --rebase
    git push
    ```
+   Everything is committed by this step, so the rebase runs on a clean tree. If it
+   stops on a conflict: `git rebase --abort`, tell the user which file conflicts and
+   that the commit is saved locally, and leave the resolution to them. Never
+   force-push, and never stash the user's work.
 7. Confirm to the user what was committed and pushed
 
 Never commit `.env` or files containing secrets.

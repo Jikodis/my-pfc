@@ -34,6 +34,9 @@ EMPTY_EXERCISE = {
     "workout_minutes": 0,
     "workout_azm": 0,
     "workout_vigorous_minutes": 0,
+    # Stamped by row_duration.apply_to_health after the raw archive lands, not here —
+    # deriving it needs the per-minute heart-rate stream, which this reducer never sees.
+    "workout_real_minutes": 0,
     "first_workout_time": None,
 }
 

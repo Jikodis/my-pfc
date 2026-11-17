@@ -51,7 +51,7 @@ CHANGED="$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null)"
 
 # Paths that get mirrored to Trello. Order mirrors trello_render.py's _load_state.
 # task_events.ndjson is excluded — it's an append-only event log, not rendered.
-TRIGGER_PATTERN='^(1-values/values\.md|2-areas/_data/.+\.ndjson|2-areas/.+/statement\.md|3-visions/.+\.md|4-focus/_data/focus\.ndjson|5-projects/_data/projects\.ndjson|6-actions/_data/(tasks|tasks-archive|daily-focus)\.ndjson|7-habits/_data/habits-(daily|monthly)\.ndjson|data/(grounding|insights|findings|hypotheses|supplements|day-tracking)\.ndjson|config/habit_schema\.yaml)$'
+TRIGGER_PATTERN='^(1-values/values\.md|2-areas/_data/.+\.ndjson|2-areas/.+/statement\.md|3-visions/.+\.md|4-focus/_data/focus\.ndjson|5-projects/_data/projects\.ndjson|6-tasks/_data/(tasks|tasks-archive|daily-focus)\.ndjson|7-habits/_data/habits-(daily|monthly)\.ndjson|data/(grounding|insights|findings|hypotheses|supplements|day-tracking)\.ndjson|config/habit_schema\.yaml)$'
 
 if ! grep -qE "$TRIGGER_PATTERN" <<< "$CHANGED"; then
     exit 0

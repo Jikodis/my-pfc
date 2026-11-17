@@ -7,13 +7,13 @@ Folder-scoped operational rules for any agent reading or writing in `7-habits/`.
 | Path | Shape | Mutability |
 |---|---|---|
 | `_data/habits-daily.ndjson` | One entry per habit per day | Append-only — never rewrite an existing log entry |
-| `_data/habits-monthly.ndjson` | One entry per habit per month | Append-only |
+| `_data/habits-monthly.ndjson` | One entry per habit per rep date | Append-only |
 
 Definitions live in `config/habit_schema.yaml`.
 
 ## Hard rules
 
-1. **Pre-fill from health data, don't ask cold.** When today's day-tracking `health` block already answers a habit (e.g. a tracked workout in `health.workouts` for an exercise habit), present it pre-filled for a one-tap confirm in the check-in instead of asking blind. The habit log stays the source of truth — health data is a prompt, never an auto-write.
+1. **Pre-fill from health data, don't ask cold.** When today's day-tracking `health` block already answers a habit (e.g. a tracked workout in `health.workouts` for an exercise habit), present it pre-filled for a one-tap confirm in the check-in instead of asking blind. The habit log stays the source of truth — health data is a prompt, never an auto-write, except for the habits that log themselves (rules 10 and 11).
 
 2. **Unlogged = missed, in rate math.** In review and trend skills (habit-rate reviews, monthly habit reviews, trend analysis), a day inside the window with *no entry* for a habit counts as a **miss** — the same as `completed: false`. Recording is the user's job, and counting blanks against the rate is a deliberate accountability incentive: the alternative ("unlogged days don't count") lets a habit quietly stop being tracked while the rate stays flattering. Accept that the rate may skew slightly low as the price.
 
@@ -40,6 +40,10 @@ Definitions live in `config/habit_schema.yaml`.
 8. **Show only habits due today.** With a full roster of daily habits, listing all of them every night makes the check-in a chore, and degraded logging corrupts every derived focus light downstream. A habit at 1×/week appears at most once that week: on the night its landing anchor exists, or on the last night of the week if the week's rep is still owed. Habits at 5+/week appear nightly. A habit not shown is simply absent, and absence is already interpreted as a miss at compute time — never backfill a `completed: false` for a night it wasn't shown.
 
 9. **Retiring a habit — delete its Trello card too.** When you retire a habit (remove it from the active block in `config/habit_schema.yaml`, move it to `deprecated_habits`, keep the history), also delete that habit's card from the Trello board. The render does not auto-prune a card whose `pfc-id` no longer exists, so a retired habit's card lingers on the dashboard until removed by hand. Do it in the same change.
+
+10. **Auto-derived habits log themselves — never ask about them, never log them by hand.** A habit with `auto_derived: true` in `config/habit_schema.yaml` has a feed: the starter `sleep-on-time` habit from the wearable's sleep timing (`automations/scripts/derive_sleep_habit.py`, `source: "fitbit-derived"`, run by every health fetch; the starter schema ships with the flag set, so remove `auto_derived: true` from `sleep-on-time` if you have no wearable and log it by hand), and every habit with a `calendar: {match, exclude}` rule from the calendar cache (`automations/scripts/derive_calendar_habits.py`, `source: "calendar-derived"`). Leave them out of any habit set shown for confirmation. If the user reports one anyway, log it normally: a row from any other source wins over the derived one. The derivers rewrite only their own rows, the one exception to append-only in this folder.
+
+11. **Workout habits log themselves when the watch tracked the session, and still take a hand log.** A daily habit with a `workout: {types: [...], min_minutes: N}` rule is written by `automations/scripts/derive_workout_habits.py` (run by every health fetch, `source: "health-derived"`) for any date with a matching session in `health.workouts`. These habits are not `auto_derived`: when the user says they did it and there is no row yet (no watch, or the watch has not synced), log it normally, and their row wins. Do not ask "did you do it?" about a date that already has a derived row.
 
 ## Canonical query patterns
 

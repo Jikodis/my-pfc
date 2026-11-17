@@ -204,15 +204,19 @@ def _write_status(results):
     TMP_FILE.replace(FOCUS_FILE)
 
 
-def main():
-    today = date.today().isoformat()
-    results = compute(
-        _read_ndjson(FOCUS_FILE),
-        _read_ndjson(DAILY_FILE),
-        _read_ndjson(MONTHLY_FILE),
-        yaml.safe_load(SCHEMA_FILE.read_text()),
-        today,
+def status_rows(repo=REPO, today=None):
+    """Per-focus status rows computed from the files under `repo`."""
+    return compute(
+        _read_ndjson(repo / "4-focus/_data/focus.ndjson"),
+        _read_ndjson(repo / "7-habits/_data/habits-daily.ndjson"),
+        _read_ndjson(repo / "7-habits/_data/habits-monthly.ndjson"),
+        yaml.safe_load((repo / "config/habit_schema.yaml").read_text()),
+        today or date.today().isoformat(),
     )
+
+
+def main():
+    results = status_rows()
     if "--write" in sys.argv:
         _write_status(results)
     print(json.dumps(results, indent=2))

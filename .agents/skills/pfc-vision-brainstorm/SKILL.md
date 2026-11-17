@@ -5,7 +5,7 @@ description: Run or process a vision brainstorm — the free-form "dump everythi
 
 # Vision Brainstorm
 
-The brainstorm is the generative exercise upstream of the whole VAVFPAH chain — a no-judgment dump of everything the user wants to become, do, see, or have happen. Each idea is stored as one record in `3-visions/_data/vision-brainstorm.ndjson` so it carries a lifecycle (`raw → promoted / done / dropped`) and a lineage (`became` → the vision or project it graduated into). See [`../../../3-visions/README.md`](../../../3-visions/README.md) § Vision brainstorm.
+The brainstorm is the generative exercise upstream of the whole VAVFPTH chain — a no-judgment dump of everything the user wants to become, do, see, or have happen. Each idea is stored as one record in `3-visions/_data/vision-brainstorm.ndjson` so it carries a lifecycle (`raw → promoted / done / dropped`) and a lineage (`became` → the vision or project it graduated into). See [`../../../3-visions/README.md`](../../../3-visions/README.md) § Vision brainstorm.
 
 ## When to use
 

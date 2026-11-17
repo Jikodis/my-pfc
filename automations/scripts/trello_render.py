@@ -334,8 +334,8 @@ def load_repo_state():
         "areas": _load_areas(),
         "visions": _load_visions(),
         "projects": _read_ndjson("5-projects/_data/projects.ndjson"),
-        "tasks": _read_ndjson("6-actions/_data/tasks.ndjson"),
-        "daily_focus": _read_ndjson("6-actions/_data/daily-focus.ndjson"),
+        "tasks": _read_ndjson("6-tasks/_data/tasks.ndjson"),
+        "daily_focus": _read_ndjson("6-tasks/_data/daily-focus.ndjson"),
         "habits_daily": _read_ndjson("7-habits/_data/habits-daily.ndjson"),
         "habits_monthly": _read_ndjson("7-habits/_data/habits-monthly.ndjson"),
         "habit_schema": _load_habit_schema(),
@@ -707,7 +707,7 @@ def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None)
         cards.append(Card(
             pfc_id=t["id"],
             pfc_type="task",
-            list_name="✅ Actions",
+            list_name="✅ Tasks",
             name=formatted_name,
             body="\n".join(body_lines),
             label_names=_priority_plain_label(tier, plain_color_labels),
@@ -1478,7 +1478,7 @@ ALL_LIST_NAMES = [
     "🧭 Areas",  # life-wheel state surfaces as a plain-color label here, not a separate list
     "🔭 Visions",
     "🛠️ Projects",
-    "✅ Actions",
+    "✅ Tasks",
     "☀️ Daily Habits",
     "🌙 Monthly Habits",
     "💡 Insights",

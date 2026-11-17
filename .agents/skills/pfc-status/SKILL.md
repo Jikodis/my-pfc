@@ -13,12 +13,12 @@ This includes everything from /pfc-daily-summary PLUS the broader system state.
 
 ### 1. Life Wheel
 
-Read the most recent record from `2-areas/_data/life-wheel.ndjson`:
+Read the computed area lights: each area's items rolled up (`2-areas/_data/area-items.ndjson`), or its manual life-wheel light when no item has data:
 ```bash
-jq -c '.' 2-areas/_data/life-wheel.ndjson | tail -1
+python3 automations/scripts/area_items.py | jq -c '.plate, (.rows[] | {key, light, source, hours, note})'
 ```
 
-Display as a table (area | rating | notes). If the file is empty, say:
+Display as a table (area | light | hours a week | notes), red first, with the plate line above it (committed of free waking hours) when `plate` is not null. If there are no rows, say:
 
 "Life wheel has no ratings yet. The `life-wheel` rolling review surfaces it on its own cadence — or rate the areas now via `/pfc-review`."
 
@@ -34,11 +34,11 @@ For each active project:
 - Name, area, excitement level
 - Completion: `[======----] 60%` (completed_parts / total_parts)
 - Velocity: `X.X parts/wk → est <YYYY-MM-DD>` vs deadline; flag 🟢 (on or before deadline) · 🟡 (≤7 days late) · 🔴 (>7 days late). Calc: `parts_per_day = completed_parts / max(1, days_elapsed_since_started)`; `est_completion = today + ceil(remaining_parts / parts_per_day)` if `parts_per_day > 0`, else `—`.
-- Open task count: `grep -c '"project":"PROJECT_ID".*"status":"open"' 6-actions/_data/tasks.ndjson`
+- Open task count: `grep -c '"project":"PROJECT_ID".*"status":"open"' 6-tasks/_data/tasks.ndjson`
 
-Also show planned projects under "Pipeline":
+Also show on-deck projects (wanted next, not started) under "On deck":
 ```bash
-grep '"status":"planned"' 5-projects/_data/projects.ndjson
+grep '"status":"on-deck"' 5-projects/_data/projects.ndjson
 ```
 
 ### 3. Active Hypotheses
@@ -64,7 +64,7 @@ Same as /pfc-daily-summary section 4.
 ### 6. All Open Tasks
 
 ```bash
-jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson
+jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson
 ```
 
 **Two subsections. Never repeat a task across them.**
@@ -122,7 +122,7 @@ Show a table with columns: date | overall rating (as stars) | energy | focus | m
 ### 9. Daily Focus — Today
 
 ```bash
-grep "$(date +%Y-%m-%d)" 6-actions/_data/daily-focus.ndjson | tail -1
+grep "$(date +%Y-%m-%d)" 6-tasks/_data/daily-focus.ndjson | tail -1
 ```
 
 Show today's focus items if set, otherwise note it's not set.
@@ -131,8 +131,8 @@ Show today's focus items if set, otherwise note it's not set.
 
 Quick counts:
 ```bash
-TASKS=$(jq -c 'select(.status == "open")' 6-actions/_data/tasks.ndjson | wc -l)
-DONE_TASKS=$(jq -c 'select(.status == "done")' 6-actions/_data/tasks.ndjson | wc -l)
+TASKS=$(jq -c 'select(.status == "open")' 6-tasks/_data/tasks.ndjson | wc -l)
+DONE_TASKS=$(jq -c 'select(.status == "done")' 6-tasks/_data/tasks.ndjson | wc -l)
 PROJECTS_ACTIVE=$(jq -c 'select(.active == true)' 5-projects/_data/projects.ndjson | wc -l)
 HYPS_ACTIVE=$(jq -c 'select(.status == "active")' data/hypotheses.ndjson | wc -l)
 ```
