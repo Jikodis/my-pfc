@@ -1,0 +1,57 @@
+# AI News (automations/scripts/ai_news.py): which blogs to read, what to keep, the voice.
+# Reference: docs/ai-news.md. Secrets live in .env (GOOGLE_TTS_API_KEY,
+# AI_NEWS_FEED_SECRET, AI_NEWS_FEED_BASE_URL), never here.
+
+remarkable_folder: AI News      # the folder on the tablet the EPUBs go into
+voice: en-US-Chirp3-HD-Kore     # any Google Text-to-Speech voice name; try a few and pick yours
+monthly_char_cap: 950000        # stop audio for the month here (stay under your free allowance)
+audio_keep_days: 30             # MP3s older than this are deleted from the feed
+first_run_days: 14              # posts older than this are skipped without asking Claude
+max_attempts: 3                 # first try plus two retries, then logged as failed
+
+# Each source: id, name, method (rss | index), url. An `index` source collects links on
+# the page that match `link` (a regex on the path). Optional per source:
+#   kind: changelog      EPUB only, no audio
+#   audio: false         EPUB only, no audio
+#   weekly_cap: N        keep at most N posts a week from this blog, the best ranked
+#   folder: AI News/X    upload into this folder instead of remarkable_folder
+sources:
+  - id: anthropic-engineering
+    name: Anthropic Engineering
+    method: index
+    url: https://www.anthropic.com/engineering
+    link: '^/research/(?!team/)[A-Za-z0-9-]+$'   # the engineering page links its posts under /research/
+  - id: claude-code-whats-new
+    name: Claude Code what's new
+    method: rss
+    url: https://code.claude.com/docs/en/whats-new/rss.xml
+    kind: changelog
+  - id: openai-news
+    name: OpenAI News
+    method: rss
+    url: https://openai.com/news/rss.xml
+  - id: aws-ml
+    name: AWS Machine Learning blog
+    method: rss
+    url: https://aws.amazon.com/blogs/machine-learning/feed/
+    weekly_cap: 5               # a busy blog: keep only the most useful few a week
+
+# What Claude keeps. Write it for yourself: who you are as a reader and what helps you.
+criteria: |
+  The reader builds software with AI models. Keep a post only if it helps with that.
+
+  KEEP:
+  - How to build with models and agents: tools, memory, context, planning,
+    evaluation, multi-agent design, prompting.
+  - Engineering practice and research that changes how someone builds with models.
+  - Announcements of a new model, product, feature or API capability from the vendors
+    above.
+  - On the AWS blog: technical how-to and architecture posts about building generative
+    AI apps. Skip product walkthroughs, billing setup and infrastructure-only posts.
+
+  SKIP:
+  - Customer stories and case studies.
+  - Industry packaging that adds no new capability.
+  - Events, webinars, partner and pricing promotions.
+  - Policy, economics and society posts.
+  - Anything else that does not help someone building with AI.

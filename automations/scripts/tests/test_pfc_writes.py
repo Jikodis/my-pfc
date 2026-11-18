@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pfc_writes import (complete_task, drop_task, log_habit, rate_day, retire_anchor, set_parked, set_picks,
+from pfc_writes import (complete_task, drop_pick, drop_task, log_habit, rate_day, retire_anchor, set_parked, set_picks,
                         set_project, set_rating, skip_suggestion, stamp_review)
 
 TODAY = "2025-09-10"
@@ -441,3 +441,41 @@ def test_set_project_refuses_closed_projects_and_unknown_ids():
     assert set_project(rows, "x", False) == "closed"
     assert set_project(rows, "nope", True) == "unknown"
     assert rows[0]["status"] == "done"
+
+
+# ---------------------------------------------------------------- drop_pick
+
+def test_drop_pick_removes_a_critical_pick_and_skips_it_for_the_day():
+    focus = [_focus_day(critical=["task-1", "task-2"], bonus="task-3")]
+    assert drop_pick(focus, TODAY, "task-2") == "dropped"
+    assert focus[0]["critical"] == ["task-1"] and focus[0]["bonus"] == "task-3"
+    assert focus[0]["skipped"] == ["task-2"] and focus[0]["dropped"] == ["task-2"]
+
+
+def test_drop_pick_clears_the_bonus():
+    focus = [_focus_day(critical=["task-1"], bonus="task-3")]
+    assert drop_pick(focus, TODAY, "task-3") == "dropped"
+    assert focus[0]["bonus"] is None and focus[0]["bonus_completed"] is False
+
+
+def test_drop_pick_clears_the_project_slot():
+    focus = [{**_focus_day(critical=["task-1"]), "project": "task-9", "project_completed": False}]
+    assert drop_pick(focus, TODAY, "task-9") == "dropped"
+    assert "project" not in focus[0] and "project_completed" not in focus[0]
+
+
+def test_drop_pick_leaves_a_done_pick_alone():
+    focus = [_focus_day(critical=["task-1"], completed=["task-1"])]
+    assert drop_pick(focus, TODAY, "task-1") == "unknown"
+    assert focus[0]["critical"] == ["task-1"]
+
+
+def test_drop_pick_a_task_dropped_once_and_picked_again_stays():
+    focus = [{**_focus_day(critical=["task-1"]), "skipped": ["task-1"], "dropped": ["task-1"]}]
+    assert drop_pick(focus, TODAY, "task-1") == "unchanged"
+    assert focus[0]["critical"] == ["task-1"]
+
+
+def test_drop_pick_unknown_day_or_task():
+    assert drop_pick([], TODAY, "task-1") == "unknown"
+    assert drop_pick([_focus_day(critical=["task-1"])], TODAY, "task-2") == "unknown"

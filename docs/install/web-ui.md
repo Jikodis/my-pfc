@@ -70,7 +70,7 @@ Every button runs one `web_write.py` action. The writer refuses unless the repo 
 | `complete-task`, `drop-task` | `6-tasks/_data/tasks.ndjson`, `task_events.ndjson`, the day's `daily-focus.ndjson` record (a dropped task that was ever picked or skipped moves to `tasks-archive.ndjson`) |
 | `log-habit` (today or up to 7 days back) | `7-habits/_data/habits-daily.ndjson` or `habits-monthly.ndjson`, one row per habit and date |
 | `rate-day` (today or yesterday) | `data/day-tracking.ndjson`: energy, mood, focus, the derived `rating`, optional `hyperfocused` |
-| `set-picks`, `skip-suggestion` (today or tomorrow) | `6-tasks/_data/daily-focus.ndjson`: the 2+1, and `skipped` for suggestions you turned down |
+| `set-picks`, `skip-suggestion`, `drop-pick` (today or tomorrow) | `6-tasks/_data/daily-focus.ndjson`: the 2+1, `skipped` for suggestions you turned down, and `dropped` for a pick swapped out (`drop-pick` has no button: the reMarkable swap box uses it) |
 | `park-focus` | `4-focus/_data/focus.ndjson` `parked` |
 | `set-area`, `set-room` | a new snapshot in `2-areas/_data/life-wheel.ndjson` or `household-status.ndjson` |
 | `retire-anchor` | `data/grounding.ndjson` |

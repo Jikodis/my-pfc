@@ -9,6 +9,7 @@
     python3 automations/scripts/web_write.py [--dry-run] [--no-render] set-picks <YYYY-MM-DD> <task_id>... [bonus:<task_id>]
     python3 automations/scripts/web_write.py [--dry-run] [--no-render] stamp-review <review_id>
     python3 automations/scripts/web_write.py [--dry-run] [--no-render] skip-suggestion <YYYY-MM-DD> <task_id>
+    python3 automations/scripts/web_write.py [--dry-run] [--no-render] drop-pick <YYYY-MM-DD> <task_id>
     python3 automations/scripts/web_write.py [--dry-run] [--no-render] review-seen <review_id> <row_id>...
     python3 automations/scripts/web_write.py [--dry-run] [--no-render] set-area <area_key> green|yellow|red [note:<text>]
     python3 automations/scripts/web_write.py [--dry-run] [--no-render] set-room <room_key> green|yellow|red [note:<text>]
@@ -93,7 +94,7 @@ import repo_sync  # noqa: E402
 from ndjson_file import ChangedUnderneath, NdjsonFile as _NdjsonFile  # noqa: E402
 from pfc_writes import (LOG_WINDOW_DAYS, complete_task, drop_task, log_habit, rate_day, retire_anchor,  # noqa: E402
                         set_parked, set_picks, set_project, set_rating, skip_suggestion, stamp_review,
-                        mark_review_seen)
+                        mark_review_seen, drop_pick)
 from trmnl_push import load_env, today_local  # noqa: E402
 from home_data import _label  # noqa: E402
 from web_data import habit_title  # noqa: E402
@@ -156,7 +157,7 @@ WEB_LOG = Path(os.environ.get("PFC_WEB_LOG") or "/tmp/pfc-web.log")
 USAGE = ("Usage: web_write.py [--dry-run] [--no-render] complete-task <id> | drop-task <id> | log-habit <id> [YYYY-MM-DD] "
          "| park-focus <id> on|off | rate-day <YYYY-MM-DD> <energy 1-5> <mood 1-5> <focus 1-5> [hyper:yes|no] "
          "| set-picks <YYYY-MM-DD> <task_id>... [bonus:<task_id>] | stamp-review <review_id> "
-         "| skip-suggestion <YYYY-MM-DD> <task_id> | review-seen <review_id> <row_id>... | set-area <key> green|yellow|red [note:<text>] "
+         "| skip-suggestion <YYYY-MM-DD> <task_id> | drop-pick <YYYY-MM-DD> <task_id> | review-seen <review_id> <row_id>... | set-area <key> green|yellow|red [note:<text>] "
          "| set-room <key> green|yellow|red [note:<text>] | retire-anchor <ground_id> | set-project <proj_id> active|parked")
 
 
@@ -406,6 +407,29 @@ def plan_skip_suggestion(day: str, task_id: str, today: str) -> dict:
     }
 
 
+def plan_drop_pick(day: str, task_id: str, today: str) -> dict:
+    """Take a task out of a day's 2+1 (the reMarkable Today page's swap box):
+    `pfc_writes.drop_pick`. The task stays open."""
+    tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
+    _asked_day(day, (today, tomorrow), "A pick can be swapped for today or tomorrow only.")
+    tasks, daily = NdjsonFile(TASKS), NdjsonFile(DAILY_FOCUS)
+    task = next((t for t in tasks.records if t.get("id") == task_id), None)
+    if task is None:
+        raise Stop(2, "not_found", "No task with that id.")
+    status = drop_pick(daily.records, day, task_id)
+    if status == "unknown":
+        raise Stop(2, "not_found", "That task is not an open pick that day.")
+    title = task.get("description") or ""
+    return {
+        "files": [daily],
+        "title": title,
+        "email_linked": False,
+        "subject": f"focus: drop pick {_one_line(title)}",
+        "unchanged": "Already swapped out that day." if status == "unchanged" else None,
+        "saved": "Swapped out.",
+    }
+
+
 def now_local(env: dict) -> tuple[str, str]:
     """(local date, `logged_at`) from one reading of the clock, so the two never straddle midnight.
     `logged_at` is the local time with a colon offset, like the existing rating rows."""
@@ -542,7 +566,7 @@ def parse(argv: list[str]) -> tuple[dict, str, str, list[str]]:
     action, args = rest[0], rest[1:]
     shapes = {"complete-task": (TASK_ID, 1), "drop-task": (TASK_ID, 1), "log-habit": (HABIT_ID, 1), "park-focus": (FOCUS_ID, 2),
               "rate-day": (DAY, None), "set-picks": (DAY, None), "stamp-review": (HABIT_ID, 1),
-              "skip-suggestion": (DAY, None), "review-seen": (HABIT_ID, None), "set-area": (RATING_KEY, None), "set-room": (RATING_KEY, None),
+              "skip-suggestion": (DAY, None), "drop-pick": (DAY, None), "review-seen": (HABIT_ID, None), "set-area": (RATING_KEY, None), "set-room": (RATING_KEY, None),
               "retire-anchor": (GROUND_ID, 1), "set-project": (PROJECT_ID, 2)}
     if action not in shapes:
         raise Stop(2, "bad_request", USAGE)
@@ -551,7 +575,7 @@ def parse(argv: list[str]) -> tuple[dict, str, str, list[str]]:
         _check_rate_day(args)
     elif action == "set-picks":
         _check_set_picks(args)
-    elif action == "skip-suggestion":
+    elif action in ("skip-suggestion", "drop-pick"):
         _check_skip_suggestion(args)
     elif action == "review-seen":
         if len(args) < 2 or not all(ROW_ID.fullmatch(a) for a in args[1:]):
@@ -858,6 +882,8 @@ def run(argv: list[str]) -> tuple[int, dict]:
             return plan_stamp_review(record_id, today)
         if action == "skip-suggestion":
             return plan_skip_suggestion(record_id, extra[0], today)
+        if action == "drop-pick":
+            return plan_drop_pick(record_id, extra[0], today)
         if action == "review-seen":
             return plan_review_seen(record_id, list(extra))
         if action in ("set-area", "set-room"):

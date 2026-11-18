@@ -141,6 +141,17 @@ These define the line between SIMPLE (batch-eligible) and COMPLEX (defer to one-
 
 When in doubt between SIMPLE and COMPLEX, classify as COMPLEX — the cost of a one-card walk is small; the cost of misrouting in a batch is silent data drift.
 
+## Cards from the reMarkable
+
+With the optional reMarkable pages ([`docs/remarkable.md`](../../../docs/remarkable.md)), handwritten notes arrive here too, read by Claude from the tablet, so expect misread words and `[?]` where a word could not be read. Their shapes:
+
+- `From the <page> page: <note>` (a page's note box or free writing on it): read the note in that page's context. On the Today page "make reading 20 minutes" means the habit; on This quarter a line naming a project is a progress update for it.
+- `Note on task "<title>" (<task id>): <note>`: a change to that task (a new deadline, a correction, "call first"). Apply it to the named task.
+- `Also written on the <page> page: …`: stray handwriting; usually COMPLEX.
+- The card's description starts `From the reMarkable` and may list the agent's recent replies on that page. A note that answers one of them (a question a review asked) is the answer: apply it to the record the question was about.
+
+A misread note is COMPLEX: ask, never guess.
+
 ## Behavioral rules
 
 - **No hardcoded routing taxonomy.** Your normal skill-detection handles each title. The lists in classification heuristics are illustrative, not exhaustive — pattern-match by intent, not by exact wording.
@@ -152,4 +163,4 @@ When in doubt between SIMPLE and COMPLEX, classify as COMPLEX — the cost of a 
 
 ## Out of scope
 
-Card descriptions, attachments, audio, labels, multiple boards, background fetch, archive (cards are deleted, not archived).
+Card descriptions (except a reMarkable card's, above), attachments, audio, labels, multiple boards, background fetch, archive (cards are deleted, not archived).

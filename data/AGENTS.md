@@ -14,6 +14,7 @@ Folder-scoped operational rules for any agent reading or writing in `data/`. Cro
 | `grounding.ndjson` | One Front-of-Mind topic per line | Mutable (status → `retired`, `retired_date`) |
 | `review-ledger.ndjson` | One rolling-review item per line | Mutable (`last_done` stamped on engagement) |
 | `revive-events.ndjson` | One revive intervention per line | Append; `outcome` updated in place later |
+| `ai-news.ndjson` | One blog post per line: `{url, source, title, published, decided, decision: keep\|skip\|null, reason, status: done\|skipped\|failed, partial, epub, mp3, seconds, mp3_error}` | Append only, by `automations/scripts/ai_news.py` (daily timer). See `docs/ai-news.md` |
 | `health-raw/` | One gzipped JSON per day | Written by the health fetch; not NDJSON, not validated |
 | `.jq_update.tmp` | Temp file | Should NEVER persist between operations |
 

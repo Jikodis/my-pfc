@@ -1,0 +1,12 @@
+[Unit]
+Description=PFC — AI News daily at 5:30 AM
+Documentation=__REPO_URL__
+
+[Timer]
+# Early, so new episodes are in the podcast app and new EPUBs on the tablet by morning.
+OnCalendar=*-*-* 05:30:00 __LOCAL_TZ__
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

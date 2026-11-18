@@ -17,6 +17,7 @@
 #      - daily habit count ≤ 14 (config/habit_schema.yaml cap)
 #  12. config/onboarding.ndjson schema (feature pattern, status enum, date format)
 #  17. 2-areas/_data/area-items.ndjson + area-checkins.ndjson (config/area_item_schema.yaml)
+#  18. data/ai-news.ndjson (docs/ai-news.md): url, source, status and decision enums
 #
 # Usage: scripts/validate.sh
 # Exit 0 on success, 1 on any failure. Safe to run as a pre-commit hook.
@@ -31,7 +32,7 @@ fail() { echo "  ✗ $*" >&2; FAIL=1; }
 ok()   { echo "  ✓ $*"; }
 
 # ── 1. NDJSON parse ───────────────────────────────────────────────────────────
-echo "[1/17] NDJSON parse validation"
+echo "[1/18] NDJSON parse validation"
 for f in data/*.ndjson 2-areas/_data/*.ndjson 3-visions/_data/*.ndjson 4-focus/_data/*.ndjson 5-projects/_data/*.ndjson 6-tasks/_data/*.ndjson 7-habits/_data/*.ndjson; do
   [ -s "$f" ] || { ok "$(basename "$f") (empty)"; continue; }
   if ! jq -e . "$f" >/dev/null 2>&1; then
@@ -42,7 +43,7 @@ for f in data/*.ndjson 2-areas/_data/*.ndjson 3-visions/_data/*.ndjson 4-focus/_
 done
 
 # ── 2. Skill frontmatter ──────────────────────────────────────────────────────
-echo "[2/17] Skill frontmatter lint"
+echo "[2/18] Skill frontmatter lint"
 for dir in .agents/skills/*/; do
   skill_name=$(basename "$dir")
   f="${dir}SKILL.md"
@@ -68,7 +69,7 @@ for dir in .agents/skills/*/; do
 done
 
 # ── 3. tasks.ndjson schema ────────────────────────────────────────────────────
-echo "[3/17] tasks.ndjson schema"
+echo "[3/18] tasks.ndjson schema"
 TASKS=6-tasks/_data/tasks.ndjson
 if [ -s "$TASKS" ]; then
   bad=$(jq -c '
@@ -100,7 +101,7 @@ if [ -s "$TASKS" ]; then
 fi
 
 # ── 4. habit logs: declared ids, and one row per habit per date ───────────────
-echo "[4/17] habit logs (declared habit_ids, no duplicate rows)"
+echo "[4/18] habit logs (declared habit_ids, no duplicate rows)"
 HABITS=7-habits/_data/habits-daily.ndjson
 SCHEMA=config/habit_schema.yaml
 if [ -s "$HABITS" ] && [ -f "$SCHEMA" ]; then
@@ -159,7 +160,7 @@ for f in 7-habits/_data/habits-daily.ndjson 7-habits/_data/habits-monthly.ndjson
 done
 
 # ── 5. projects.ndjson schema ─────────────────────────────────────────────────
-echo "[5/17] projects.ndjson schema"
+echo "[5/18] projects.ndjson schema"
 PROJECTS=5-projects/_data/projects.ndjson
 if [ -s "$PROJECTS" ]; then
   bad=$(jq -c '
@@ -193,7 +194,7 @@ if [ -s "$PROJECTS" ]; then
 fi
 
 # ── 6. Cross-file integrity ──────────────────────────────────────────────────
-echo "[6/17] Cross-file integrity"
+echo "[6/18] Cross-file integrity"
 
 FOCUS=6-tasks/_data/daily-focus.ndjson
 ARCHIVE=6-tasks/_data/tasks-archive.ndjson
@@ -361,7 +362,7 @@ if [ -f "$PERSONA_CFG" ] && [ -f "$PERSONA_REG" ]; then
 fi
 
 # ── 7. findings.ndjson schema + cross-file ─────────────────────────────────────
-echo "[7/17] findings.ndjson schema + cross-file"
+echo "[7/18] findings.ndjson schema + cross-file"
 FINDINGS=data/findings.ndjson
 if [ -s "$FINDINGS" ]; then
   bad=$(jq -c '
@@ -426,7 +427,7 @@ else
 fi
 
 # ── 8. supplements.ndjson schema ──────────────────────────────────────────────
-echo "[8/17] supplements.ndjson schema"
+echo "[8/18] supplements.ndjson schema"
 SUPP=data/supplements.ndjson
 if [ -s "$SUPP" ]; then
   bad=$(jq -c '
@@ -458,7 +459,7 @@ else
 fi
 
 # ── 9. insights.ndjson schema ─────────────────────────────────────────────────
-echo "[9/17] insights.ndjson schema"
+echo "[9/18] insights.ndjson schema"
 INSIGHTS=data/insights.ndjson
 if [ -s "$INSIGHTS" ]; then
   bad=$(jq -c '
@@ -499,7 +500,7 @@ else
 fi
 
 # ── 10. Future-dated date-stamped fields (UTC vs local slip detection) ───────
-echo "[10/17] No future-dated records (catches UTC vs local-tz date slips)"
+echo "[10/18] No future-dated records (catches UTC vs local-tz date slips)"
 LOCAL_TZ="${LOCAL_TZ:-America/Denver}"
 TODAY_MT=$(TZ="$LOCAL_TZ" date '+%Y-%m-%d')
 
@@ -620,7 +621,7 @@ if [ -s data/hypotheses.ndjson ]; then
 fi
 
 # ── 11. hypotheses.ndjson schema ──────────────────────────────────────────────
-echo "[11/17] hypotheses.ndjson schema"
+echo "[11/18] hypotheses.ndjson schema"
 HYP=data/hypotheses.ndjson
 if [ -s "$HYP" ]; then
   bad=$(jq -c '
@@ -646,7 +647,7 @@ else
 fi
 
 # ── 12. config/onboarding.ndjson schema ───────────────────────────────────────
-echo "[12/17] config/onboarding.ndjson schema"
+echo "[12/18] config/onboarding.ndjson schema"
 ONBOARDING=config/onboarding.ndjson
 if [ ! -f "$ONBOARDING" ]; then
   ok "onboarding.ndjson (not present — skipping)"
@@ -670,7 +671,7 @@ else
 fi
 
 # ── 13. revive-events.ndjson schema + cross-ref ───────────────────────────────
-echo "[13/17] revive-events.ndjson schema"
+echo "[13/18] revive-events.ndjson schema"
 REVIVE=data/revive-events.ndjson
 if [ ! -s "$REVIVE" ]; then
   ok "revive-events.ndjson (empty)"
@@ -708,7 +709,7 @@ else
 fi
 
 # ── 14. focus.ndjson schema + cross-refs ──────────────────────────────────────
-echo "[14/17] focus.ndjson schema"
+echo "[14/18] focus.ndjson schema"
 FOCUS_FILE=4-focus/_data/focus.ndjson
 if [ ! -s "$FOCUS_FILE" ]; then
   ok "focus.ndjson (empty)"
@@ -789,7 +790,7 @@ else
 fi
 
 # ── 15. review-ledger.ndjson schema ───────────────────────────────────────────
-echo "[15/17] review-ledger.ndjson schema"
+echo "[15/18] review-ledger.ndjson schema"
 LEDGER=data/review-ledger.ndjson
 if [ ! -s "$LEDGER" ]; then
   ok "review-ledger.ndjson (empty)"
@@ -808,7 +809,7 @@ else
 fi
 
 # ── 16. grounding.ndjson schema ───────────────────────────────────────────────
-echo "[16/17] grounding.ndjson schema"
+echo "[16/18] grounding.ndjson schema"
 GROUNDING=data/grounding.ndjson
 if [ ! -s "$GROUNDING" ]; then
   ok "grounding.ndjson (empty)"
@@ -826,7 +827,7 @@ else
 fi
 
 # ── 17. area-items.ndjson + area-checkins.ndjson (config/area_item_schema.yaml) ─
-echo "[17/17] area items and check-ins"
+echo "[17/18] area items and check-ins"
 ITEMS=2-areas/_data/area-items.ndjson
 CHECKINS=2-areas/_data/area-checkins.ndjson
 if [ ! -s "$ITEMS" ]; then
@@ -880,6 +881,22 @@ if [ -s "$CHECKINS" ]; then
   dangling=$(jq -r '.item_id' "$CHECKINS" | sort -u | comm -23 - <(echo "$item_ids"))
   [ -n "$dangling" ] && fail "area-checkins.ndjson — item_id not in area-items.ndjson: $(echo "$dangling" | tr '\n' ',')" \
     || ok "area-checkins.ndjson — all item_ids resolve"
+fi
+
+# ── 18. ai-news.ndjson ───────────────────────────────────────────────────────
+echo "[18/18] ai-news.ndjson schema"
+AINEWS=data/ai-news.ndjson
+if [ -s "$AINEWS" ]; then
+  bad=$(jq -r 'select(
+      ((.url // "") == "") or ((.source // "") == "")
+      or (.status // "" | IN("done","skipped","failed") | not)
+      or ((.decision // null) != null and (.decision | IN("keep","skip") | not))
+      or (.decided // "" | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$") | not)
+    ) | .url // "?"' "$AINEWS")
+  [ -n "$bad" ] && { while IFS= read -r r; do fail "ai-news.ndjson — record $r violates the shape in docs/data-model.md"; done <<< "$bad"; } \
+    || ok "ai-news.ndjson ($(wc -l <"$AINEWS" | tr -d ' ') records conform)"
+else
+  ok "ai-news.ndjson (empty or absent)"
 fi
 
 echo

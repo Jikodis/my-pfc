@@ -25,6 +25,7 @@ export const HOME_DATA = [
 /** Not on any page. Findings, hypotheses and insights are agent-only. */
 export const AGENT_ONLY_DATA = [
   '3-visions/_data/vision-brainstorm.ndjson',
+  'data/ai-news.ndjson',
   'data/findings.ndjson',
   'data/hypotheses.ndjson',
   'data/insights.ndjson',

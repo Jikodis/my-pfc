@@ -23,8 +23,24 @@ UNITS=(
     pfc-trello-daily-render.timer
     pfc-repo-sync.service
     pfc-repo-sync.timer
+    pfc-remarkable-sync.service
+    pfc-remarkable-sync.timer
+    pfc-ai-news.service
+    pfc-ai-news.timer
     pfc-trmnl-serve.service
 )
+
+# Opt-in timers: installed always (so the reconcile pass below keeps them), started only
+# when .env turns them on, because each one runs headless Claude and needs a device or
+# API key. reMarkable pages: PFC_REMARKABLE_SYNC=1 (docs/remarkable.md). AI News:
+# PFC_AI_NEWS=1 (docs/ai-news.md).
+opt_in_flag() {
+    case "$1" in
+        pfc-remarkable-sync.timer) echo PFC_REMARKABLE_SYNC ;;
+        pfc-ai-news.timer) echo PFC_AI_NEWS ;;
+        *) echo "" ;;
+    esac
+}
 
 REPO_URL="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null | sed -E 's#git@github.com:#https://github.com/#; s#\.git$##' || true)"
 if [ -z "$REPO_URL" ]; then
@@ -89,6 +105,12 @@ echo "==> Daemon reloaded"
 for unit in "${UNITS[@]}"; do
     case "$unit" in
         *.timer)
+            flag="$(opt_in_flag "$unit")"
+            if [ -n "$flag" ] && [ -z "$(grep -E "^${flag}=1" "$REPO_ROOT/.env" 2>/dev/null || true)" ]; then
+                systemctl --user disable --now "$unit" 2>/dev/null || true
+                echo "==> Skipping $unit — set ${flag}=1 in .env to turn it on"
+                continue
+            fi
             systemctl --user enable --now "$unit"
             echo "==> $unit enabled and started"
             ;;
