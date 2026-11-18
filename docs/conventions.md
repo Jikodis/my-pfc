@@ -19,7 +19,7 @@ Format: `task-YYYYMMDD-NNN`
 - One JSON object per line, no trailing commas
 - Append-only for event logs (`task_events.ndjson`, `day-tracking.ndjson`, `daily-focus.ndjson`, habit logs)
 - Mutable in place for state stores (`tasks.ndjson`, `projects.ndjson`, `supplements.ndjson`, `hypotheses.ndjson`)
-- All writes go through `jq` — never raw string concatenation, `echo >>` of raw JSON, or `sed` for structured edits. See AGENTS.md "Task operations" for the canonical jq patterns.
+- All writes go through `jq`, never raw string concatenation, `echo >>` of raw JSON, or `sed` for structured edits. See [`6-tasks/AGENTS.md`](../6-tasks/AGENTS.md) "Canonical query patterns" for the jq patterns.
 - Never read entire NDJSON files into Claude's context — query with `jq`.
 
 ## Markdown frontmatter

@@ -23,7 +23,7 @@ flowchart TD
     VIS --> FOC
     AREA -. focus with no vision above it .-> FOC
 
-    subgraph FOC["🎯 FOCUS — horizon: A QUARTER · 🟢 going / 🟡 easing / 🔴 paused"]
+    subgraph FOC["🎯 FOCUS · horizon: A QUARTER · 🟢 ≥70% / 🟡 40 to 69% / 🔴 not happening · 🅿️ parked"]
       direction TB
       T1["🧱 Foundations — always-on keystones (~4)"]
       T2["🎯 Active Pursuits — this quarter's push (max 6)"]
@@ -66,7 +66,7 @@ Everything you *commit to doing* (as opposed to direction or criteria) lives in 
 
 Above these sit Values, Areas, and Visions — criteria and direction, deliberately *ungauged* (a vision has no deadline and cannot "slip"). Below them sit tasks — execution detail, gauged only through the 2+1.
 
-Two recovery surfaces read all three gauges together, so an off-track intention can't hide in a layer nobody is watching: the optional web home page's **Focuses, Projects and Habits bands**, mirrored by the TRMNL screens and Trello lists of the same names (the whole set, ambient; project velocity and days idle from `automations/scripts/project_gauges.py`, the one home of both rules), and the **evening check-in's back-on-track step** (one re-entry step per night, from the item's landing anchor).
+Two recovery surfaces read all three gauges together, so an off-track intention can't hide in a layer nobody is watching: the optional web home page's **Focuses, Projects and Habits bands**, mirrored by the TRMNL screens, Trello lists and reMarkable pages that show the same bands (the whole set, ambient; project velocity and days idle from `automations/scripts/project_gauges.py`, the one home of both rules), and the **evening check-in's back-on-track step** (one re-entry step per night, from the item's landing anchor).
 
 **The don't-multiply-concepts guard:** when adding any new commitment type, gauge, or surface, first name which of the three layers it belongs to. If it fits none, it is probably a new concept the system doesn't need.
 
@@ -82,7 +82,7 @@ flowchart LR
       D4["Trickle Current Focus → set tomorrow's 2+1"]
     end
     subgraph REV["🔁 ROLLING REVIEWS — folded into the evening"]
-      R1["Ledger drips ≤2/night · /pfc-review clears the backlog<br/>weekly · monthly · quarterly items"]
+      R1["Ledger drips ≤2/night · /pfc-review shows one at a time<br/>weekly · monthly · quarterly items"]
     end
     subgraph YEAR["🎆 YEARLY — Visions + Values"]
       Y1["Yearly check-in · big direction"]
@@ -95,7 +95,7 @@ flowchart LR
 | Cadence | What happens | Which layer it touches |
 |---|---|---|
 | **Daily (the evening spine)** | Evening check-in: rate + log today · log habits · rolling reviews (≤2 due) · trickle Focus · set tomorrow's 2+1 | Habits + today's Focus |
-| **Rolling reviews** | Ledger (`data/review-ledger.ndjson`) drips ≤2 due items per evening; `/pfc-review` clears the backlog. Weekly items (stale-task triage, focus accuracy…), monthly (life wheel, project progress, vision activation…), quarterly (re-pick Focuses, vision brainstorm, strengths). | Focus · Visions · monthly Habits |
+| **Rolling reviews** | Ledger (`data/review-ledger.ndjson`) drips ≤2 due items per evening; `/pfc-review` (and the web `/review` page) shows one due review at a time as a form. Weekly items (stale-task triage, focus accuracy…), monthly (life wheel, project progress, vision activation…), quarterly (re-pick Focuses, vision brainstorm, strengths). | Focus · Visions · monthly Habits |
 | **Yearly** | Yearly check-in · big direction | Visions + Values |
 
 Daily *reminds*; the quarterly Focus re-pick (a rolling-review item) *decides*.
@@ -114,5 +114,6 @@ Tiers are horizontal bands by *role*; each focus is also tagged by its Area (the
 
 - **Front of Mind** (`data/grounding.ndjson` → `🧠 Front of mind` Trello list) — critical psychological anchors to stay grounded in. A sibling to Current Focus, different job.
 - **Journal / area notes** (`2-areas/**`) — impromptu, daily-as-needed capture. Not scheduled.
+- **Area items** (`2-areas/`): Time and Status items per area that compute the area's green, yellow or red light; answered in the `life-wheel` review. Rules: [`2-areas/AGENTS.md`](../2-areas/AGENTS.md).
 - **Insights / Hypotheses / Findings** (`data/`) — the self-experimentation knowledge layer.
 - **Day tracking** (`data/day-tracking.ndjson`) — the daily metrics feeding trend analysis.
