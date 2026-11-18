@@ -1,0 +1,28 @@
+<div class="layout layout--col layout--top">
+  <div class="col gap--large stretch-x">
+    {% if today_title != "" %}
+      <div class="flex flex--col flex--left gap--small">
+        <span class="label lg:label--large">Today's vision</span>
+        <span class="title title--xlarge lg:title--xxlarge" data-clamp="2">{{ today_title }}</span>
+        {% if today_value != "" %}<span class="title title--small lg:title--base">serves {{ today_value }}</span>{% endif %}
+      </div>
+    {% endif %}
+    {% if others.size > 0 %}
+      <div class="flex flex--col flex--left gap--small w--full">
+        <span class="label lg:label--large">{% if today_title != "" %}The other {{ others.size }}{% else %}{{ count }} active visions{% endif %}</span>
+        <div class="grid grid--cols-2 gap--small w--full">
+          {% for v in others %}
+            <span class="label lg:label--large" data-clamp="1">{{ v }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    {% elsif count == 0 %}
+      <span class="title title--base">No active visions.</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
+</div>

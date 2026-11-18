@@ -27,7 +27,7 @@ description: Log daily or monthly habit completion. Use when the user says "did 
 6. Commit and push: `git add 7-habits/_data/habits-*.ndjson && git commit -m "habit: log YYYY-MM-DD" && git push`
 7. **Refresh Trello dashboard** (fail-safe)
 
-   If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the habit's status on `☀️ Daily Habits` / `🌙 Monthly Habits` reflects the new log.
+   If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the habit's status on `☀️ Habits` reflects the new log.
 
    ```bash
    python3 automations/scripts/trello_render.py 2>&1

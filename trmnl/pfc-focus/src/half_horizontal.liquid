@@ -1,19 +1,18 @@
-<div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="2">
-    <div class="column">
-      {% for item in pursuits %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
-          </div>
-        </div>
+<div class="layout layout--col layout--top">
+  <div class="grid w--full">
+    <div class="col col--span-3">
+      <span class="value value--large">{{ red }} of {{ live }}</span>
+      <span class="label">live focuses are red</span>
+    </div>
+    <div class="col col--span-9 gap--xsmall">
+      {% for tier in tiers %}
+        <span class="label" data-clamp="1"><span class="text--bold">{{ tier.label }}:</span> {% for f in tier.rows %}{{ f.title }}{% unless forloop.last %}, {% endunless %}{% endfor %}{% if tier.green > 0 %} ({{ tier.green }} going){% endif %}</span>
       {% endfor %}
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Current Focus</span>
-  <span class="instance">{{ quarter }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

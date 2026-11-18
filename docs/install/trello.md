@@ -1,6 +1,6 @@
 # Trello dashboard install guide
 
-The Trello dashboard renders your entire PFC system — front-of-mind anchors, your daily pulse, current focus, values, areas, visions, projects, today's 2+1, all open actions, daily/monthly habits, recent day ratings, the calendar week, insights, findings, hypotheses, and supplements — onto a single board you can glance at from your phone. Two-way completion sync lets you mark tasks and habits done directly from an Android home-screen widget. For any profile where "externalize state" matters (ADHD, autism, low story memory), this visual layer is the highest-leverage upgrade you can make after the core system is running.
+The Trello dashboard renders your PFC system — the same bands as the web home page, in the same order (body first, today's 2+1, habits, the week, focuses, projects, trends, areas, values, visions, front-of-mind anchors), plus every open task — onto a single board you can glance at from your phone. Two-way completion sync lets you mark tasks and habits done directly from an Android home-screen widget. For any profile where "externalize state" matters (ADHD, autism, low story memory), this visual layer is the highest-leverage upgrade you can make after the core system is running.
 
 **Tier:** 2 unlock. Do the [Tier 1 quickstart](../../README.md) first. This setup takes ~15–20 minutes and requires a Trello account.
 
@@ -10,7 +10,7 @@ The Trello dashboard renders your entire PFC system — front-of-mind anchors, y
 
 - Trello account (free tier is sufficient — no paid subscription required).
 - Tier 1 quickstart complete: `.env` exists, `python3` dependencies installed, at least one checkin has run successfully.
-- Optional but recommended: the Calendar integration already set up (`docs/install/connectors.md`). The `🗓️ Week at a Glance` list degrades gracefully without it, but lands much better when it's live. (Email has no dashboard list — labeled emails become tasks via `/pfc-email-triage` and show up as ordinary Action cards.)
+- Optional but recommended: the Calendar integration already set up (`docs/install/connectors.md`). The `🗓️ Week` list degrades gracefully without it, but lands much better when it's live. (Email has no dashboard list — labeled emails become tasks via `/pfc-email-triage` and show up as ordinary task cards.)
 
 ---
 
@@ -18,32 +18,25 @@ The Trello dashboard renders your entire PFC system — front-of-mind anchors, y
 
 Create one board in Trello. It will host both the `📥 Inbox` capture list and all the read-only dashboard lists.
 
-**Recommended initial list set** (create these in order — the render skill creates any missing lists at the bottom, but starting with the right names saves a rename pass):
+**Lists.** Create only `📥 Inbox` by hand. The render creates every other list and keeps them in the web home page's order, right after `📥 Inbox`:
 
-| # | List name | What it holds |
-|---|-----------|---------------|
-| 1 | `📥 Inbox` | Capture — never touched by the render |
-| 2 | `🧠 Front of Mind` | Grounding anchors from `data/grounding.ndjson` |
-| 3 | `🦸 Superman Pulse` | Your daily levers + a verdict card |
-| 4 | `🎯 Current Focus` | This quarter's focus set, traffic-lit |
-| 5 | `✅ 2+1` | Today's two-plus-one picks |
-| 6 | `⬅ Last 7 Days` | Recent day ratings |
-| 7 | `🗓️ Week at a Glance` | Calendar, recurring events filtered out |
-| 8 | `💎 Values` | |
-| 9 | `🧭 Areas` | Life-wheel state shows as a colored label here |
-| 10 | `🔭 Visions` | |
-| 11 | `🛠️ Projects` | |
-| 12 | `✅ Tasks` | Standalone tasks only |
-| 13 | `☀️ Daily Habits` | |
-| 14 | `🌙 Monthly Habits` | |
-| 15 | `💡 Insights` | |
-| 16 | `📜 Findings` | |
-| 17 | `🧪 Hypothesis` | |
-| 18 | `💊 Supplements` | |
+| # | List | What it holds |
+|---|------|---------------|
+| 1 | `📥 Inbox` | Your captures (never touched by the render) |
+| 2 | `🦸 Body first` | The `🤖 Brief`, last night's sleep against target, the day's rating card while it is unrated |
+| 3 | `✅ The 2+1` | Today's picks (tick to complete, archive to drop), tomorrow's picks in the evening, then one card with what needs you, why today, and hand-offs |
+| 4 | `☀️ Habits` | Daily then monthly habits (tick to log) |
+| 5 | `🗓️ Week` | One card per day of the next seven |
+| 6 | `🎯 Focuses` | This quarter's focuses with their lights |
+| 7 | `🛠️ Projects` | Active projects with their gauges, then parked and on deck |
+| 8 | `📈 Trends` | The last 30 days |
+| 9 | `🧭 Areas` | The plate, each life area, then the household rooms |
+| 10 | `💎 Values` | Your values and the question of the day |
+| 11 | `🔭 Visions` | Today's vision, then each vision |
+| 12 | `🧠 Front of mind` | Your grounding anchors |
+| 13 | `✅ Tasks` | Every open task in rotation, in priority order (tick to complete) |
 
-One more list shape appears automatically: a `🎯 <Project name>` list per **active** project, holding that project's open backlog so it doesn't drown `✅ Tasks`. These are created and archived by the render as projects go active and inactive — don't create them by hand.
-
-The emoji prefix convention is recommended for visual disambiguation — you can rename or reorder lists freely after creation. The render skill matches by name, so if you rename a list it will create a new one at the bottom on the next render; just delete the old one.
+The render matches lists by name and moves them back into this order when they drift. A list it does not name stays where you put it. Coming from an older layout, archive the old lists once (`docs/trello-dashboard.md` names them) or run `--rebuild`.
 
 ---
 
@@ -138,18 +131,17 @@ Place these on whichever home screen you actually look at. You do not need all o
 |---|---|---|
 | Board (whole dashboard) | One-tap launcher; full system glance | Opens the board in the Trello app |
 | List: `📥 Inbox` | Voice-dictated capture from anywhere | Add a card via `+`; processed later by `/pfc-trello-inbox` |
-| List: `✅ 2+1` | Today's focus tasks at a glance | Tick the checkbox to complete; next checkin pulls it into the repo |
-| List: `☀️ Daily Habits` | Daily habit-tracker view | Tick off habits; next checkin or render syncs the log |
-| List: `🌙 Monthly Habits` | Monthly habit view | Tick off habits the same way |
+| List: `🦸 Body first` | Last night against target, and the day's rating card | Tick one number in each of Energy, Mood and Focus; the next sync saves the rating |
+| List: `✅ The 2+1` | Today's focus tasks at a glance | Tick the checkbox to complete; archive a card to drop that pick |
+| List: `☀️ Habits` | Daily and monthly habits | Tick off habits; the next sync or render pulls the log in |
 | List: `🛠️ Projects` | Quick project-status read-out (% complete in titles) | View only — full editing happens in repo via skills |
-| List: `🗓️ Week at a Glance` | Upcoming calendar week — **recurring events auto-filtered** so the list shows only one-off appointments | View only — adjust via your real calendar app |
-| List: `🧠 Front of Mind` | The handful of things you most need to keep in view | View only |
-| List: `🦸 Superman Pulse` | Whether last night set you up for a good day, and tonight's one move | View only |
-| List: `⬅ Last 7 Days` | Recent day ratings — quick "how has the week felt?" | View only |
+| List: `🗓️ Week` | The next seven days, one card per day (PFC scaffolding and known weekly patterns filtered out) | View only — adjust via your real calendar app |
+| List: `🧠 Front of mind` | The handful of things you most need to keep in view | View only |
+| List: `✅ Tasks` | Every open task, priority first | Tick the checkbox to complete |
 
 ### Why interactive lists matter
 
-Marking a 2+1 task or a daily habit complete from the widget (one tap) is the difference between "I'll log it when I'm at my computer" and "I logged it the instant I did it." The two-way sync built into `pfc-evening-checkin` pulls those completions back into the canonical NDJSON files — no manual reconciliation needed.
+Marking a 2+1 task or a daily habit complete from the widget (one tap) is the difference between "I'll log it when I'm at my computer" and "I logged it the instant I did it." The two-way sync built into `pfc-evening-checkin` (and the optional morning daily sync job, [`daily-sync.md`](daily-sync.md)) pulls those completions back into the canonical NDJSON files — no manual reconciliation needed.
 
 ### iOS
 
@@ -171,7 +163,10 @@ After setting up a widget, mark a habit or 2+1 task complete from the home scree
 `pfc-evening-checkin` includes Trello sync steps that fire automatically when `TRELLO_DASHBOARD_BOARD_ID` is set. Nothing further to configure.
 
 - Start of the check-in: any `dueComplete: true` card you ticked from the widget triggers the matching task completion or habit log in the repo.
-- End of the check-in: tomorrow's 2+1 picks move from `✅ Tasks` to `✅ 2+1`, uncompleted cards move back, and the whole board re-renders.
+- End of the check-in: the whole board re-renders, so `✅ The 2+1` shows the picks the day's `daily-focus.ndjson` record holds (tomorrow's from 6 PM on) and an unfinished pick returns to `✅ Tasks`.
+- Every sync also saves the `🦸 Body first` rating card once each list has one tick, drops a pick whose `✅ The 2+1` card you archived, and, before 6 PM on a day with no picks, sets the home page's suggestions as the 2+1. Those three commit and push their own file.
+- Optional: the daily sync job runs the same sync each morning, so ticks reach the repo on days you skip the check-in ([`daily-sync.md`](daily-sync.md), `PFC_DAILY_SYNC=1`).
+- Every web UI write re-renders the board afterward, so `✅ The 2+1` follows the picks set on the home page.
 - A `post-commit` git hook re-renders the board whenever a mirrored file is committed outside a skill — see `.githooks/post-commit`. Install it with `cp .githooks/* .git/hooks/ && chmod +x .git/hooks/{pre,post}-commit`.
 - Fail-safe: any Trello API error logs 🟡 and the check-in continues — Trello state never blocks the workflow.
 
@@ -218,9 +213,9 @@ The `📥 Inbox` list is hard-excluded from both operations — capture cards ar
 | `401 Unauthorized` on first render | Key/token mismatch or stale token | Re-mint the token from the same Power-Up admin page as the key; they must be a matched pair |
 | "API Secret" pasted as token | Wrong field — secret is unused | Re-read Step 2; copy the value from the **Token** link, not the API Secret field |
 | `List not found` error | Board was recreated or list ID is from a different board | Re-run the Step 3 curl chain and update `TRELLO_INBOX_LIST_ID` and `TRELLO_DASHBOARD_BOARD_ID` in `.env` |
-| `🗓️ Week at a Glance` renders empty | Calendar integration not set up | Expected graceful degradation — see `docs/install/connectors.md` to add Calendar |
-| `🧠 Front of Mind` renders empty | `data/grounding.ndjson` has no `active` records | Expected — add anchors, or leave the list empty until you have one |
-| `🦸 Superman Pulse` renders empty | No day-tracking record has a `health.sleep_hours` value yet | Expected until a wearable integration or a manual entry fills it in |
-| Cards appear on wrong list after rename | Render creates a new list on name mismatch | Delete the mismatched old list; the new one is correct |
+| `🗓️ Week` renders empty | Calendar integration not set up | Expected graceful degradation — see `docs/install/connectors.md` to add Calendar |
+| `🧠 Front of mind` renders empty | `data/grounding.ndjson` has no `active` records | Expected — add anchors, or leave the list empty until you have one |
+| `🦸 Body first` shows `No sleep reading yet.` | No day-tracking record has a `health.sleep_hours` value yet | Expected until a wearable integration or a manual entry fills it in |
+| A list appears twice after a rename | The render creates a list it names when no list has that name | Archive the renamed copy; the render's list is the one it fills |
 | Check-in fails with a Trello error | API key expired or network issue | Error is logged 🟡 and the check-in continues; fix the key/token and re-render manually |
 | `post-commit` hook never renders | Hook can't see the `TRELLO_*` vars | The hook reads them out of `.env` itself — confirm `.env` sits at the repo root and the three vars are spelled exactly as in `.env.example` |

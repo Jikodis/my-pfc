@@ -172,6 +172,10 @@ export type Home = {
   offer_open_day: boolean
   /** The one thing Python says to look at (a stale life wheel, a red focus, a stalled project), shown under What needs you, or null. */
   tour_look: { kind: 'stale_areas' | 'red_focus' | 'stalled_project'; title: string; detail: string; date: string | null } | null
+  /** Last finished run of the daily sync (scripts/daily-sync.sh), from the last DONE line of its log. `last_run` is local ISO time. */
+  daily_sync: { last_run: string | null; ok: boolean | null; stale: boolean }
+  /** The sync failed, went stale, or never ran: Python's call, so the page lists it under What needs you. */
+  sync_needs_look: boolean
 }
 
 /** How long a script gets before it is killed. Overridable so a test can use a short one. */

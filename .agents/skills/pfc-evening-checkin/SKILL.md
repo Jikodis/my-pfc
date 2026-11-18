@@ -87,7 +87,7 @@ Output is a JSON counters block (`tasks_completed`, `habits_logged`, etc.). On e
 
 If `TRELLO_DASHBOARD_BOARD_ID` is not set in `.env`, skip this step.
 
-(The `move-back-uncompleted` and `render` halves of the Trello dance run later in Step 4b, after the day record is written.)
+(The render half runs later in Step 4b, after the day record is written.)
 
 ---
 
@@ -473,17 +473,11 @@ jq -cn \
 
 ## Step 4b — Refresh Trello dashboard (fail-safe)
 
-The completion-pull half of the Trello sync already ran in **Step 0b**. This step handles the post-record half: move uncompleted 2+1 cards back to ✅ Tasks, then re-render so the board reflects today's writes.
+The completion-pull half of the Trello sync already ran in **Step 0b**. This step re-renders so the board reflects today's writes. No card is moved by hand: `✅ The 2+1` is rendered from the day's `daily-focus.ndjson` record, so tomorrow's picks show up there and an unfinished pick returns to `✅ Tasks` on the next render.
 
 **This step is fail-safe:** any error here is logged but does not block the commit step. If Trello is down, the check-in still records normally.
 
-1. Move any uncompleted 2+1 cards back to ✅ Tasks for tomorrow:
-   ```bash
-   python3 automations/scripts/trello_writeback.py move-back-uncompleted 2>&1
-   ```
-   On error: print `🟡 Trello move failed (non-blocking): <error>` and continue.
-
-2. **Fetch Calendar, then render.** The evening check-in is the only daily loop, so it owns the daily refresh of the one calendar-fed list (`🗓️ Week at a Glance`) — the bare render skips that list, and no cron or git hook can reach the calendar connector. This mirrors `pfc-render-trello` Step 1; follow it for the exact JSON shape.
+1. **Fetch Calendar, then render.** A live session is the only place that can reach the calendar connector, so the check-in refreshes the one calendar-fed list (`🗓️ Week`) and its cache, `data/calendar-cache.json`, which every bare render, the web Week band and the TRMNL week screen read (the optional daily sync job also refreshes the cache each morning). This mirrors `pfc-render-trello` Step 1; follow it for the exact JSON shape and the cache write.
 
    a. **Calendar** — `mcp__claude_ai_Google_Calendar__list_events` on the in-scope calendars for the next 7 days from `$TARGET_DATE`, excluding the out-of-scope calendars listed in `docs/calendar-scheduling.md`. **Preserve `recurringEventId`** (the renderer uses it to drop recurring noise). Save to `/tmp/pfc-calendar-events.json`. If the calendar connector is unavailable, skip the fetch — the render then skips that list with a 🟡.
 
@@ -496,7 +490,7 @@ The completion-pull half of the Trello sync already ran in **Step 0b**. This ste
 
    On any error (calendar fetch OR render): print `🟡 Trello render failed (non-blocking): <error>` and continue. A missed calendar fetch just leaves that list stale until the next render.
 
-3. If `TRELLO_DASHBOARD_BOARD_ID` is NOT set, skip this step entirely.
+2. If `TRELLO_DASHBOARD_BOARD_ID` is NOT set, skip this step entirely.
 
 ---
 

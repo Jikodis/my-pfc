@@ -1,0 +1,23 @@
+---
+strategy: polling
+no_screen_padding: 'no'
+dark_mode: 'no'
+static_data:
+polling_verb: get
+framework_version:
+serverless_language:
+polling_body:
+# `id:` is assigned by your FIRST `trmnlp push` — paste the returned id here so
+# later pushes update this plugin instead of creating a new one. Leave the
+# polling URL and headers in the TRMNL UI: the header carries a bearer token and
+# `trmnlp push` would round-trip it into this file.
+name: PFC Values
+refresh_interval: 15
+# `trmnlp lint` refuses a plugin with no author contact method. Point github_url
+# at your own repo.
+custom_fields:
+- keyname: about
+  name: About This Plugin
+  field_type: author_bio
+  description: Private PFC dashboard screen, built from your PFC repo.
+  github_url: https://github.com/your-github-user/your-pfc

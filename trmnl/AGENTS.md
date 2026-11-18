@@ -25,6 +25,9 @@ device:
 - No emoji anywhere in markup — e-ink has no emoji font, they render as empty boxes.
   Use text markers (`[x]` / `[ ]`) instead.
 - Content `<img>` needs `class="image image-dither"` or it renders washed out.
+- A status light is a shape plus the word: square RED, triangle YELLOW, circle GREEN. Render
+  it with the `status_shape` template (inline SVG) copied from `pfc-areas/src/shared.liquid`;
+  the payload keeps the plain word so Liquid comparisons still work.
 - Never wrap markup in `<div class="view view--*">` — the platform adds that wrapper.
 - Use `trmnl.com` URLs, never `usetrmnl.com`.
 
@@ -61,24 +64,27 @@ responsive prefixes (`lg:value--giga`, `lg:title--base`) are the lever for using
 extra room. Author the base classes for 800x480 and add `lg:` variants where bigger
 genuinely helps.
 
-## The design bar — fill the screen, earn the slot
+## The design bar — read like the web band, earn the slot
 
 Every plugin, existing or new, is held to these:
 
-- **A full view that leaves more than about a third of the screen blank is not done.**
-  Fix it by enriching the data (raise builder caps until the screen is used),
-  poster-sizing the type, or adding a second column — never by shipping the blank.
+- **Each screen reads like its web band: less, not more.** One headline first (the
+  band's verdict or count, e.g. "0 of 4 daily habits logged today"), then only the
+  rows that need a look, worst first, with everything green or on target folded into
+  a count, the way the page folds it into a `<details>`. Cap rows in the builder
+  (`*_ROWS` in `trmnl_home.py`) and count the rest ("N more"). Use the page's wording.
+- **Blank space is fine; crowding is not.** Fill a sparse screen with bigger type
+  (poster sizing), never with extra rows or columns of detail the band does not show.
 - **`lg:` bumps are mandatory, not optional.** Every full view carries `lg:` variants
   one type tier up (`label lg:label--large`, `title--small lg:title--base`,
   `value--large lg:value--xxlarge`). Base classes alone render small type on a large
   panel.
 - **Sparse-by-nature content gets the poster treatment.** When a screen's data is
-  naturally 1–6 short lines (compass, learned, front-of-mind), render it centered with
-  size-tiered type (`_text_size` / `_text_size_lg` in `trmnl_push.py`) instead of a
-  small list in a corner.
-- **Never truncate while the screen has blank space.** Short clips (40–60 chars) and
-  `data-clamp="1"` belong to quadrant/half views. Full views get long clips
-  (90–150 chars) and 2–3-line clamps sized to the actual room.
+  naturally 1–6 short lines (values, trends, front-of-mind), render it centered
+  with large type (`title--xlarge`, `value--xxlarge`) instead of a small list in a
+  corner.
+- **Keep a status shape out of a `data-clamp` span.** The clamp engine hides the
+  inline SVG; put the shape in its own span beside the clamped text.
 - **A screen must earn its playlist slot.** It has to change day to day — a static
   screen goes invisible within a couple of days — and answer a question you actually
   ask. If the live data can't fill it usefully (one stale list, all-identical rows),
@@ -119,14 +125,15 @@ keep it as the fallback, not the default.
 **A change to repo data or its display rules must update every screen that shows it, in
 the same session.** Before finishing any change to a data file, schema, or a rendering
 rule (a new field, a new sort order, a merged/retired record, a changed status
-vocabulary), grep `trmnl_push.py` for the data file and check whether a builder reads
-it. If one does, update the builder and its views too — and read the rendered PNG.
+vocabulary), grep `home_data.py` and `trmnl_home.py` for the data file and check
+whether a builder reads it. If one does, update the builder and its views too — and read the rendered PNG.
 This is the same obligation the Trello render has; the difference is that Trello
 re-renders itself from a post-commit hook and TRMNL does not, so a stale screen is
 silent. The screens drift first because nobody is looking at them while the change is
 being made.
 
-**Every plugin needs a payload builder registered in `BUILDERS` in `trmnl_push.py`.**
+**Every plugin needs a payload builder (in `trmnl_home.py`) registered in `BUILDERS`
+in `trmnl_push.py`.**
 Both transports read that same registry, so a plugin folder with no builder is
 half-built — the display will never update. After adding one, restart the endpoint
 (`systemctl --user restart pfc-trmnl-serve`) so it loads the new code.
@@ -161,12 +168,25 @@ trmnl/bin/preview <plugin> --serve    # same, then live reload at http://localho
 not layout that overflows, collapses, or centers when it should be left-aligned. Read
 `_build/<view>.png` and check it.
 
-**The full loop can run on a small server — a workstation is not required.** Data
-refresh, lint, 4-bit PNG render, and `trmnlp push` all work on a 1 GB VPS *if it has
-swap*: the `--png` step runs headless Chrome in the container and needs roughly 500 MB
-free, so add a 2 GB swap file and expect the render to be slow (a couple of minutes;
-first run longer while the image downloads), not broken. If a render fails, check free
-swap before blaming the container.
+**Most of the loop runs on a small server, but the PNG render often will not.** Data
+refresh, lint, and `trmnlp push` all work on a 1 GB VPS, so plugin development can
+happen from Claude Code anywhere. The `--png` step is the exception: it runs headless
+Chrome in the container, and Chrome has to load the page inside a hard-coded 5-second
+Selenium wait (`Selenium::WebDriver::Error::TimeoutError: timed out after 5 seconds`).
+Once the box is swapping it cannot, and retrying does not change that; swap does not
+make it fit.
+
+So when the PNG step fails:
+
+1. Check `free -m` **first**. Under about 300 MB available, the render will not
+   succeed. Stop retrying: it is a resource wall, not a flake.
+2. Fall back to reading `_build/<view>.html`. It is written before the screenshot step,
+   so it exists even on failure, and it verifies structure, real data, and class names,
+   everything except visual layout.
+3. **Say plainly that layout is unverified.** `trmnlp lint` checks rules, not emptiness
+   or overflow. "Lint passed" is not "I looked at it."
+4. Render on a machine with real memory when layout matters, or push and look at the
+   device.
 
 The underlying commands, if you need them individually: `trmnl_push.py <plugin> --local`
 writes sample data, then `bin/trmnlp lint` / `build --png --color-depth 4` / `serve`
@@ -183,6 +203,13 @@ actually sends.
   stale server copy fails silently: every poll still returns 200 while the screen
   renders empty loops. End any markup-editing session with a push, or say explicitly
   that the push is pending. `/pfc-repo-maintenance` diffs server vs repo as a backstop.
+- **`bin/trmnlp` runs the container with `--pull always`.** On a nearly full disk the
+  pull dies with `no space left on device` before anything renders. The cached image
+  still works: run `podman run --rm -i --pull never` (or the docker equivalent) with
+  the same volumes and arguments the wrapper uses.
+- **A PNG with serif text, no title bar, or a blank page is a failed render, not bad
+  markup.** Under memory pressure the screenshot fires before the framework CSS or its
+  font loads. Check `_build/<view>.html`, then render again.
 - **`trmnlp push` prompts for confirmation and dies on EOF in non-interactive runs.**
   Pipe the answer: `echo y | ../bin/trmnlp push`.
 - **`.env` values with shell metacharacters must be single-quoted.** `bin/preview` and
@@ -210,10 +237,16 @@ actually sends.
    `polling_headers` out of the file — they are set in the TRMNL UI, because the header
    carries a bearer token and `trmnlp push` would round-trip it through the repo. Leave
    `id:` out too until a first push assigns one.
-3. Register a payload builder in `trmnl_push.py` — **data first, before any markup.**
+3. Write the payload builder in `trmnl_home.py` and register it in `BUILDERS` in
+   `trmnl_push.py` — **data first, before any markup.**
 4. `trmnl/bin/preview <plugin>`, then read the PNGs.
 5. `trmnlp push` the markup. Create the plugin in the TRMNL UI pointing at
    `https://<your-endpoint>/p/<plugin>` with the bearer header, then restart the
    endpoint so it picks up the new builder:
    `systemctl --user restart pfc-trmnl-serve`.
 6. Add the plugin to the tables in `docs/trmnl-plugins.md` and `trmnl/README.md`.
+
+**One screen per web band.** The screens mirror the home page's bands in its order,
+built in `automations/scripts/trmnl_home.py` from `home_data.build_home`, the same
+call the page makes. Do not compute a number for a screen that the page does not
+show; add it to `home_data.py` so both surfaces get it.

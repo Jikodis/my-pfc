@@ -1,40 +1,18 @@
-{% if poster %}
-  <div class="layout layout--col layout--center gap">
-    {% for anchor in anchors %}
-      <span class="value value--{{ anchor.text_size }} lg:value--{{ anchor.text_size_lg }}" data-clamp="4">{{ anchor.title }}</span>
-      {% if anchor.area != "" %}
-        <span class="label label--small label--gray">{{ anchor.area }}</span>
+<div class="layout layout--col layout--center">
+  <div class="flex flex--col flex--center-x gap--xlarge w--full">
+    {% for a in anchors %}
+      {% if poster %}
+        <span class="title title--large lg:title--xlarge text--center" data-clamp="2">{{ a }}</span>
+      {% else %}
+        <span class="title title--small lg:title--base" data-clamp="1">{{ a }}</span>
       {% endif %}
     {% else %}
-      <span class="value value--large lg:value--xlarge">No anchors captured yet.</span>
-      <span class="label label--small label--gray">Add one to data/grounding.ndjson</span>
+      <span class="title title--base text--center">No active anchors.</span>
     {% endfor %}
   </div>
-{% else %}
-  <div class="layout layout--col gap">
-    <div class="col gap--small">
-      <div class="columns" data-overflow-max-cols="2">
-        <div class="column">
-          {% for anchor in anchors %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">{{ forloop.index }}</span>
-              </div>
-              <div class="content">
-                <span class="title title--small lg:title--base" data-clamp="2">{{ anchor.title }}</span>
-                {% if anchor.area != "" %}
-                  <span class="label label--small label--gray">{{ anchor.area }}</span>
-                {% endif %}
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  </div>
-{% endif %}
+</div>
 
 <div class="title_bar">
-  <span class="title">Front of Mind</span>
-  <span class="instance">{{ count }} anchor{% if count != 1 %}s{% endif %}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

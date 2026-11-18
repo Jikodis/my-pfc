@@ -1,56 +1,17 @@
-<div class="layout layout--col gap--small">
-  <div class="grid">
-    <div class="col col--span-8">
-      <div class="columns" data-overflow-max-cols="1">
-        <div class="column">
-          {% for task in critical %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">{{ forloop.index }}</span>
-              </div>
-              <div class="content">
-                <span class="label" data-clamp="1">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
-              </div>
-            </div>
-          {% else %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label label--gray">No 2+1 set for today</span>
-              </div>
-            </div>
-          {% endfor %}
-          {% if bonus %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">+</span>
-              </div>
-              <div class="content">
-                <span class="label" data-clamp="1">{% if bonus.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ bonus.title }}</span>
-              </div>
-            </div>
-          {% endif %}
-        </div>
+<div class="layout layout--col layout--top">
+  <div class="grid w--full">
+    {% for p in picks limit: 3 %}
+      <div class="col col--span-4 gap--xsmall">
+        <span class="label">{{ p.kind }}{% if p.done %} - done{% endif %}</span>
+        <span class="title title--small{% if p.done %} text--gray-50{% endif %}" data-clamp="3">{{ p.title }}</span>
       </div>
-    </div>
-
-    <div class="col col--span-4">
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          {% if last_rating %}
-            <span class="value value--large">{{ last_rating }}/5</span>
-            <span class="label label--small">Last day rating</span>
-          {% else %}
-            <span class="label label--small label--gray">No rating logged</span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
+    {% else %}
+      <div class="col col--span-12"><span class="title title--small">{{ picks_note }}</span></div>
+    {% endfor %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">{{ weekday }}</span>
-  <span class="instance">2+1</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

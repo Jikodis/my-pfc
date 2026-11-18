@@ -1,17 +1,15 @@
-<div class="layout layout--col gap--small">
-  <div class="col gap--xsmall">
-    {% for area in attention %}
-      <span class="label" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
-    {% else %}
-      <span class="label">Every area is green.</span>
+<div class="layout layout--col layout--top">
+  <div class="col gap--small stretch-x">
+    {% if plate %}<span class="label">{% render "status_shape", status: plate.status %} {{ plate.committed }} of {{ plate.free }} free hours committed</span>{% endif %}
+    <span class="title title--small">Life wheel - {{ green }} of {{ count }} green</span>
+    {% for r in rows %}
+      <span class="label">{% render "status_shape", status: r.status %} {{ r.status }} {{ r.label }}</span>
     {% endfor %}
-    {% if greens > 0 %}
-      <span class="label label--small label--gray">{{ greens }} areas green</span>
-    {% endif %}
+    {% if rooms_count > 0 %}<span class="label">Household: {{ rooms_green }} of {{ rooms_count }} rooms green</span>{% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Areas</span>
-  <span class="instance">rated {{ rated }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

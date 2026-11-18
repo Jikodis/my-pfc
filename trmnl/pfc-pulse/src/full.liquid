@@ -1,47 +1,52 @@
-<div class="layout layout--col gap">
-  <div class="grid">
-    <div class="col col--span-7 gap--small">
-      <span class="title title--small lg:title--base">{{ verdict_mark }} - {{ verdict }}</span>
-      <div class="columns" data-overflow-max-cols="1">
-        <div class="column">
-          {% for lever in levers %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label lg:label--large" data-clamp="2">{{ lever.mark }} - {{ lever.label }}: {{ lever.value }} (target {{ lever.target }})</span>
-              </div>
-            </div>
-          {% else %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label label--gray">No day-tracking data yet</span>
-              </div>
-            </div>
-          {% endfor %}
+<div class="layout layout--col layout--top">
+  <div class="grid w--full">
+    <div class="col col--span-5 gap--medium">
+      <div class="flex flex--row flex--left gap--small">
+        {% render "status_chip", status: verdict_status, size: "lg:label--large" %}
+        {% if broken_night %}<span class="label label--filled lg:label--large">Broken night</span>{% endif %}
+      </div>
+      <span class="title title--large lg:title--xlarge" data-clamp="3">{{ verdict }}</span>
+      {% if move != "" %}<span class="label lg:label--large" data-clamp="3">Tonight: {{ move }}</span>{% endif %}
+      <div class="grid grid--cols-3">
+        <div class="flex flex--col flex--left">
+          <span class="value value--small lg:value--base">{{ sleep }}</span>
+          <span class="label lg:label--large">slept</span>
+        </div>
+        <div class="flex flex--col flex--left">
+          <span class="value value--small lg:value--base">{% if awake != "" %}{{ awake }}{% else %}-{% endif %}</span>
+          <span class="label lg:label--large">awake</span>
+        </div>
+        <div class="flex flex--col flex--left">
+          <span class="value value--small lg:value--base">{{ exercise }}</span>
+          <span class="label lg:label--large">{{ exercise_label }} today</span>
         </div>
       </div>
     </div>
-
-    <div class="col col--span-5 gap--small">
-      <span class="title title--small lg:title--base">Tonight's one move</span>
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          <span class="label lg:label--large" data-clamp="4">{{ move }}</span>
-        </div>
-      </div>
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          <span class="label lg:label--large" data-clamp="1">{% if exercise_done %}[x]{% else %}[ ]{% endif %} {{ exercise_label }}: {{ exercise_text }}</span>
-        </div>
-      </div>
+    <div class="col col--span-7 gap--medium">
+      <span class="title title--small lg:title--base">Last night against target</span>
+      {% if has_levers %}
+        {% for lever in levers %}
+          <div class="flex flex--col flex--left gap--xsmall w--full">
+            <div class="flex flex--row flex--between w--full">
+              <div class="flex flex--row flex--left gap--small">
+                {% render "status_chip", status: lever.status, size: "lg:label--large" %}
+                <span class="title title--small lg:title--base">{{ lever.label }}</span>
+              </div>
+              <span class="value value--xsmall lg:value--small">{{ lever.value }}</span>
+            </div>
+            <span class="label lg:label--large">target {{ lever.target }}{% if lever.month != "" %} - on target {{ lever.month }} nights{% endif %}</span>
+          </div>
+        {% endfor %}
+        {% if levers_more > 0 %}<span class="label lg:label--large">{{ levers_more }} more off target</span>{% endif %}
+        <span class="label lg:label--large">{% render "status_shape", status: "GREEN" %} {{ on_target }} on target last night</span>
+      {% else %}
+        <span class="title title--small lg:title--base">No sleep reading yet.</span>
+      {% endif %}
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Daily Pulse</span>
+  <span class="title">{{ title }}</span>
   <span class="instance">{{ date }}</span>
 </div>

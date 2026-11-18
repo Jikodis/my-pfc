@@ -12,8 +12,9 @@ Documentation=__REPO_URL__
 # numbers) or too late. Retrying catches the sync within 30 minutes of whenever
 # it happens.
 #
-# The extra firings cost almost nothing: auto_fetch_health.py exits without
-# writing when the health block is unchanged, so a no-op pass produces no commit,
+# The extra firings cost almost nothing: when the health block is unchanged,
+# auto_fetch_health.py commits nothing (the refreshed raw archive of a day in
+# progress is put back to its committed copy), so a no-op pass produces no commit,
 # no push, and no dashboard render. Providers also sometimes revise a night's
 # numbers an hour later — retrying picks that correction up too.
 #

@@ -1,9 +1,28 @@
 {%- comment -%}
-PFC Week — Week at a Glance from data/calendar-cache.json (written by whatever
-fetches your calendar; the builder has no connector access of its own).
-Recurring events are dropped, mirroring the Trello Week list. `stale` flags a
-cache older than ~26 hours; the fetch stamp is always shown so a stale wall is
-self-evident.
+PFC Week - mirrors the Week band of the web home page (`/`): seven days from today,
+"Today" first, at most three events a day with the rest counted ("N more"), the same
+fold the page uses. Built from `home_data.build_home` (`trmnl_home.week_payload`), so
+the wall and the page show the same events.
 
-E-ink rules: no emoji, no inline styles — framework classes only.
+E-ink rules: no emoji, no inline styles, framework classes only. A light is a shape
+plus a word (`status_shape`): square RED, triangle YELLOW, circle GREEN; `status_chip`
+fills RED and outlines YELLOW so the rows that need a look stand out.
 {%- endcomment -%}
+{% template status_shape %}
+{%- if status == "RED" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="currentColor"/></svg>
+{%- elsif status == "YELLOW" -%}
+<svg width="0.8em" height="0.8em" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,11 0.5,11" fill="currentColor"/></svg>
+{%- elsif status == "GREEN" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="currentColor"/></svg>
+{%- endif -%}
+{% endtemplate %}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- endif -%}
+{% endtemplate %}

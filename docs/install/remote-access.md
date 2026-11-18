@@ -67,7 +67,7 @@ Once enabled, two solid options:
 - **Gboard voice** — tap the mic in Gboard, speak, text lands in the terminal. Free, ships with the phone, decent transcription.
 - **Wispr Flow** (**recommended**) — paid voice keyboard with substantially better transcription, especially for technical terms, names, and run-on dictation. Worth the cost if you do a lot of phone-driven Claude Code work.
 
-For PFC-heavy mobile use — running `/pfc-trello-inbox`, dictating long descriptions or insights, evening check-in reflections — Wispr Flow noticeably reduces the "fix the transcript" overhead vs. Gboard voice.
+For PFC-heavy mobile use — running `/pfc-trello-inbox`, dictating long descriptions, insights or journal entries — Wispr Flow noticeably reduces the "fix the transcript" overhead vs. Gboard voice.
 
 **Caveat:** "Experimental" is in the name for a reason. Terminal interaction through an IME isn't friction-free — autocomplete suggestions may appear, arrow/tab escape sequences can land oddly, and some quirks are model-dependent. Leave it on for chat-style Claude Code prompts; toggle it off if you need precise terminal editing (`vi`, complex shell pipelines).
 
@@ -119,7 +119,7 @@ The pattern that drops the friction of "ugh I'm on my phone, I don't want to dea
 
 1. **Capture from phone via Trello widget** when away from the laptop (`docs/install/trello.md`).
 2. **Process the inbox via Remote Control** when convenient: open Claude on the phone → say `/pfc-trello-inbox` → approve the proposed actions.
-3. **Run morning- and evening-checkin from either Remote Control or Termius**, whichever surface is closer. Both hit the same tmux session.
+3. **Run any `pfc-*` skill from either Remote Control or Termius**, whichever surface is closer. Both hit the same tmux session.
 4. **Use Termius for anything terminal-heavy** — debugging, log reading, manual edits.
 
 ---

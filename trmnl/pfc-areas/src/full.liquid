@@ -1,42 +1,42 @@
-<div class="layout layout--col gap">
-  <div class="grid">
-    <div class="col col--span-7 gap--small">
-      <span class="title title--small lg:title--base">Needs attention</span>
-      {% for area in attention %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label lg:label--large" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
-            {% if area.note != "" %}
-              <span class="label label--small lg:label--base label--gray" data-clamp="2">{{ area.note }}</span>
-            {% endif %}
-          </div>
+<div class="layout layout--col layout--top">
+  <div class="col gap--medium stretch-x">
+    {% if plate %}
+      <div class="flex flex--col flex--left gap--xsmall w--full">
+        <div class="flex flex--row flex--left gap--small">
+          {% render "status_chip", status: plate.status, size: "lg:label--large" %}
+          <span class="value value--small lg:value--base">{{ plate.committed }} of {{ plate.free }}</span>
+          <span class="label lg:label--large">free waking hours a week committed{% if plate.pct %} - {{ plate.pct }}%{% endif %}</span>
         </div>
-      {% else %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label lg:label--large">Every area is green.</span>
+        {% if plate.pct %}
+          <div class="progress-bar progress-bar--small w--full">
+            <div class="track"><div class="fill w--[{{ plate.pct }}cqw]"></div></div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
-
-    <div class="col col--span-5 gap--small">
-      <span class="title title--small lg:title--base">Holding</span>
-      {% for area in holding %}
-        <span class="label lg:label--large" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
-      {% else %}
-        <span class="label label--gray">No green areas</span>
-      {% endfor %}
-      {% if stale %}
-        <span class="label label--small label--gray">Wheel is stale - re-rate it</span>
-      {% endif %}
+        {% endif %}
+      </div>
+    {% endif %}
+    <div class="grid w--full">
+      <div class="col col--span-8 gap--small">
+        <span class="title title--small lg:title--base">Life wheel - {{ green }} of {{ count }} green - {{ checked }}{% if stale %} - stale{% endif %}</span>
+        {% for r in rows %}
+          <div class="flex flex--row flex--left gap--small">
+            {% render "status_chip", status: r.status, size: "lg:label--large" %}
+            <span class="title title--small lg:title--base no-shrink">{{ r.label }}</span>
+            {% if r.detail != "" %}<span class="label lg:label--large" data-clamp="1">{{ r.detail }}</span>{% endif %}
+          </div>
+        {% endfor %}
+        {% if more > 0 %}<span class="label lg:label--large">{{ more }} more not green</span>{% endif %}
+      </div>
+      {% if rooms_count > 0 %}<div class="col col--span-4 gap--small">
+        <span class="title title--small lg:title--base">Household{% if rooms_stale %} - stale{% endif %}</span>
+        <span class="value value--small lg:value--base">{{ rooms_green }} of {{ rooms_count }}</span>
+        <span class="label lg:label--large">rooms green</span>
+        {% if rooms_look != "" %}<span class="label lg:label--large" data-clamp="4">Needs a look: {{ rooms_look }}</span>{% endif %}
+      </div>{% endif %}
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Areas</span>
-  <span class="instance">{{ reds }} red - {{ yellows }} yellow - {{ greens }} green - rated {{ rated }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

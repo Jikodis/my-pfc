@@ -1,19 +1,17 @@
-<div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="2">
-    <div class="column">
-      {% for habit in daily %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
-          </div>
-        </div>
-      {% endfor %}
+<div class="layout layout--col layout--top">
+  <div class="grid w--full">
+    <div class="col col--span-4">
+      <span class="value value--large">{{ logged }} of {{ count }}</span>
+      <span class="label">daily habits logged today</span>
+    </div>
+    <div class="col col--span-8 gap--xsmall">
+      <span class="label">Still to log</span>
+      <span class="title title--small" data-clamp="3">{% for r in todo %}{{ r.title }}{% unless forloop.last %}, {% endunless %}{% else %}All logged today.{% endfor %}</span>
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Habits</span>
-  <span class="instance">{{ daily_done }}/{{ daily_total }} today</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

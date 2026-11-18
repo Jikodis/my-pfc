@@ -45,7 +45,7 @@ See `personas.md` for the registry of available personas and what each one sound
 
 ## Trello calendar filters
 
-If you've set up the Trello dashboard, `trello_calendar_filters.yaml` controls which events are left out of the `🗓️ Week at a Glance` list and the TRMNL week screen (e.g. US Holidays, PFC scaffolding blocks, known weekly patterns).
+If you've set up the Trello dashboard, `trello_calendar_filters.yaml` controls which events are left out of the `🗓️ Week` list, the web Week band and the TRMNL week screen (e.g. US Holidays, PFC scaffolding blocks, known weekly patterns).
 
 **Recurring events are not dropped for being recurring**, because most real commitments are recurring series. The file's four lists (prefixes, titles, titles when recurring, calendars) say what to hide; its header explains each one.
 

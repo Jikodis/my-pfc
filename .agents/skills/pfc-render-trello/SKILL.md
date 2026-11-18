@@ -5,7 +5,7 @@ description: Render the PFC system to the Trello dashboard board. Use when the u
 
 # Render Trello Dashboard
 
-Mirror PFC repo state onto the Trello dashboard board. The render is idempotent: running it twice produces no changes the second time. Run on demand when you want the dashboard fresh, or it's invoked automatically by the evening check-in (Step 4b) and `/pfc-review`.
+Mirror PFC repo state onto the Trello dashboard board. The render is idempotent: running it twice produces no changes the second time. Run on demand when you want the dashboard fresh, or `/pfc-review` runs it; the post-commit hook and the timers run the same script without Calendar. Its Step 1 is also the only writer of `data/calendar-cache.json` (the web Week band, the `🗓️ Week` list and the TRMNL `pfc-week` screen), because the Calendar connector exists only in a live session: the optional daily sync job (`scripts/daily-sync.sh`, [`docs/install/daily-sync.md`](../../../docs/install/daily-sync.md)) runs Step 1 alone every morning, and any full run of this skill refreshes it too.
 
 ## When this skill triggers
 
@@ -61,9 +61,9 @@ jq --arg t "$TODAY" '[.[] | select(
 
 Commit the cache (`track: refresh calendar cache`) if it changed.
 
-### Step 1b — Log calendar-derived habits
+### Step 1b — Log calendar-derived habits (full runs only)
 
-After the cache is written, log any habit with `auto_derived: true` and a `calendar:` rule in `config/habit_schema.yaml`:
+Skip this step when only Step 1 was asked for (the daily sync job runs the deriver itself, right after Step 1). On a full run, after the cache is written, log any habit with `auto_derived: true` and a `calendar:` rule in `config/habit_schema.yaml`:
 
 ```bash
 python3 automations/scripts/derive_calendar_habits.py
@@ -73,7 +73,7 @@ If `7-habits/_data/habits-daily.ndjson` or `habits-monthly.ndjson` changed, comm
 
 ### Step 2 — Run the render
 
-Email is NOT rendered to a dashboard list. Labeled inbox emails become tasks via `pfc-email-triage` Step 0 (run daily by the evening check-in), and those show up as ordinary task cards. To refresh them, run `/pfc-email-triage`, not this skill.
+Email is NOT rendered to a dashboard list. Labeled inbox emails become tasks via `pfc-email-triage` Step 0 (run daily by the daily sync job when installed, `scripts/daily-sync.sh`), and those show up as ordinary task cards. To refresh them, run `/pfc-email-triage`, not this skill.
 
 ```bash
 python3 automations/scripts/trello_render.py \
@@ -86,7 +86,7 @@ Omit the calendar flag if Step 1 didn't fetch (the render then skips the Calenda
 
 - 📋 Loading repo state
 - 🔧 Reconciling lists and labels
-- 🎨 Rendering desired card sets (notes any skipped external list, and any soft-cap warning — Front of Mind over 10 anchors, Current Focus over 6 active pursuits)
+- 🎨 Rendering desired card sets (notes any skipped external list, and any soft-cap warning — Front of mind over 10 anchors, Focuses over 6 active pursuits)
 - 🔍 Fetching current Trello state
 - 📐 Diff: N creates, M updates, K archives
 - ✏️ Applying ops
@@ -133,18 +133,18 @@ Same confirmation prompt as `--rebuild`.
 
 ## Local-only mode — pulse trend
 
-`--pulse-history [n]` needs no Trello credentials and touches no board. It prints the last `n` days (default 7) of Superman Pulse lever statuses as 🟢/🟡/🔴 sparklines plus chronic-miss flags, for the evening check-in to read.
+`--pulse-history [n]` needs no Trello credentials and touches no board. It prints the last `n` days (default 7) of pulse lever statuses as 🟢/🟡/🔴 sparklines plus chronic-miss flags, for the evening check-in to read.
 
 ```bash
 python3 automations/scripts/trello_render.py --pulse-history 7
 ```
 
-Both this trend and the `🦸 Superman Pulse` list read their thresholds, verdict, and per-lever fixes from `automations/scripts/pulse.py` — the single source of truth. Tune levers there, never in the render.
+Both this trend and the `🦸 Body first` list (through `home_data`) read their thresholds, verdict, and per-lever fixes from `automations/scripts/pulse.py` — the single source of truth. Tune levers there, never in the render.
 
 ## Behavioral rules
 
 - **Never touches the 📥 Inbox list.** That's owned by `pfc-trello-inbox`.
 - **Idempotent.** Running twice produces zero changes the second time.
 - **Repo is canonical.** Any user-added card on a non-Inbox list (no pfc-id) gets archived on next render. By design.
-- **Soft caps warn, never truncate.** 🧠 Front of Mind over `GROUNDING_CAP` (10) anchors and 🎯 Current Focus over 6 active pursuits both log a 🟡 line and render everything anyway. Surface the warning to the user and suggest retiring one — never silently drop a card.
-- **`🎯 Current Focus` is not a project list.** Per-active-project lists share the `🎯 ` prefix; the render exempts this one name so it isn't archived as a stale project list.
+- **Soft caps warn, never truncate.** 🧠 Front of mind over `GROUNDING_CAP` (10) anchors and 🎯 Focuses over 6 active pursuits both log a 🟡 line and render everything anyway. Surface the warning to the user and suggest retiring one — never silently drop a card.
+- **The board follows the web home page.** The lists, their order and the cards built from the web's data come from `ALL_LIST_NAMES` in `trello_render.py` and `trello_home.py` (one `home_data.build_home` call per render). The full list-by-list reference is [`docs/trello-dashboard.md`](../../../docs/trello-dashboard.md). When `build_home` fails, those cards are left as they are, never archived.

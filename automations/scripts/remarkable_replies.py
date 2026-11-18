@@ -2,18 +2,21 @@
 """The agent's replies on the reMarkable pages: what happened to what was written there.
 
 Every page carries a small "Agent" strip in its top-right corner: what the sync saved
-from that page, how many notes it sent to the inbox, and any question a headless
+from that page, how many notes it sent to the inbox, what the unattended inbox job did
+with each note sent from it (when PFC_TRELLO_INBOX is on), and any question a headless
 review run asked. You answer a question by writing anywhere on the page; that note
 reaches the Trello inbox with the page's recent replies in the card's description, so
 the agent reading it knows what it answers. See docs/remarkable.md § "Agent replies".
 
 Store: data/.remarkable/replies.ndjson, one {at, page, text} per line (local state,
-git-ignored). Writer: remarkable_sync.py.
+git-ignored). Writers: remarkable_sync.py (saves, review questions) and
+scripts/trello-inbox-auto.sh (`remarkable_replies.py from-inbox` on its output).
 """
 
 import json
 import os
 import re
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -78,3 +81,39 @@ def questions(text):
 
 # The page a note came from, as remarkable_sync.py tags it ("From the Today page: …").
 FROM = re.compile(r"^(?:\*\*)?From the (.+?) page(?: \([^)]*\))?:\s*(.*)$")
+
+# One per-card line of `/pfc-trello-inbox unattended`: `🟢 <title> → <action>` or
+# `🟡 <title> → left (❓ …)`.
+LINE = re.compile(r"^\s*(?:-\s*)?(🟢|🟡)\s*\"?(.+?)\"?\s*→\s*(.+)$")
+
+
+def from_inbox(output, store=STORE, now=None):
+    """The inbox job's per-card lines as replies on the page each note came from
+    (0 - Inbox when it names none). Returns how many were saved."""
+    n = 0
+    for line in (output or "").splitlines():
+        m = LINE.match(line)
+        if not m:
+            continue
+        mark, title, action = m.groups()
+        title = title.strip("*\" ")
+        f = FROM.match(title)
+        page = page_of(f.group(1)) if f else None
+        note = f.group(2) if f else title
+        short = note if len(note) <= 60 else note[:57] + "..."
+        text = f"\"{short}\" → {action.strip()}" if mark == "🟢" else f"Waiting: \"{short}\" → {action.strip()}"
+        add(page or "0 - Inbox", text, store, now)
+        n += 1
+    return n
+
+
+def main(argv):
+    if argv[:1] == ["from-inbox"]:
+        print(f"{from_inbox(sys.stdin.read())} replies saved")
+        return 0
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

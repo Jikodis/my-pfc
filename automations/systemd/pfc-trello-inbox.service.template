@@ -1,0 +1,17 @@
+[Unit]
+Description=PFC — Process the Trello 📥 Inbox list unattended (/pfc-trello-inbox unattended)
+Documentation=__REPO_URL__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO_ROOT__
+# claude lives in ~/.local/bin, which a user unit's PATH does not include.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=LOCAL_TZ=__LOCAL_TZ__
+ExecStart=/bin/bash __REPO_ROOT__/scripts/trello-inbox-auto.sh
+TimeoutStartSec=20min
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pfc-trello-inbox

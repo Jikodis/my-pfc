@@ -1,14 +1,29 @@
 {%- comment -%}
-PFC Daily Pulse — last night's levers vs target, the verdict, and tonight's one
-move. Data comes pre-digested from pulse.pulse_snapshot via build_pfc_pulse;
-templates only print. Thresholds live in automations/scripts/pulse.py (bands
-overridable under `health.pulse` in config/automation_config.yaml) — tune them
-there, never here.
+PFC Body first - mirrors the "Body first" band of the web home page (`/`): the verdict
+with its light, tonight's one move, three stats (slept, awake in the night, the exercise habit today),
+then only the levers off target last night, worst first, each with its target and
+nights on target over 30. Levers on target fold into one count, like the page's
+"N on target last night". Payload: `trmnl_home.body_payload`.
 
-Status is the colour spelled out in caps, never emoji (e-ink has no emoji
-font): RED / YELLOW / GREEN / NO DATA. Not punctuation marks — those need a
-legend, and a legend that isn't on the screen is a legend nobody has.
-
-Levers render worst-first: red, then yellow, then green. Tier only breaks
-ties within a colour. See AGENTS.md § "Metrics point one direction".
+E-ink rules: no emoji, no inline styles, framework classes only. A light is a shape
+plus a word (`status_shape`): square RED, triangle YELLOW, circle GREEN; `status_chip`
+fills RED and outlines YELLOW so the rows that need a look stand out.
 {%- endcomment -%}
+{% template status_shape %}
+{%- if status == "RED" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="currentColor"/></svg>
+{%- elsif status == "YELLOW" -%}
+<svg width="0.8em" height="0.8em" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,11 0.5,11" fill="currentColor"/></svg>
+{%- elsif status == "GREEN" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="currentColor"/></svg>
+{%- endif -%}
+{% endtemplate %}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- endif -%}
+{% endtemplate %}

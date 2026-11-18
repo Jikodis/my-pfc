@@ -435,7 +435,7 @@ else
 fi
 
 echo "=== SUPERMAN PULSE ==="
-# The pulse board (Trello 🦸 Superman Pulse + the pfc-pulse TRMNL screen) renders
+# The pulse levers (Trello 🦸 Body first + the pfc-pulse TRMNL screen) render
 # from the newest day-tracking record's `health` block. No health block anywhere
 # in recent history => pulse_snapshot returns None => the board renders EMPTY with
 # no error anywhere. Check renderability directly rather than inferring it.
@@ -756,7 +756,7 @@ This turns audit data into an actionable suggestion rather than a flat report. D
 | Current Focus quarter ≥ 2 behind | Run /pfc-focus for the quarterly re-pick — the list is describing a season that ended |
 | Front of Mind all anchors > 60d old | Run /pfc-render-trello after curating `data/grounding.ndjson` — retire what is no longer front-of-mind and add what is. A set that never cycles goes invisible |
 | Front of Mind over soft cap | Curate by retiring (`status: retired` + `retired_date`), never by truncating — the renderer shows everything and only warns |
-| Superman Pulse renders empty | No recent day-tracking record carries a `health` block. Check the health fetch (`python3 automations/scripts/google_health_fetch.py`) and its timer; until one lands, the Trello pulse list and the pfc-pulse screen are blank with no error shown anywhere |
+| Superman Pulse renders empty | No recent day-tracking record carries a `health` block. Check the health fetch (`python3 automations/scripts/google_health_fetch.py`) and its timer; until one lands, the Trello Body first levers and the pfc-pulse screen are blank with no error shown anywhere |
 | Orphaned labeled emails | Run /pfc-email-triage — Step 0 reconciles both directions and creates the missing tasks. Recurring orphans mean the evening check-in's Step 0c is not running |
 | TRMNL endpoint unreachable | `systemctl --user status pfc-trmnl-serve.service`, then `journalctl --user -u pfc-trmnl-serve -n 30`. Every screen is frozen on its last payload until it comes back |
 | reMarkable pages stale | `journalctl --user -u pfc-remarkable-sync -n 50`. "rmapi ls failed" means the sign-in expired: redo `docs/remarkable.md` § Setup step 2 |

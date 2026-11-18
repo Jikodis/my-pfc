@@ -3,22 +3,23 @@
 Source for the TRMNL e-ink display plugins that mirror PFC state to a screen on the
 wall — the always-visible counterpart to the Trello dashboard on the phone.
 
-| Plugin | Shows |
-|---|---|
-| [`pfc-today/`](pfc-today/) | Today's 2+1 and last day rating |
-| [`pfc-front-of-mind/`](pfc-front-of-mind/) | Active grounding anchors, rotating on smaller views |
-| [`pfc-habits/`](pfc-habits/) | Daily habits (today + 7-day counts), monthly habits vs target |
-| [`pfc-pulse/`](pfc-pulse/) | Daily Pulse levers vs target, verdict, tonight's one move |
-| [`pfc-focus/`](pfc-focus/) | Current Focus: pursuits with landings, foundations, consuming |
-| [`pfc-projects/`](pfc-projects/) | Active projects: percent complete + next 1-2 open tasks each |
-| [`pfc-trends/`](pfc-trends/) | 30-day rating chart with 7-day rolling mean + tiles (sleep, exercise, sleep debt) |
-| [`pfc-week/`](pfc-week/) | Week at a Glance from the committed calendar cache |
-| [`pfc-compass/`](pfc-compass/) | One value, area statement, vision, or life question per refresh |
-| [`pfc-back-on-track/`](pfc-back-on-track/) | Off-track intentions (focus, projects, habits) + the smallest step back in |
-| [`pfc-pulse-trend/`](pfc-pulse-trend/) | 30-day pulse: per-lever days-on-target, days primed, the standing fix |
-| [`pfc-areas/`](pfc-areas/) | Life-wheel status per area: red/yellow with notes, greens holding |
+| Plugin | Web band | Shows |
+|---|---|---|
+| `pfc-pulse` | Body first | The verdict and its light, tonight's move, three stats (slept, awake, the exercise habit today), then only the levers off target last night, worst first, with nights on target over 30; levers on target fold into a count |
+| `pfc-today` | The 2+1 | The why line, today's picks (an overdue pick carries its date), picks done, tomorrow's picks after about 6 PM, at most three rows of what needs you, and the hand-off count |
+| `pfc-habits` | Habits | "N of M daily habits logged today", the daily habits still to log, and the monthly habits on one line; logged and automatic ones fold into counts |
+| `pfc-week` | Week | Seven days from today, at most three events a day with the rest counted |
+| `pfc-focus` | Focuses | "N of M live focuses are red", the re-pick callout, then each tier's focuses not green, worst first; green and parked fold into counts |
+| `pfc-projects` | Projects | "N active, M stalled", then at most three active projects with percent, the next task and days idle; parked and on deck as one count |
+| `pfc-trends` | Trends | The last 30 days: trends not green with their reason, the green ones on one "on track" line |
+| `pfc-areas` | Areas | The plate (committed of free waking hours, with a bar), the life wheel's green count and its areas not green, worst first; household as a green count plus the rooms that need a look |
+| `pfc-values` | Values | The values in rank order and, large, the question of the day |
+| `pfc-visions` | Visions | Today's vision and the value it serves, then the other active visions |
+| `pfc-front-of-mind` | Front of mind | The active anchors, poster-sized while there are three or fewer |
 
-You do not need all thirteen. Start with one or two that answer a question you ask
+To add or remove a screen, see [`docs/trmnl-plugins.md`](../docs/trmnl-plugins.md) § "Changing what the wall shows".
+
+You do not need all eleven. Start with one or two that answer a question you ask
 every day, and add screens as the data behind them becomes real.
 
 ## Quick start

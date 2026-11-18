@@ -182,15 +182,18 @@ def rate_day(days: list[dict], day: str, energy: int, mood: int, focus: int,
     return "added"
 
 
-def set_picks(focus: list[dict], day: str, critical: list[str], bonus: str | None) -> str:
+def set_picks(focus: list[dict], day: str, critical: list[str], bonus: str | None,
+              source: str | None = None) -> str:
     """Set a day's 2+1. Keeps an existing `project` slot and `skipped` list; `completed`
     keeps only the ids already done that are still picked (so a done pick sent again
     stays done when more work is pulled in), and `bonus_completed` stays only while the
-    bonus is the same task. Returns 'added' | 'updated' | 'unchanged'."""
+    bonus is the same task. `source` is recorded when given ("auto": the system picked
+    them, the Trello sync's auto-pick); a change made without one clears it, because the
+    picks are then the user's. Returns 'added' | 'updated' | 'unchanged'."""
     record = next((r for r in focus if r.get("date") == day), None)
     if record is None:
         focus.append({"date": day, "critical": list(critical), "bonus": bonus, "completed": [],
-                      "bonus_completed": False})
+                      "bonus_completed": False, **({"source": source} if source else {})})
         return "added"
     before = json.loads(json.dumps(record))
     done = [t for t in (record.get("completed") or []) if t in critical]
@@ -199,6 +202,10 @@ def set_picks(focus: list[dict], day: str, critical: list[str], bonus: str | Non
     record["bonus"] = bonus
     record["completed"] = done
     record["bonus_completed"] = kept_bonus
+    if source:
+        record["source"] = source
+    elif record != before:
+        record.pop("source", None)
     return "unchanged" if record == before else "updated"
 
 

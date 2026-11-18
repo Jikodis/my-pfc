@@ -9,6 +9,7 @@ dict, and `web/src/lib/computed.ts` types it.
 """
 
 import json
+import os
 import re
 import sys
 from datetime import date, datetime, timedelta
@@ -27,6 +28,9 @@ BROKEN_AWAKE_MINUTES = 60  # this much awake time in the night breaks it
 BROKEN_EFFICIENCY_PCT = 85  # sleep efficiency below this also breaks a night
 ROTATION_EPOCH = date(2025, 1, 1)
 FOCUS_ORDER = {"red": 0, "yellow": 1, "green": 2}
+SYNC_STALE_HOURS = 30  # the daily sync runs once a morning; a day and a few hours late is a miss
+DEFAULT_SYNC_LOG = "/tmp/pfc-daily-sync.log"
+SYNC_DONE = re.compile(r"^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) DONE ok=(\d+) fail=(\d+)\s*$")
 
 MAX_NEEDS_YOU = 2
 DEADLINE_WINDOW_DAYS = 2
@@ -681,6 +685,49 @@ def _tour_look(areas, focus, active_projects, tasks, today):
     return None
 
 
+def auto_picks(home, record):
+    """The 2+1 the system sets for today when the user has set none (trello_writeback's
+    auto-pick): the home page's suggestions (`suggested`) taken the way the suggestions
+    card takes taps, the first two critical and a third the bonus.
+
+    Returns (critical, bonus), or None: in the evening (the suggestions card sets tomorrow
+    then), when today's record already holds a pick or a bonus (the user's picks are never
+    overwritten), when a pick was dropped today on Trello, once the system has picked
+    the day (`source: "auto"`), or with nothing to suggest. `record` is today's
+    daily-focus record or None; a record holding only skips still gets picks."""
+    record = record or {}
+    if home["evening"] or record.get("critical") or record.get("bonus") or record.get("dropped") \
+            or record.get("source") == "auto":
+        return None
+    ids = [t["id"] for t in home["suggested"]]
+    if not ids:
+        return None
+    return ids[:2], (ids[2] if len(ids) > 2 else None)
+
+
+def daily_sync(env, now):
+    """Last finished run of scripts/daily-sync.sh, from the last DONE line of its log.
+    `ok` is fail == 0. Stale when there is no DONE line or it is over SYNC_STALE_HOURS old."""
+    path = Path(env.get("PFC_DAILY_SYNC_LOG") or os.environ.get("PFC_DAILY_SYNC_LOG") or DEFAULT_SYNC_LOG)
+    try:
+        lines = path.read_text(errors="replace").splitlines()
+    except OSError:
+        lines = []
+    for line in reversed(lines):
+        m = SYNC_DONE.match(line)
+        if m:
+            when = datetime.fromisoformat(f"{m.group(1)}T{m.group(2)}")
+            return {"last_run": when.isoformat(), "ok": int(m.group(4)) == 0,
+                    "stale": now - when > timedelta(hours=SYNC_STALE_HOURS)}
+    return {"last_run": None, "ok": None, "stale": True}
+
+
+def sync_needs_look(sync):
+    """The sync needs a look when it failed, has gone stale, or never ran: the same
+    states the footer words in red. The home page then lists it under What needs you."""
+    return not (sync["ok"] and not sync["stale"])
+
+
 def build_home(env, now):
     today = now.date().isoformat()
     values = _values_list()
@@ -769,7 +816,9 @@ def build_home(env, now):
         "trends": _trends(today),
         "week": _week(today),
         "tour_look": _tour_look(areas, focus, _active_projects(list(projects.values())), tasks, today),
+        "daily_sync": daily_sync(env, now),
     }
+    home["sync_needs_look"] = sync_needs_look(home["daily_sync"])
     _tag_picks(home, open_tasks, today)
     # The one due review is the one every surface shows (review_forms.current_review:
     # never done, then most overdue, skipping one with nothing to ask), so the home

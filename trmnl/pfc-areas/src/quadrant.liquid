@@ -1,14 +1,12 @@
-<div class="layout layout--col gap--small">
-  <div class="col gap--xsmall">
-    {% for area in attention limit: 3 %}
-      <span class="label" data-clamp="1">{{ area.mark }} - {{ area.title }}</span>
-    {% else %}
-      <span class="label">Every area is green.</span>
-    {% endfor %}
+<div class="layout layout--col layout--top">
+  <div class="col gap--small stretch-x">
+    <span class="value value--large">{{ green }} of {{ count }}</span>
+    <span class="label">areas green</span>
+    <span class="label" data-clamp="2">{% for r in rows %}{{ r.label }}{% unless forloop.last %}, {% endunless %}{% endfor %}</span>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Areas</span>
-  <span class="instance">{{ reds }}R {{ yellows }}Y {{ greens }}G</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

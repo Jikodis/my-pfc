@@ -1,0 +1,20 @@
+<div class="layout layout--col layout--center">
+  <div class="flex flex--col flex--center-x gap--xlarge w--full">
+    <div class="flex flex--row flex--wrap flex--center gap--small">
+      {% for v in values %}
+        <span class="label label--outline lg:label--large">{{ forloop.index }} {{ v }}</span>
+      {% endfor %}
+    </div>
+    {% if question != "" %}
+      <div class="flex flex--col flex--center gap--small">
+        <span class="label lg:label--large">Question of the day</span>
+        <span class="title title--xlarge lg:title--xxlarge text--center" data-clamp="4">{{ question }}</span>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
+</div>

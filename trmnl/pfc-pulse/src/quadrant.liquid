@@ -1,23 +1,12 @@
-<div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="1">
-    <div class="column">
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          <span class="label" data-clamp="2">{{ verdict_mark }} - {{ verdict }}</span>
-        </div>
-      </div>
-      <div class="item">
-        <div class="meta"></div>
-        <div class="content">
-          <span class="label label--small" data-clamp="2">Tonight: {{ move }}</span>
-        </div>
-      </div>
-    </div>
+<div class="layout layout--col layout--top">
+  <div class="col gap--small stretch-x">
+    <div class="flex flex--row flex--left">{% render "status_chip", status: verdict_status, size: "" %}</div>
+    <span class="title title--small" data-clamp="2">{{ verdict }}</span>
+    <span class="label">Slept {{ sleep }} - {{ exercise_label }}: {{ exercise }}</span>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Pulse</span>
+  <span class="title">{{ title }}</span>
   <span class="instance">{{ date }}</span>
 </div>

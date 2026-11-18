@@ -1,47 +1,33 @@
-<div class="layout layout--col gap">
-  <div class="grid">
-    <div class="col col--span-7 gap--small">
-      <span class="title title--small lg:title--base">Active Pursuits</span>
-      <div class="columns" data-overflow-max-cols="1">
-        <div class="column">
-          {% for item in pursuits %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label lg:label--large" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
-                {% if item.landing != "" %}
-                  <span class="label label--small lg:label--base label--gray" data-clamp="2">lands: {{ item.landing }}</span>
-                {% endif %}
-              </div>
-            </div>
-          {% else %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label label--gray">No active pursuits</span>
+<div class="layout layout--col layout--top">
+  <div class="col gap--medium stretch-x">
+    <div class="flex flex--col flex--left">
+      <span class="value value--large lg:value--xlarge">{{ red }} of {{ live }}</span>
+      <span class="label lg:label--large">live focuses are red</span>
+    </div>
+    {% if repick != "" %}<span class="label label--filled lg:label--large">{{ repick }}</span>{% endif %}
+    <div class="grid w--full">
+      {% for tier in tiers %}
+        <div class="col col--span-4 gap--small">
+          <span class="title title--small lg:title--base">{{ tier.label }}</span>
+          {% for f in tier.rows %}
+            <div class="flex flex--col flex--left gap--xsmall">
+              <span class="title title--small lg:title--base" data-clamp="1">{{ f.title }}</span>
+              <div class="flex flex--row flex--left gap--small">
+                {% render "status_chip", status: f.status, size: "lg:label--large" %}
+                <span class="label lg:label--large">{{ f.progress }}{% if f.weeks != "" %} - {{ f.weeks }}{% endif %}</span>
               </div>
             </div>
           {% endfor %}
+          {% if tier.green > 0 %}<span class="label lg:label--large">{% render "status_shape", status: "GREEN" %} {{ tier.green }} going</span>{% endif %}
+          {% if tier.parked > 0 %}<span class="label lg:label--large">{{ tier.parked }} parked</span>{% endif %}
+          {% if tier.rows.size == 0 and tier.green == 0 and tier.parked == 0 %}<span class="label lg:label--large">None.</span>{% endif %}
         </div>
-      </div>
-    </div>
-
-    <div class="col col--span-5 gap--small">
-      <span class="title title--small lg:title--base">Foundations</span>
-      {% for item in foundations %}
-        <span class="label" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
       {% endfor %}
-      {% if consuming.size > 0 %}
-        <span class="title title--small lg:title--base">Consuming</span>
-        {% for item in consuming %}
-          <span class="label" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
-        {% endfor %}
-      {% endif %}
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Current Focus</span>
-  <span class="instance">{{ quarter }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

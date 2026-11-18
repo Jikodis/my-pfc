@@ -1,84 +1,24 @@
-<script src="https://trmnl.com/js/highcharts/12.3.0/highcharts.js"></script>
-
-{% assign chart_id = 'trends-chart' | append_random %}
-<div class="layout layout--col gap">
-  <div class="col gap--small">
-    <div id="{{ chart_id }}" class="h--48 lg:h--64"></div>
-
-    <div class="grid">
-      <div class="col col--span-3">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large lg:value--xxlarge">{{ avg_rating }}</span>
-            <span class="label label--small">avg rating 7d</span>
-          </div>
+<div class="layout layout--col layout--center">
+  <div class="flex flex--col flex--center-x gap--large w--full">
+    <span class="label lg:label--large">The last 30 days</span>
+    {% for t in rows %}
+      <div class="flex flex--col flex--left gap--xsmall">
+        <div class="flex flex--row flex--left gap--small">
+          {% render "status_chip", status: t.status, size: "lg:label--large" %}
+          <span class="title title--xlarge lg:title--xxlarge">{{ t.name }}</span>
         </div>
+        <span class="title title--base lg:title--large">{{ t.why }}</span>
       </div>
-      <div class="col col--span-3">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large lg:value--xxlarge">{{ avg_sleep }}</span>
-            <span class="label label--small">avg sleep 7d</span>
-          </div>
-        </div>
-      </div>
-      <div class="col col--span-3">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large lg:value--xxlarge">{{ exercise }}</span>
-            <span class="label label--small">exercise 7d</span>
-          </div>
-        </div>
-      </div>
-      <div class="col col--span-3">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large lg:value--xxlarge">{{ sleep_debt }}</span>
-            <span class="label label--small">sleep debt now</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <span class="label label--small lg:label--base label--gray">{{ exercise_line }}</span>
+    {% else %}
+      {% if count > 0 %}<span class="title title--xlarge lg:title--xxlarge">{% render "status_shape", status: "GREEN" %} All {{ count }} on track</span>{% else %}<span class="title title--base">No trend data yet.</span>{% endif %}
+    {% endfor %}
+    {% if rows.size > 0 and green.size > 0 %}
+      <span class="title title--base lg:title--large">{% render "status_shape", status: "GREEN" %} On track: {{ green | join: ", " }}</span>
+    {% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Trends - 30 days</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>
-
-<script>
-(function () {
-  var days = {{ days | json }};
-  var mean = {{ mean | json }};
-  Highcharts.chart("{{ chart_id }}", {
-    chart: { backgroundColor: "transparent", animation: false, spacing: [5, 5, 5, 5] },
-    xAxis: {
-      categories: days.map(function (d) { return d.label; }),
-      labels: { step: 5, style: { fontSize: "11px", color: "#000" } },
-      lineColor: "#000", tickWidth: 0, gridLineWidth: 0
-    },
-    yAxis: {
-      min: 0, max: 5, tickInterval: 1,
-      labels: { style: { fontSize: "11px", color: "#000" } },
-      gridLineColor: "#ccc", gridLineWidth: 1, title: { text: null }
-    },
-    plotOptions: { series: { animation: false, enableMouseTracking: false } },
-    series: [
-      { type: "column", animation: false, data: days.map(function (d) { return d.rating; }),
-        color: "#999", borderWidth: 1, borderColor: "#000" },
-      { type: "line", animation: false, data: mean,
-        color: "#000", lineWidth: 3, marker: { enabled: false } }
-    ],
-    legend: { enabled: false },
-    title: { text: null },
-    credits: { enabled: false },
-    tooltip: { enabled: false }
-  });
-})();
-</script>

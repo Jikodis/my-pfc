@@ -1,22 +1,19 @@
-<div class="layout layout--col gap--small">
-  <div class="grid">
-    {% for day in days limit: 4 %}
-      <div class="col col--span-3">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small">{{ day.label }}</span>
-            {% for event in day.events limit: 2 %}
-              <span class="label label--small label--gray" data-clamp="1">{{ event.time }} {{ event.title }}</span>
-            {% endfor %}
-          </div>
-        </div>
+<div class="layout layout--col layout--top">
+  <div class="grid grid--cols-4 w--full">
+    {% for d in days limit: 4 %}
+      <div class="col gap--xsmall">
+        <span class="title title--small">{{ d.label }}</span>
+        {% for e in d.events limit: 2 %}
+          <span class="label label--small" data-clamp="1">{{ e.time }} {{ e.title }}</span>
+        {% else %}
+          <span class="label label--small">Nothing scheduled.</span>
+        {% endfor %}
       </div>
     {% endfor %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Week</span>
-  <span class="instance">{{ fetched }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

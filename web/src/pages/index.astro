@@ -22,7 +22,7 @@ import WhyLine from '../components/WhyLine.astro'
 import Base from '../layouts/Base.astro'
 import { COMMANDS, PROMPTS, QUICK_ADD, chatPrompt } from '../lib/chat/prompts'
 import { getHome, type Home, type HomeTask } from '../lib/computed'
-import { addDays, formatDate, formatTime12 } from '../lib/dates'
+import { addDays, formatDate, formatTime12, formatWhen } from '../lib/dates'
 import { safe } from '../lib/safe'
 import { reviewHint } from '../lib/day'
 
@@ -55,6 +55,14 @@ const dailyHabits = h ? h.habits.filter((r) => r.cadence === 'daily') : []
 const monthlyHabits = h ? h.habits.filter((r) => r.cadence === 'monthly') : []
 const rateLabel = h && h.rate_target.date === h.date ? 'today' : 'yesterday'
 const look = h?.tour_look ?? null
+// Python decides when the sync needs a look; the page words it, here and in the footer.
+const syncText = !h ? '' : h.daily_sync.last_run === null
+  ? 'Daily sync has not run'
+  : h.daily_sync.ok && !h.daily_sync.stale
+    ? `Daily sync ran ${formatWhen(h.daily_sync.last_run)}`
+    : h.daily_sync.ok
+      ? `Daily sync last OK ${formatWhen(h.daily_sync.last_run)}`
+      : `Daily sync failed ${formatWhen(h.daily_sync.last_run)}`
 // A needs-you row that is also one of today's picks shows on the pick card only (Python's `in_picks`).
 const needsYou = h ? h.needs_you.filter((n) => !n.in_picks) : []
 const lookPrompt = look
@@ -220,8 +228,8 @@ const WEEK_SHOWN = 3
               </div>
             </div>
           ))}
-          {/* What needs you: overdue and flagged items, at most one due review, and the one thing Python says to look at. */}
-          {(needsYou.length > 0 || h.due_review || look) && (
+          {/* What needs you: overdue and flagged items, a sync that needs a look, at most one due review, and the one thing Python says to look at. */}
+          {(needsYou.length > 0 || h.due_review || look || h.sync_needs_look) && (
             <div class="panel">
               <p class="card-title"><Light status="red" /> What needs you</p>
               <ul class="plain rows">
@@ -231,6 +239,12 @@ const WEEK_SHOWN = 3
                     {n.kind !== 'focus' && <ActionButton action="complete-task" id={n.id} label="Done" name={n.title} confirm="Mark done?" />}
                   </li>
                 ))}
+                {h.sync_needs_look && (
+                  <li>
+                    <span class="row-main"><span class="overdue">{syncText}</span></span>
+                    <button type="button" class="act" data-chat-prompt={PROMPTS.syncFailed}>Find out why</button>
+                  </li>
+                )}
                 {h.due_review && (
                   <li title={h.due_review.id}>
                     <span class="row-main"><strong>Review due:</strong> {h.due_review.label}{reviewHint(h.due_review.skill) && <span class="sub why">{reviewHint(h.due_review.skill)}</span>}</span>
@@ -640,6 +654,8 @@ const WEEK_SHOWN = 3
         <input type="text" id="quick-add" aria-label="Quick add a task" placeholder="Quick add a task" data-chat-enter="quick-add-go" />
         <button type="button" id="quick-add-go" class="btn-primary" data-chat-prompt={QUICK_ADD} data-chat-input="quick-add">Add</button>
       </div>
+      {/* A sync that needs a look (Python's sync_needs_look) is listed under What needs you instead. */}
+      {!h.sync_needs_look && <p class="sub sync sync-ok">{syncText}</p>}
     </div>
   )}
 </Base>
@@ -808,4 +824,6 @@ const WEEK_SHOWN = 3
   .more-projects { margin-top:10px; }
 
   .footer-tools { margin-top:36px; border-top:1px solid var(--border); padding-top:8px; }
+  .sync { margin:12px 0 0; font-weight:600; }
+  .sync-ok { color:var(--green-t); }
 </style>

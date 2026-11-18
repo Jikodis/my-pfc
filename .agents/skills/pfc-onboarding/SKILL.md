@@ -5,7 +5,7 @@ description: Introduce PFC system features one at a time. Use when the user says
 
 # PFC Onboarding
 
-Walk new users through the system one feature at a time. This skill covers the full feature catalog (53 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
+Walk new users through the system one feature at a time. This skill covers the full feature catalog (55 features across 10 categories). State persists across sessions in `config/onboarding.ndjson`.
 
 ---
 
@@ -54,7 +54,7 @@ When appending a `tried` event, always append it immediately after the user comp
 
 ## Step 3: Feature catalog
 
-53 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
+55 features across 10 categories. Auth-gated features require external service setup before the lesson can proceed.
 
 | Category | Feature key | Description | Auth-gated? |
 |---|---|---|---|
@@ -102,6 +102,8 @@ When appending a `tried` event, always append it immediately after the user comp
 | integrations | integrations/trmnl | Build or edit a screen for the TRMNL e-ink display | Yes |
 | integrations | integrations/remarkable | The home page, the due review and the task list as pages to write on, on a reMarkable tablet | Yes |
 | integrations | integrations/ai-news | Followed AI blogs as reMarkable EPUBs and a private podcast feed | Yes |
+| integrations | integrations/daily-sync | A morning job on your Mac that pulls Trello ticks, labeled emails and the calendar into the repo | Yes |
+| integrations | integrations/duet-operator | Run the system from Claude Duet threads, reading the Trello board's 🤖 Brief card | Yes |
 | meta | meta/personas | Voice/character overlays for the assistant | No |
 | meta | meta/profile | Personality/brain context (interview + optional assessments) | No |
 | meta | meta/personality | Deep personality reference file (`0-me/personality.md`) | No |
@@ -760,17 +762,17 @@ Then run `/pfc-onboarding reset integrations/trello-dashboard` once you've worke
 1. **Setup walkthrough** (~15–20 min) — covered by `docs/install/trello.md`. By the time you start this lesson the board should already exist, the API key/token should be in `.env`, and `/pfc-render-trello` should produce cards. If it doesn't, fix that first.
 2. **Widget setup** (~5–10 min) — `docs/install/trello.md` Step 6. Decide which lists you want as home-screen widgets. Most-recommended starter set:
    - `📥 Inbox` (capture; Android list widget with `+` button)
-   - `✅ 2+1` (tap-to-complete today's focus)
-   - `☀️ Daily Habits` (tap-to-check off habits)
+   - `✅ The 2+1` (tap-to-complete today's focus; archive a card to drop that pick)
+   - `☀️ Habits` (tap-to-check off habits)
    - One board widget as a one-tap launcher into the full dashboard.
-   Add the others (`🗓️ Week at a Glance`, `🛠️ Projects`, `⬅ Last 7 Days`, `🧠 Front of Mind`, `🎯 Current Focus`) once you know which surfaces you reach for most.
+   Add the others (`🦸 Body first` with the day's rating card, `🗓️ Week`, `🛠️ Projects`, `🧠 Front of mind`, `🎯 Focuses`) once you know which surfaces you reach for most.
 3. **Sync verification** (~5 min) — mark a habit complete from the widget, run `/pfc-sync-trello` or wait for the next checkin, and confirm the entry landed in `7-habits/_data/habits-daily.ndjson`. Do the same for a 2+1 task. If the round-trip works, the system is live.
 
 **Try it now**
 
 1. Run a render: `/pfc-render-trello`.
-2. Open the board on your phone. Confirm cards have populated across `✅ 2+1`, `☀️ Daily Habits`, `🛠️ Projects`, etc.
-3. Set up at least the `📥 Inbox` + `✅ 2+1` + Board widgets on your home screen.
+2. Open the board on your phone. Confirm cards have populated across `🦸 Body first`, `✅ The 2+1`, `☀️ Habits`, `🛠️ Projects`, etc.
+3. Set up at least the `📥 Inbox` + `✅ The 2+1` + Board widgets on your home screen.
 4. From the widget, tick off one daily habit you actually did today (or add a test card to Inbox).
 5. Run `/pfc-sync-trello` — counters should show what landed.
 
@@ -831,6 +833,39 @@ python3 automations/scripts/ai_news.py --dry-run --limit 10
 ```
 
 **Skip / dismiss:** `/pfc-onboarding skip integrations/ai-news`
+
+---
+
+### Lesson: integrations/daily-sync
+
+**What it is**
+A launch agent on your Mac that runs `scripts/daily-sync.sh` each morning: it pulls the cards you ticked on Trello into the repo, turns labeled emails into tasks, refreshes the calendar cache the Week surfaces read, logs calendar-derived habits, then commits and pushes. It retries hourly until one run is clean, and the web home page shows when it last ran. Off until you set `PFC_DAILY_SYNC=1` in `.env`. Auth-gated: needs Trello, and the Calendar and Gmail connectors for those steps (`docs/install/daily-sync.md`).
+
+**Why use it**
+Ticks on the phone and labeled emails reach the repo every day even when you skip the check-in, so every surface starts the morning current.
+
+**Try it now**
+Follow `docs/install/daily-sync.md`, then run it once by hand and read the last line of its log:
+```
+bash scripts/daily-sync.sh --force; tail -n 3 /tmp/pfc-daily-sync.log
+```
+
+**Skip / dismiss:** `/pfc-onboarding skip integrations/daily-sync` if you don't use Trello or don't keep a Mac on in the morning.
+
+---
+
+### Lesson: integrations/duet-operator
+
+**What it is**
+A guide (`docs/duet/pfc-operator/SKILL.md`) for running the system from Claude Duet threads, where an agent nudges you during the day. The thread reads the Trello board's `🤖 Brief` card, which holds the whole day on one card, and writes back only through Trello and GitHub. Auth-gated: needs the Trello dashboard and a Claude Duet setup with Trello and GitHub access.
+
+**Why use it**
+Proactive nudges (rate the day, the next pick, a due review) from an agent that can see the same numbers as the web page, without access to your machine.
+
+**Try it now**
+Render the board, open the `🦸 Body first` list, and read the `🤖 Brief` card. Then add the guide to your Duet setup as described in its first section.
+
+**Skip / dismiss:** `/pfc-onboarding skip integrations/duet-operator`
 
 ---
 

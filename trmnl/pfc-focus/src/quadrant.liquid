@@ -1,19 +1,12 @@
-<div class="layout layout--col gap--small">
-  <div class="columns" data-overflow-max-cols="1">
-    <div class="column">
-      {% for item in pursuits %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label label--small" data-clamp="1">{{ item.code }} {{ item.mark }} - {{ item.title }}</span>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
+<div class="layout layout--col layout--top">
+  <div class="col gap--small stretch-x">
+    <span class="value value--large">{{ red }} of {{ live }}</span>
+    <span class="label">live focuses are red</span>
+    {% if repick != "" %}<span class="label label--filled" data-clamp="2">Time to re-pick.</span>{% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Focus</span>
-  <span class="instance">{{ quarter }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

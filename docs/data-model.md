@@ -97,7 +97,8 @@ Fields:
 - `completed` — array of task ids from `critical` that were finished
 - `bonus_completed` — boolean
 - `skipped` — optional array of task ids (same existence rule) the web home page stops suggesting for that date (`web_write.py skip-suggestion`, read by `home_data.py`). A task named here moves to the archive when dropped, like a pick.
-- `dropped` — optional array of task ids swapped out of that day's 2+1 (`web_write.py drop-pick`, the reMarkable Today page's swap box). Each is also in `skipped`; the task stays open.
+- `dropped` — optional array of task ids swapped out of that day's 2+1 (`web_write.py drop-pick`, the reMarkable Today page's swap box, or archiving the task's `✅ The 2+1` card on Trello; all through `pfc_writes.drop_pick`). Each is also in `skipped`; the task stays open. Its presence stops the Trello sync's auto-pick for that day.
+- `source` — optional; `"auto"` when the Trello sync's auto-pick set the day's picks (`trello_writeback.auto_pick_today`, from the home page's suggestions). Any later change to the picks made without a source (the web's `set-picks`) removes it, because the picks are then the user's.
 - `calendar_events` — optional object written by `pfc-schedule-focus` for manually-placed per-task events; keyed by task id, each value has `event_id`, `start`, `end` (ISO timestamps).
 
 ### `7-habits/_data/habits-daily.ndjson`
@@ -441,7 +442,7 @@ Read by `build_pfc_week` in `automations/scripts/trmnl_push.py` — the TRMNL `p
 - `config/automation_config.yaml` — thresholds and schedule settings; `task_archive_threshold` mirrors the 200-line rule referenced in `AGENTS.md`
 - `config/persona.yaml` — single field `active: <persona-id>` (or `none`). Selects the assistant's voice overlay. Switched via `/pfc-persona`. Validator confirms `active` resolves to a section in `personas.md`.
 - `config/personas.md` — registry of available personas. Each persona is a `## <id>` markdown section with **Vibe**, **Voice rules**, and **Sample**. Injected at session start by `scripts/hook-session-date.sh`.
-- `config/trello_calendar_filters.yaml` — title-substring and calendar-name patterns to exclude from the dashboard's `🗓️ Week at a Glance` list. Read by `automations/scripts/trello_render.py` during the `pfc-render-trello` workflow. Tuned by inspection.
+- `config/trello_calendar_filters.yaml` — title-substring and calendar-name patterns to exclude from the dashboard's `🗓️ Week` list, the web Week band and the TRMNL week screen. Read by `home_data.week_days` through `trello_render.calendar_event_excluded`. Tuned by inspection.
 
 **Auth artifacts (gitignored, not part of the data model):**
 - `config/google_health_tokens.json` — OAuth tokens for the Google Health connector. Local-only, never committed. Refreshed by `automations/scripts/google_health_auth.py`.

@@ -1,0 +1,13 @@
+[Unit]
+Description=PFC — Process the Trello inbox every 10 minutes
+Documentation=__REPO_URL__
+
+[Timer]
+# Five minutes after each reMarkable sync (:00, :10, :20...), so tablet notes are
+# processed soon after they land. An inbox with nothing new costs no tokens.
+OnCalendar=*-*-* *:05/10:00 __LOCAL_TZ__
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

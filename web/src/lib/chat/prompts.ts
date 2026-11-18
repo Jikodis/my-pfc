@@ -23,6 +23,7 @@ export const PROMPTS = {
   repickFocus: '/pfc-focus re-pick focuses',
   editAnchor: 'Edit the Front-of-Mind anchor "{title}" ({id}). Ask me what to change.',
   addAnchor: 'Add a Front-of-Mind anchor. Ask me for the wording.',
+  syncFailed: 'The daily sync needs a look. Read the end of its log (/tmp/pfc-daily-sync.log) and tell me what failed and how to fix it.',
 } as const
 
 /** What the quick-add box puts in front of the words typed into it. */

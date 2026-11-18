@@ -1,25 +1,16 @@
-<div class="layout layout--col gap">
-  <div class="col gap--small">
-    <span class="title title--small">{{ verdict_mark }} - {{ verdict }}</span>
-    <div class="columns" data-overflow-max-cols="1">
-      <div class="column">
-        {% for lever in levers %}
-          {% if lever.tier == "CRITICAL" %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label" data-clamp="1">{{ lever.mark }} - {{ lever.label }}: {{ lever.value }}</span>
-              </div>
-            </div>
-          {% endif %}
-        {% endfor %}
-      </div>
-    </div>
-    <span class="label label--small" data-clamp="3">Tonight: {{ move }}</span>
+<div class="layout layout--col layout--top">
+  <div class="col gap--medium stretch-x">
+    <div class="flex flex--row flex--left">{% render "status_chip", status: verdict_status, size: "" %}</div>
+    <span class="title title--base" data-clamp="3">{{ verdict }}</span>
+    <span class="label">Slept {{ sleep }}{% if broken_night %}, broken{% endif %} - {{ exercise_label }}: {{ exercise }}</span>
+    {% for lever in levers %}
+      <div class="flex flex--row flex--left gap--xsmall"><span class="label no-shrink">{% render "status_shape", status: lever.status %}</span><span class="label" data-clamp="1">{{ lever.label }} {{ lever.value }} (target {{ lever.target }})</span></div>
+    {% endfor %}
+    {% if has_levers %}<span class="label">{% render "status_shape", status: "GREEN" %} {{ on_target }} on target</span>{% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Daily Pulse</span>
+  <span class="title">{{ title }}</span>
   <span class="instance">{{ date }}</span>
 </div>

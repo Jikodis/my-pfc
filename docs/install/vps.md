@@ -73,6 +73,8 @@ systemctl --user list-unit-files 'pfc-*.service' 'pfc-*.timer'
 
 You should see `pfc-health-fetch.service`, `pfc-health-fetch.timer` (plus the morning variant), `pfc-trello-daily-render.timer`, and — if TRMNL is configured — `pfc-trmnl-serve.service` and `pfc-repo-sync.timer` listed as `enabled`.
 
+Three timers stay off until you opt in with a line in `.env`, because each runs headless Claude or an outside service: `pfc-remarkable-sync.timer` (`PFC_REMARKABLE_SYNC=1`, [`remarkable.md`](../remarkable.md)), `pfc-ai-news.timer` (`PFC_AI_NEWS=1`, [`ai-news.md`](../ai-news.md)) and `pfc-trello-inbox.timer` (`PFC_TRELLO_INBOX=1`). The last runs `/pfc-trello-inbox unattended` every 10 minutes through `scripts/trello-inbox-auto.sh`: every clear card in the 📥 Inbox list is carried out and deleted, and an unclear one is renamed `❓ <title>` to wait for you. It needs a headless `claude` login on the server (`CLAUDE_CODE_OAUTH_TOKEN` in `.env`, from `claude setup-token`). Set the flag, then re-run `install.sh`.
+
 ---
 
 ## Step 4 — Enable linger

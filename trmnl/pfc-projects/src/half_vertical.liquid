@@ -1,24 +1,16 @@
-<div class="layout layout--col gap">
-  <div class="col gap--small">
-    <div class="columns" data-overflow-max-cols="1">
-      <div class="column">
-        {% for project in projects %}
-          <div class="item">
-            <div class="meta"></div>
-            <div class="content">
-              <span class="label" data-clamp="1">{{ project.name }} — {{ project.percent }}%</span>
-              {% for task in project.tasks limit: 1 %}
-                <span class="label label--small label--gray" data-clamp="1">-> {{ task.title }}</span>
-              {% endfor %}
-            </div>
-          </div>
-        {% endfor %}
+<div class="layout layout--col layout--top">
+  <div class="col gap--medium stretch-x">
+    <span class="label">{{ count }} active{% if stalled > 0 %}, {{ stalled }} stalled{% endif %}</span>
+    {% for p in active %}
+      <div class="flex flex--col flex--left gap--xsmall w--full">
+        <span class="title title--small" data-clamp="1">{{ p.name }}</span>
+        <span class="label" data-clamp="1">{{ p.pct }}% done{% if p.idle != "" %} - {{ p.idle }}{% endif %}</span>
       </div>
-    </div>
+    {% endfor %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Projects</span>
-  <span class="instance">{{ count }} active</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>
