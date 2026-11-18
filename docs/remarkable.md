@@ -4,14 +4,14 @@ Optional. An inbox page, the web home page drawn as three pages, the one due rev
 
 | Page | Web group | What a pen can change |
 |---|---|---|
-| `0 - Inbox` | Not on the web page: a ruled page for free notes | Write anything for the system. Each note becomes a card in Trello's 📥 Inbox list, word for word, for `/pfc-trello-inbox` to process |
+| `0 - Inbox` | Not on the web page: a ruled page for free notes | Write anything for the system. Each note becomes a card in Trello's 📥 Inbox list, word for word. With the unattended inbox on (`PFC_TRELLO_INBOX=1`), the `pfc-trello-inbox` timer (every 10 minutes) carries it out, and only a note that is unclear or possibly misread waits there as `❓ <note>`; otherwise it waits for `/pfc-trello-inbox` |
 | `1 - Today` | Today: Body first, the rating, Habits, The 2+1, Week | Circle 1–5 for Energy, Mood and Focus (while the day is unrated), optionally Hyperfocused Yes/No; tick a 2+1 task done; tick **swap** to drop a pick (it stays open); tick a suggested task to pick it (tomorrow's from about 6 PM); tick a daily or monthly habit (watch-logged habits are marked *); the Why line and What needs you, as on the web; **Note for the agent** box |
 | `2 - This quarter` | This quarter: Focuses, Projects, Trends | Tick **park** on a focus; **Note for the agent** box for focus changes and project updates (name the project) |
 | `3 - Always` | Always: Areas, Values, Visions, Front of mind (household rooms only when not parked: `household_parked` in `config/automation_config.yaml`) | Circle G, Y or R on an area you set by hand (or highlight the row), with the why in the note box; an area lit by its items shows why instead and cannot be circled; **Note for the agent** box |
 | `4 - Review` | The web Review page (`/review`) | The one due review (`review_forms.py`), as a form: circle an option per row, write on the note and prompt lines, or tick **skip this review**. The answers run `/pfc-review <id> answers <json> unattended`, which carries out every answer and stamps the review; a review with more rows than one page holds stays due and the next page carries on after the rows done |
 | `5 - Tasks` | The web Tasks page (`/tasks`), several pages | Every open task in priority order (AA first), about 16 a page. Tick a task done; tick **drop** to remove it; write on or beside a task for a note about it (sent to the inbox as `Note on task "…": …`); a note box on each page |
 
-Notes from a "Note for the agent" box go to the Trello inbox tagged with their page (`From the Today page: …`), so "make reading 20 minutes" is read as the habit. Free writing anywhere else on a page that is not an answer to a printed spot is a note too, and any other handwriting arrives as `Also written on the … page: …`. No handwriting is dropped. Inbox notes wait in Trello until you run `/pfc-trello-inbox`.
+Notes from a "Note for the agent" box go to the Trello inbox tagged with their page (`From the Today page: …`), so "make reading 20 minutes" is read as the habit. Free writing anywhere else on a page that is not an answer to a printed spot is a note too, and any other handwriting arrives as `Also written on the … page: …`. No handwriting is dropped. Inbox notes wait in Trello until you run `/pfc-trello-inbox`, or, with `PFC_TRELLO_INBOX=1` on the server, until the next `pfc-trello-inbox` timer run carries them out.
 
 ## How it runs
 
@@ -43,10 +43,11 @@ Every page's top-right corner shows the agent's last few replies on that page fr
 |---|---|
 | `Saved: …`, what the sync saved from the page | `remarkable_sync.py` after it reads a page |
 | `Sent N notes to the Trello inbox`, or `Could not send N notes…` | the sync |
+| One line per note: `"<note>" → <what was done>`, or `Waiting: …` with the question when it was unclear | `scripts/trello-inbox-auto.sh`, from the `pfc-trello-inbox unattended` per-card lines (only with `PFC_TRELLO_INBOX=1`) |
 | `Saved your <review> answers`, then each question the review asked as `Asked: … I went with: …` | `run_review` in `remarkable_sync.py`, from the open-questions table of the headless `/pfc-review` |
 | `Could not read what you wrote here …` | the sync, after three failed reads |
 
-Answering is writing anywhere on the page: the note goes to the inbox with that page's recent replies in the card's description, so the agent reading it knows which question it answers.
+Answering is writing anywhere on the page: the note goes to the inbox with that page's recent replies in the card's description, so the agent reading it knows which question it answers (`pfc-trello-inbox` § Unattended mode).
 
 ## Setup (once, on the server)
 

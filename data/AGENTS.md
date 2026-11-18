@@ -22,7 +22,7 @@ Schemas: `config/{insight,hypothesis,finding,supplement,grounding,review_ledger,
 
 ## Front of Mind (`grounding.ndjson`)
 
-A small, cycling set of "keep this front-of-mind right now" anchors, rendered to the Trello `🧠 Front of Mind` list. The bar is **critical, present-tense importance** — genuinely load-bearing stuff, not trivia or reference. Distinct from an insight (a noticing to triage) and a finding (a proven conclusion). One record per **topic** (title + bulleted body), soft cap 10 active — curate by retiring, never delete.
+A small, cycling set of "keep this front-of-mind right now" anchors, rendered to the Trello `🧠 Front of mind` list. The bar is **critical, present-tense importance** — genuinely load-bearing stuff, not trivia or reference. Distinct from an insight (a noticing to triage) and a finding (a proven conclusion). One record per **topic** (title + bulleted body), soft cap 10 active — curate by retiring, never delete.
 
 ## Three stores, in order of bar
 

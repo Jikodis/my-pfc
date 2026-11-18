@@ -128,7 +128,7 @@ def list_cards_on_board(api_key, token, board_id, filter_="open", include_checkl
     side-loads them via the checklists=all parameter)."""
     params = {
         "filter": filter_,
-        "fields": "name,idList,desc,due,dueComplete,closed,idLabels,dateCompleted",
+        "fields": "name,idList,desc,due,dueComplete,closed,idLabels,dateCompleted,pos",
         "key": api_key, "token": token,
     }
     if include_checklists:
@@ -138,15 +138,34 @@ def list_cards_on_board(api_key, token, board_id, filter_="open", include_checkl
     return _request(f"{API_BASE}/boards/{board_id}/cards?{qs}", "GET")
 
 
-def create_card(api_key, token, list_id, name, desc=None, id_labels=None):
-    """Create a new card on a list. id_labels is a list of label ids (optional)."""
+def create_card(api_key, token, list_id, name, desc=None, id_labels=None, pos=None):
+    """Create a new card on a list. id_labels is a list of label ids (optional); pos is
+    Trello's position (a number, 'top' or 'bottom'), the bottom when not given."""
     qs = urllib.parse.urlencode({"key": api_key, "token": token})
     body = {"idList": list_id, "name": name}
+    if pos is not None:
+        body["pos"] = pos
     if desc is not None:
         body["desc"] = desc
     if id_labels:
         body["idLabels"] = ",".join(id_labels)
     return _request(f"{API_BASE}/cards?{qs}", "POST", data=body)
+
+
+def get_card(api_key, token, card_id, fields="name,desc,closed,idList"):
+    """One card, open or archived."""
+    qs = urllib.parse.urlencode({"fields": fields, "key": api_key, "token": token})
+    return _request(f"{API_BASE}/cards/{card_id}?{qs}", "GET")
+
+
+def list_board_actions(api_key, token, board_id, filter_, since=None, limit=1000):
+    """A board's actions, newest first. filter_ is Trello's action filter, such as
+    'updateCard:closed' (cards archived); since is an ISO timestamp."""
+    params = {"filter": filter_, "limit": limit, "key": api_key, "token": token}
+    if since:
+        params["since"] = since
+    qs = urllib.parse.urlencode(params)
+    return _request(f"{API_BASE}/boards/{board_id}/actions?{qs}", "GET")
 
 
 def update_card(api_key, token, card_id, **fields):
@@ -174,6 +193,13 @@ def create_list(api_key, token, board_id, name, pos="bottom"):
     params = {"idBoard": board_id, "name": name, "pos": pos, "key": api_key, "token": token}
     qs = urllib.parse.urlencode(params)
     return _request(f"{API_BASE}/lists?{qs}", "POST")
+
+
+def update_list(api_key, token, list_id, **fields):
+    """Update a list's fields, e.g. name or pos."""
+    qs = urllib.parse.urlencode({"key": api_key, "token": token})
+    return _request(f"{API_BASE}/lists/{list_id}?{qs}", "PUT",
+                    data={k: v for k, v in fields.items() if v is not None})
 
 
 def archive_list(api_key, token, list_id):

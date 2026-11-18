@@ -60,8 +60,11 @@ has ~20 lists because tapping is cheap; a screen has one.
 TRMNL's own agent rules make this non-negotiable: never write markup against data you
 have not seen. In this repo that means the payload builder comes first.
 
-1. Add a builder function to `BUILDERS` in `automations/scripts/trmnl_push.py`. Read
-   canonical NDJSON from the repo; return a flat dict.
+1. Each screen mirrors one band of the web home page. Write the builder in
+   `automations/scripts/trmnl_home.py`, reading `home_data.build_home` (the call the page
+   makes), and register it in `BUILDERS` in `automations/scripts/trmnl_push.py`. A number
+   the page does not show yet goes into `home_data.py` first, so both surfaces get it.
+   Return a flat dict.
 2. Pre-digest everything — clip strings, pre-compute counts and formatted values, drop
    fields the view will not render. Nothing deeper than two levels.
 3. Run it and read the output:
@@ -103,11 +106,11 @@ relevant section of its `template_guide.md`.
 Plan the space before writing HTML — what blocks, what fractions, what gets cut at
 smaller sizes. Build `full.liquid` first, then adapt (don't shrink) for the others.
 
-**Hold every view to the design bar in `trmnl/AGENTS.md` § "The design bar"**: full
-views fill the screen (no more than about a third blank), `lg:` type bumps are
-mandatory, sparse content gets poster-sized centered type, no truncation while the
-screen has blank space, and the screen must earn its playlist slot with data that
-changes day to day.
+**Hold every view to the design bar in `trmnl/AGENTS.md` § "The design bar"**: the
+screen reads like its web band (one headline first, only the rows that need a look,
+worst first, greens folded into a count), `lg:` type bumps are mandatory, sparse
+content gets poster-sized centered type, and the screen must earn its playlist slot
+with data that changes day to day.
 
 | View | Size | Content height |
 |---|---|---|
@@ -135,9 +138,9 @@ trmnl/bin/preview <plugin> --serve    # same, then live reload at http://localho
 **Read every `_build/<view>.png` before calling a view done.** Lint checks rules, not
 layout — it will happily pass a heading that centered itself or a list that overflowed.
 Iterate: fix, rebuild, look again. While looking, apply the design bar
-(`trmnl/AGENTS.md`): if the full view is more than about a third blank, or text is
-truncated while blank space remains, the view fails — fix the layout or the builder
-caps before moving on.
+(`trmnl/AGENTS.md`): if the full view is crowded, lists green rows a count would
+cover, or buries the headline, the view fails — cut rows in the builder or raise the
+type before moving on.
 
 Renders at 4-bit to match a 16-grayscale panel. `trmnlp`'s own default is 1-bit, which
 dithers every gray into dot patterns and makes a fine screen look broken — do not judge
@@ -202,7 +205,7 @@ Diagnose in order:
 
 ## Tuning the pulse screens
 
-`pfc-pulse` and `pfc-pulse-trend` hold no thresholds — they render what
+`pfc-pulse` holds no thresholds — they render what
 `automations/scripts/pulse.py` computes. If the user asks to change what the pulse
 tracks or what "good" means, change the bands under `health.pulse` in
 `config/automation_config.yaml`, or the levers in `pulse.py` — never the Liquid, and
@@ -210,13 +213,13 @@ never a second copy in the builder. Ground the change in their own data: run
 `/pfc-analyze-trends` first and use what actually separates their good days from their
 average ones.
 
-The exception is the exercise row on `pfc-pulse`, which is a today-action rather than a
+The exception is the exercise stat on `pfc-pulse`, which is a today-action rather than a
 sleep lever: it reads `EXERCISE_HABIT_ID` / `EXERCISE_LABEL` at the top of
 `trmnl_push.py`. Point those at the user's own movement habit id.
 
 ## Push cadence
 
-`trmnl_push.py` is called from the evening check-in and on demand. **Do not add either
+`trmnl_push.py` is run on demand. **Do not add either
 transport to the git post-commit hook.** Trello's render is wired there because Trello
 has no meaningful rate limit; polling doesn't need the hook at all, and a webhook push
 there would burn the 12/hour quota in minutes during an editing session, leaving the

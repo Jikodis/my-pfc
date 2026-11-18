@@ -13,6 +13,19 @@ Process the user's Trello inbox in two phases: batch-propose all SIMPLE cards in
 
 - Explicit: "process inbox", "trello inbox", "clear inbox", "walk my inbox"
 - "/pfc-trello-inbox"
+- `/pfc-trello-inbox unattended` from the timer (see Unattended mode)
+
+## Unattended mode (the 10-minute timer)
+
+`scripts/trello-inbox-auto.sh` (timer `pfc-trello-inbox`, every 10 minutes, opt-in with `PFC_TRELLO_INBOX=1` in `.env`, [`docs/install/vps.md`](../../../docs/install/vps.md)) runs this skill headless with the argument `unattended` whenever the 📥 Inbox list has cards. Cards come from the phone (dictated, so expect misheard words) and, when the tablet pages are on, from the reMarkable `0 - Inbox` page (handwriting read by Claude, so expect misread words and `[?]` where a word could not be read). Nobody is there to answer, so:
+
+- **Never ask.** Do not print proposals or wait for approval.
+- **Act on every card whose meaning is clear, whatever the action.** Adding, logging, renaming, completing, removing, cancelling, archiving, scheduling, creating a project, sending a message and spending are all allowed once you turn this mode on; that is the point of it. Follow the rules of the skill or doc that owns the action (a calendar event follows `docs/calendar-scheduling.md`; a project gets `/pfc-add-project` with every field inferred; an area note is captured in the user's words, `2-areas/AGENTS.md` § Capture). Pass every argument up front; if a skill would still need to ask, treat the card as unclear. Delete the card after the action succeeds, as in step 11.
+- **What waits is only what is unclear,** because a misread note acted on is a wrong record: a card that reads oddly, contains `[?]`, names something that does not exist or matches more than one record, or could mean two things. For anything that removes, sends or spends, the bar for "clear" is higher: the record or recipient must match exactly one thing and the words must leave no doubt. Rename it to `❓ <original title>` and put the question in its description, one line (`python3 automations/scripts/trello_helper.py card-update <id> --name "❓ …" --desc "…"`). Never guess past a misread: a wrong record is worse than a card that waits.
+- **Skip cards whose title already starts with `❓`.** They wait for the user; the interactive run walks them as COMPLEX.
+- **Commits** follow the repo policy (each capture skill auto-commits and pushes).
+- **A reMarkable note may answer the agent.** Its description then lists the agent's recent replies on that page (a question a review asked, a card left ❓). Read the note as the answer to the question it fits: apply it (change the record the question was about) and say so in the action.
+- **End** with one line per card: `🟢 <title> → <action>` or `🟡 <title> → left (❓ <question>)`, keeping the card's title exactly as written (its `From the <page> page:` prefix included). `scripts/trello-inbox-auto.sh` turns these lines into the agent's replies at the bottom of that reMarkable page, so write the action in a few plain words the user can read there ("added the task 'Fix the Week band'").
 
 ## Pre-flight
 
@@ -163,4 +176,4 @@ A misread note is COMPLEX: ask, never guess.
 
 ## Out of scope
 
-Card descriptions (except a reMarkable card's, above), attachments, audio, labels, multiple boards, background fetch, archive (cards are deleted, not archived).
+Card descriptions (except a reMarkable card's, above), attachments, audio, labels, multiple boards, archive (cards are deleted, not archived).

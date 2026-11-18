@@ -1,13 +1,27 @@
 {%- comment -%}
-PFC Trends — thirty days of day ratings with a 7-day rolling-mean line, plus
-7-day tiles (avg rating, avg sleep, exercise days, rolling sleep debt) and an
-exercise-gap line. The rolling mean is the trendline: seven points is a week,
-thirty with a smoothed line is a direction. Retrospective only — actions and
-fixes live on pfc-pulse, never here.
+PFC Trends - mirrors the Trends band of the web home page (`/`): how the last 30 days
+turned out. Only the trends not green get a row, worst first, each with its reason; the
+green ones fold into one "on track" line. Payload: `trmnl_home.trends_payload`.
 
-Chart rules (e-ink): ALL animation disabled (chart, plotOptions.series, and
-per-series) — the screenshot captures one frame and an animating chart renders
-blank. Columns mid-gray (#999), mean line solid black, markers off — black on
-black is unreadable at 4-bit. Missing days are null, never 0. Transparent
-background, no legend, no tooltips.
+E-ink rules: no emoji, no inline styles, framework classes only. A light is a shape
+plus a word (`status_shape`): square RED, triangle YELLOW, circle GREEN; `status_chip`
+fills RED and outlines YELLOW so the rows that need a look stand out.
 {%- endcomment -%}
+{% template status_shape %}
+{%- if status == "RED" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="currentColor"/></svg>
+{%- elsif status == "YELLOW" -%}
+<svg width="0.8em" height="0.8em" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,11 0.5,11" fill="currentColor"/></svg>
+{%- elsif status == "GREEN" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="currentColor"/></svg>
+{%- endif -%}
+{% endtemplate %}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- endif -%}
+{% endtemplate %}

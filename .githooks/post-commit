@@ -14,8 +14,8 @@
 # Behavior:
 #   - Inspects files changed in HEAD; renders only when a Trello-mirrored
 #     file changed (see TRIGGER_PATTERN below).
-#   - The Calendar list skips with 🟡 — no MCP data available from a git
-#     hook. The evening check-in and /pfc-render-trello still refresh it.
+#   - The 🗓️ Week list is built from data/calendar-cache.json — no MCP data
+#     is available from a git hook. /pfc-render-trello refreshes the cache.
 #   - Fail-safe: any error logs 🟡 and exits 0. Post-commit hooks cannot
 #     reject a commit; this hook never blocks the developer flow.
 

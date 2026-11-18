@@ -1,0 +1,11 @@
+<div class="layout layout--col layout--center">
+  <div class="flex flex--col flex--center-x gap--large w--full">
+    {% if question != "" %}<span class="title title--base text--center" data-clamp="5">{{ question }}</span>{% endif %}
+    <span class="label text--center" data-clamp="4">{% for v in values %}{{ forloop.index }} {{ v }}{% unless forloop.last %}, {% endunless %}{% endfor %}</span>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
+</div>

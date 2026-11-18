@@ -1,10 +1,28 @@
 {%- comment -%}
-PFC Current Focus — the traffic-lit quarterly set from 4-focus/_data/focus.ndjson:
-Foundations, Active Pursuits (with landings), Currently Consuming.
+PFC Focuses - mirrors the Focuses band of the web home page (`/`): the page's
+"N of M live focuses are red" headline, the re-pick callout when it is on, then the three
+tiers. Each tier lists only the live focuses not green, worst first, with progress and
+weeks red; green and parked focuses fold into counts. Payload: `trmnl_home.focus_payload`.
 
-Status marks are text, never emoji (e-ink has no emoji font):
-GREEN = going, YELLOW = easing, RED = not happening, PARKED = parked. Spelled
-out in caps, never punctuation — a legend that isn't on the screen is a legend
-nobody has. Ordering stays impact/urgency-first (AA before AB) to mirror the
-Trello list; colour is only the tiebreak.
+E-ink rules: no emoji, no inline styles, framework classes only. A light is a shape
+plus a word (`status_shape`): square RED, triangle YELLOW, circle GREEN; `status_chip`
+fills RED and outlines YELLOW so the rows that need a look stand out.
 {%- endcomment -%}
+{% template status_shape %}
+{%- if status == "RED" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="currentColor"/></svg>
+{%- elsif status == "YELLOW" -%}
+<svg width="0.8em" height="0.8em" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,11 0.5,11" fill="currentColor"/></svg>
+{%- elsif status == "GREEN" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="currentColor"/></svg>
+{%- endif -%}
+{% endtemplate %}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- endif -%}
+{% endtemplate %}

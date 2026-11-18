@@ -67,12 +67,17 @@ fi
 tty_flags=(-i)
 [[ -t 0 ]] && tty_flags=(-i -t)
 
+# Only `serve` needs the port. Publishing it for lint/build/push makes two previews
+# running at once (parallel agents) collide on 4567.
+port_flags=()
+[[ "${1:-}" == "serve" ]] && port_flags=(--publish 4567:4567)
+
 # TRMNL_CONTAINER_RUNTIME may carry arguments ("lima nerdctl"), so it is split
 # on whitespace deliberately.
 # shellcheck disable=SC2086
 exec $runtime run --rm ${tty_flags[@]+"${tty_flags[@]}"} \
   --pull always \
-  --publish 4567:4567 \
+  ${port_flags[@]+"${port_flags[@]}"} \
   --volume "$(pwd):/plugin" \
   --volume "$HOME/.config/trmnlp:/root/.config/trmnlp" \
   --env "TRMNL_API_KEY=${TRMNL_API_KEY:-}" \

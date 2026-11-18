@@ -102,6 +102,16 @@ class Card:
     due_complete: Optional[bool] = None
     # Optional checklist for Project cards: list of (name, checked) pairs
     checklist: Optional[list] = None
+    # Position in its list (Trello `pos`). None leaves the card wherever it is; a
+    # number is set on create and enforced on update, so a red-first order holds
+    # after a light changes, not only on a fresh render.
+    pos: Optional[float] = None
+    # Checklists created once, with the card, and never touched again: the ticks are
+    # the user's (the rating card in 🦸 Body first). [(checklist name, [item names])].
+    seed_checklists: Optional[list] = None
+    # Read back from the board by fetch_current_state: {checklist name: [(item, checked)]}.
+    # Never compared; the render reads it to word a card's body (annotate_rate_card).
+    checklist_state: Optional[dict] = None
 
 
 # ── Diff engine ───────────────────────────────────────────────────────────────
@@ -124,6 +134,7 @@ def _cards_equal(a: Card, b: Card) -> bool:
         sorted(a.label_names) == sorted(b.label_names) and
         a.due == b.due and
         due_complete_match and
+        (a.pos is None or b.pos is None or a.pos == b.pos) and
         (a.checklist or []) == (b.checklist or [])
     )
 
@@ -174,7 +185,7 @@ def compute_diff(desired, current):
 
 # Import the helper functions we depend on.
 from trello_helper import (
-    list_lists, create_list, archive_list,
+    list_lists, create_list, update_list,
     list_labels, create_label,
     list_cards_on_board,
     create_card, update_card, archive_card,
@@ -187,6 +198,17 @@ from trello_helper import (
 # 9 impact×urgency tiers collapse to 5 priority colors. The 9-tier distinction
 # stays visible in card titles ("AA (M) - desc"); the label is just the 5-bucket
 # priority severity. Labels are plain (unnamed) Trello labels — color-only.
+# Tasks a browser agent can run start to finish get 🤖 in the title, so the
+# hand-off batch is visible at a glance on the phone. Only "yes" is marked —
+# "partly" and "no" carry nothing, because a second marker would need a legend
+# and a legend that lives off-screen is no help on the phone.
+AGENT_MARK = " 🤖"
+
+
+def _agent_mark(task) -> str:
+    return AGENT_MARK if task.get("agent_doable") == "yes" else ""
+
+
 TIER_PRIORITY_COLOR = {
     "AA": "red",
     "AB": "orange", "BA": "orange",
@@ -196,42 +218,63 @@ TIER_PRIORITY_COLOR = {
 }
 # Order chosen so emoji codepoints sort red → orange → yellow → green → purple
 # in Trello's "Sort by card name". Avoid ⚫ (U+26AB) or ⬛ (U+2B1B) — both sort
-# BEFORE 🔴 (U+1F534) and broke the Actions list ordering.
+# BEFORE 🔴 (U+1F534) and broke the Tasks list ordering.
 PRIORITY_COLORS = ("red", "orange", "yellow", "green", "purple")
 
 
-def ensure_lists(api_key, token, board_id, list_names):
-    """Ensure each name in list_names exists on the board. Returns {name: list_id}."""
-    existing = {l["name"]: l["id"] for l in list_lists(api_key, token, board_id, filter_="open")}
-    result = {}
-    for name in list_names:
-        if name in existing:
-            result[name] = existing[name]
-        else:
-            new_list = create_list(api_key, token, board_id, name, pos="bottom")
-            result[name] = new_list["id"]
-    return result
-
-
-# ── Per-active-project lists ──────────────────────────────────────────────────
+# ── The board's lists ─────────────────────────────────────────────────────────
 #
-# Each active project (projects.ndjson `active: true`) gets its own list
-# `🎯 <project name>` so the project backlog doesn't drown the standalone
-# Actions list on the mobile dashboard. When a project flips inactive, its list
-# is archived on the next render. Tasks belonging to inactive projects don't
-# render to Trello at all — they remain in NDJSON until the project reactivates.
+# The board follows the web home page (`web/src/pages/index.astro`): 📥 Inbox, then
+# the Today group (Body first, The 2+1, Habits, Week), This quarter (Focuses,
+# Projects, Trends), Always (Areas with the household folded in, Values, Visions,
+# Front of mind), then the web's other page, Tasks. Every render
+# puts the lists in this order right after 📥 Inbox.
 
-PROJECT_LIST_PREFIX = "🎯 "
-FOCUS_LIST_NAME = "🎯 Current Focus"  # shares the 🎯 prefix but is NOT a per-project list
-PROJECT_LIST_NAME_MAX = 50  # Trello list-name character cap (safer than 100 for mobile)
+INBOX_LIST_NAME = "📥 Inbox"
+BODY_LIST = "🦸 Body first"
+PICKS_LIST = "✅ The 2+1"
+HABITS_LIST = "☀️ Habits"
+WEEK_LIST = "🗓️ Week"
+FOCUS_LIST = "🎯 Focuses"
+PROJECTS_LIST = "🛠️ Projects"
+TRENDS_LIST = "📈 Trends"
+AREAS_LIST = "🧭 Areas"
+VALUES_LIST = "💎 Values"
+VISIONS_LIST = "🔭 Visions"
+ANCHORS_LIST = "🧠 Front of mind"
+TASKS_LIST = "✅ Tasks"
+
+ALL_LIST_NAMES = [
+    BODY_LIST, PICKS_LIST, HABITS_LIST, WEEK_LIST,
+    FOCUS_LIST, PROJECTS_LIST, TRENDS_LIST,
+    AREAS_LIST, VALUES_LIST, VISIONS_LIST, ANCHORS_LIST,
+    TASKS_LIST,
+]
+LIST_POS_STEP = 65536
 
 
-def _project_list_name(project_name: str) -> str:
-    return f"{PROJECT_LIST_PREFIX}{project_name.strip()}"[:PROJECT_LIST_NAME_MAX]
-
-
-def _is_project_list_name(name: str) -> bool:
-    return name.startswith(PROJECT_LIST_PREFIX) and name != FOCUS_LIST_NAME
+def ensure_lists(api_key, token, board_id, list_names):
+    """Ensure each name in list_names exists, in that order, right after 📥 Inbox.
+    Returns {name: list_id}. A missing list is created in its place; when the order
+    is off, each list is moved into place. Lists the render does not name stay put."""
+    lists = list_lists(api_key, token, board_id, filter_="open")
+    existing = {l["name"]: l for l in lists}
+    inbox = existing.get(INBOX_LIST_NAME)
+    base = (inbox.get("pos") or 0) if inbox else 0
+    ours = [existing.get(n) for n in list_names]
+    positions = [l.get("pos") for l in ours if l is not None]
+    in_order = (None not in ours and None not in positions
+                and all(a < b for a, b in zip([base] + positions, positions)))
+    result = {}
+    for i, name in enumerate(list_names):
+        pos = base + (i + 1) * LIST_POS_STEP
+        if name not in existing:
+            result[name] = create_list(api_key, token, board_id, name, pos=pos)["id"]
+            continue
+        result[name] = existing[name]["id"]
+        if not in_order and existing[name].get("pos") != pos:
+            update_list(api_key, token, existing[name]["id"], pos=pos)
+    return result
 
 
 # Life-wheel color buckets (score 1-10 → label color)
@@ -305,26 +348,25 @@ def _read_ndjson(path):
 def _safe_focus_status():
     """Derived focus rates, or [] if the computation fails. Never blocks a render."""
     try:
-        from focus_status import compute
-        return compute(
-            _read_ndjson("4-focus/_data/focus.ndjson"),
-            _read_ndjson("7-habits/_data/habits-daily.ndjson"),
-            _read_ndjson("7-habits/_data/habits-monthly.ndjson"),
-            _load_habit_schema_raw(),
-            _today_mt(),
-        )
+        # The web's own call (home_data.build_home uses status_rows too). It reads the
+        # raw habit schema; _load_habit_schema's renamed shape left every focus unknown.
+        from focus_status import status_rows
+        return status_rows(REPO_ROOT, _today_mt())
     except Exception as exc:  # noqa: BLE001 — render must never hard-fail here
         print(f"   🟡 focus rates unavailable ({exc}) — cards render without them")
         return []
 
 
-def _load_habit_schema_raw():
-    """habit_schema.yaml as raw dict (daily_habits/monthly_habits keys) — the
-    shape focus_status.compute expects, distinct from _load_habit_schema's
-    normalized {daily, monthly} shape."""
-    import yaml
-    p = REPO_ROOT / "config" / "habit_schema.yaml"
-    return yaml.safe_load(p.read_text()) if p.exists() else {}
+def _safe_home():
+    """home_data.build_home for now, the dict the web page and TRMNL read, or None if it
+    fails. Never blocks a render."""
+    try:
+        import home_data
+        tz = _ZoneInfo(_os.environ.get("LOCAL_TZ", "America/Denver"))
+        return home_data.build_home({}, _dt.datetime.now(tz).replace(tzinfo=None))
+    except Exception as exc:  # noqa: BLE001 — render must never hard-fail here
+        print(f"   🟡 web home data unavailable ({exc}) — the lists that mirror it are left as they are")
+        return None
 
 
 def load_repo_state():
@@ -340,15 +382,15 @@ def load_repo_state():
         "habits_monthly": _read_ndjson("7-habits/_data/habits-monthly.ndjson"),
         "habit_schema": _load_habit_schema(),
         "life_wheel": _read_ndjson("2-areas/_data/life-wheel.ndjson"),
+        # The web home page's data (home_data.build_home), the source of every list that
+        # mirrors a web band (trello_home.py). None when it fails; those lists are then
+        # left as they are on the board.
+        "home": _safe_home(),
         "grounding": _read_ndjson("data/grounding.ndjson"),
         "focus": _read_ndjson("4-focus/_data/focus.ndjson"),
         # Derived focus lights + per-vehicle rates. Degrades to [] on failure
         # rather than killing the whole render.
         "focus_status": _safe_focus_status(),
-        "insights": _read_ndjson("data/insights.ndjson"),
-        "findings": _read_ndjson("data/findings.ndjson"),
-        "hypotheses": _read_ndjson("data/hypotheses.ndjson"),
-        "supplements": _read_ndjson("data/supplements.ndjson"),
         "day_tracking": _read_ndjson("data/day-tracking.ndjson"),
     }
 
@@ -371,7 +413,7 @@ def _load_visions():
     """Return list of {slug, title, body} for real vision files in 3-visions/.
 
     A vision file is a per-vision markdown with YAML frontmatter (see
-    3-visions/_template.md). Folder docs (README.md, AGENTS.md, CLAUDE.md,
+    3-visions/_template.md). Folder docs (README.md, AGENTS.md,
     vision-brainstorm.md) start with a `#` heading, not `---` frontmatter, so
     they are excluded — only frontmatter files render as visions. Without this
     guard every doc in the folder leaks onto the board as a vision card.
@@ -433,9 +475,11 @@ def _load_habit_schema():
             out.append({
                 "id": h.get("id"),
                 "name": h.get("description") or h.get("name") or h.get("id"),
+                "short": h.get("short"),
                 "frequency": h.get("frequency"),
                 "area": h.get("area"),
                 "active": h.get("active", True),
+                "auto_derived": h.get("auto_derived", False),
             })
         return out
     return {
@@ -473,15 +517,16 @@ def render_values(repo_state) -> list:
     cards = []
     for line in text.splitlines():
         line = line.strip()
-        # Match "1. Love", "2. Faith", etc.
+        # Match "1. Honesty", "2. Courage", etc.
         if line and line[0].isdigit() and ". " in line:
             rank, _, value = line.partition(". ")
             cards.append(Card(
                 pfc_id=f"value-{rank}",
                 pfc_type="value",
-                list_name="💎 Values",
+                list_name=VALUES_LIST,
                 name=f"{rank}. {value}",
                 body="",
+                pos=(len(cards) + 1) * 1024,
             ))
     return cards
 
@@ -506,134 +551,58 @@ def _priority_plain_label(tier, plain_color_labels):
     return []
 
 
-def render_areas(repo_state, plain_color_labels=None) -> list:
-    """Render Area cards with life-wheel context.
-
-    Body structure:
-        Life Wheel: <emoji> <score>          (or 'Life Wheel: 🟢 green' for string colors)
-        Why: <per-area note from latest life-wheel record>   (only if note exists)
-
-        <area statement>
-
-    If plain_color_labels is provided, attach a plain-color label keyed to the
-    area's life-wheel score (1-2 red, 3-4 orange, 5-6 yellow, 7-8 lime,
-    9-10 green; or the string color name directly).
-    """
-    plain_color_labels = plain_color_labels or {}
-    wheel_rows = repo_state.get("life_wheel", [])
-    latest_scores = {}
-    latest_notes = {}
-    if wheel_rows:
-        latest = wheel_rows[-1]
-        latest_scores = latest.get("scores") or latest.get("ratings") or {}
-        latest_notes = latest.get("notes") or {}
-    cards = []
-    for area in repo_state.get("areas", []):
-        name = area["name"]
-        score = latest_scores.get(name)
-        note = latest_notes.get(name)
-        color = _lifewheel_color(score)
-        label_names = []
-        if color and color in plain_color_labels:
-            label_names = [f"_plain:{color}"]
-        # Build header lines (life-wheel rating + reason note)
-        header_lines = []
-        if score is not None and score != "":
-            emoji = COLOR_EMOJI.get(color, "")
-            if isinstance(score, str):
-                rating_str = f"Life Wheel: {emoji} {score}".strip()
-            else:
-                rating_str = f"Life Wheel: {emoji} {score}/10".strip()
-            header_lines.append(rating_str)
-        if note:
-            header_lines.append(f"Why: {note}")
-        statement = area["statement"][:1000]
-        body_parts = []
-        if header_lines:
-            body_parts.append("\n".join(header_lines))
-        body_parts.append(statement)
-        body = "\n\n".join(body_parts)
-        title_emoji = COLOR_EMOJI.get(color, "")
-        card_name = f"{title_emoji} {name.capitalize()}".strip() if title_emoji else name.capitalize()
-        cards.append(Card(
-            pfc_id=f"area-{name}",
-            pfc_type="area",
-            list_name="🧭 Areas",
-            name=card_name,
-            body=body,
-            label_names=label_names,
-        ))
-    return cards
-
-
-def render_visions(repo_state) -> list:
-    cards = []
-    for v in repo_state.get("visions", []):
-        cards.append(Card(
-            pfc_id=f"vision-{v['slug']}",
-            pfc_type="vision",
-            list_name="🔭 Visions",
-            name=v["title"],
-            body=v["body"][:1000],
-        ))
-    return cards
-
-
-def render_projects(repo_state, plain_color_labels=None) -> list:
-    plain_color_labels = plain_color_labels or {}
-    cards = []
-    for p in repo_state.get("projects", []):
-        if not p.get("active"):
-            continue
-        if p.get("status") == "done":
-            continue
-        total = p.get("total_parts", 0) or 0
-        completed = p.get("completed_parts", 0) or 0
-        pct = int(round((completed / total * 100) if total else 0))
-        impact = (p.get("impact", "low")[:1] or "C").upper()
-        urgency = (p.get("urgency", "low")[:1] or "C").upper()
-        impact_letter = {"H": "A", "M": "B", "L": "C"}.get(impact, "C")
-        urgency_letter = {"H": "A", "M": "B", "L": "C"}.get(urgency, "C")
-        tier = f"{impact_letter}{urgency_letter}"
-        body_lines = [
-            f"Area: {p.get('area', '')} · Values: {', '.join(p.get('values', []))}",
-            f"Impact: {p.get('impact')} · Urgency: {p.get('urgency')} · Excitement: {p.get('excitement')}",
-            f"Parts: {completed}/{total} ({pct}%)",
-        ]
-        if p.get("deadline"):
-            body_lines.append(f"Deadline: {p['deadline']}")
-        # Build the Progress checklist
-        checklist = [(f"Part {i+1}", i < completed) for i in range(total)]
-        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
-        project_title = f"{tier_emoji} [{pct}%] {p['name']}".strip() if tier_emoji else f"[{pct}%] {p['name']}"
-        cards.append(Card(
-            pfc_id=p["id"],
-            pfc_type="project",
-            list_name="🛠️ Projects",
-            name=project_title,
-            body="\n".join(body_lines),
-            label_names=_priority_plain_label(tier, plain_color_labels),
-            due=_deadline_to_due(p.get("deadline")),
-            due_complete=False,
-            checklist=checklist if total > 0 else None,
-        ))
-    return cards
-
-
 def _task_priority_tier(t):
     impact = {"high": "A", "medium": "B", "low": "C"}.get(t.get("impact", "low"), "C")
     urgency = {"high": "A", "medium": "B", "low": "C"}.get(t.get("urgency", "low"), "C")
     return f"{impact}{urgency}"
 
 
+def _task_card(t, list_name, plain_color_labels, project_name=None, pos=None):
+    """One interactive task card: `🔴 AA (M) 🤖 - description`, plus ` · <project>`
+    for a task in a project. Ticking it on the phone completes the task."""
+    tier = _task_priority_tier(t)
+    body_lines = [
+        f"Impact: {t.get('impact')} · Urgency: {t.get('urgency')} · Size: {t.get('size')}",
+        f"Area: {t.get('area', 'none')} · Project: {project_name or 'none'}",
+    ]
+    if t.get("deadline"):
+        body_lines.append(f"Deadline: {t['deadline']}")
+    if t.get("notes"):
+        body_lines.append(f"Notes: {t['notes']}")
+    size = t.get("size", "?")
+    tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
+    # The emoji prefix makes priority visible on Android Trello widgets, which do
+    # not render labels.
+    head = f"{tier_emoji} {tier}" if tier_emoji else tier
+    suffix = f" · {project_name}" if project_name else ""
+    return Card(
+        pfc_id=t["id"],
+        pfc_type="task",
+        list_name=list_name,
+        name=f"{head} ({size}){_agent_mark(t)} - {t.get('description', '')}{suffix}"[:200],
+        body="\n".join(body_lines),
+        label_names=_priority_plain_label(tier, plain_color_labels),
+        due=_deadline_to_due(t.get("deadline")),
+        due_complete=None,
+        pos=pos,
+    )
+
+
+def _project_names(repo_state, active_only=False):
+    return {p["id"]: p.get("name", p["id"]) for p in repo_state.get("projects", [])
+            if p.get("active") or not active_only}
+
+
 def render_2plus1(repo_state, plain_color_labels=None) -> list:
-    """Render today's 2+1 focus cards. Source: today's daily-focus row + tasks.ndjson."""
+    """Today's undone 2+1 picks, critical first, then the bonus. Source: today's
+    daily-focus row + tasks.ndjson."""
     plain_color_labels = plain_color_labels or {}
     today = _today_mt()
     focus = next((r for r in repo_state.get("daily_focus", []) if r.get("date") == today), None)
     if not focus:
         return []
     tasks_by_id = {t["id"]: t for t in repo_state.get("tasks", [])}
+    names = _project_names(repo_state)
     ids = []
     for slot in ("critical", "bonus", "project"):
         v = focus.get(slot)
@@ -642,159 +611,92 @@ def render_2plus1(repo_state, plain_color_labels=None) -> list:
         elif isinstance(v, str):
             ids.append(v)
     cards = []
-    for tid in ids:
+    for tid in dict.fromkeys(ids):
         t = tasks_by_id.get(tid)
         if not t or t.get("status") == "done":
             continue
-        tier = _task_priority_tier(t)
-        body_lines = [
-            f"Impact: {t.get('impact')} · Urgency: {t.get('urgency')} · Size: {t.get('size')}",
-            f"Area: {t.get('area', 'none')} · Project: {t.get('project', 'none')}",
-        ]
-        if t.get("deadline"):
-            body_lines.append(f"Deadline: {t['deadline']}")
-        if t.get("notes"):
-            body_lines.append(f"Notes: {t['notes']}")
-        size = t.get("size", "?")
-        desc_text = t.get("description", "")
-        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
-        # Title format: "🔴 AA (M) - description" — emoji prefix makes priority
-        # visible on Android Trello widgets where labels are not rendered.
-        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
-                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
-        cards.append(Card(
-            pfc_id=t["id"],
-            pfc_type="task",
-            list_name="✅ 2+1",
-            name=formatted_name,
-            body="\n".join(body_lines),
-            label_names=_priority_plain_label(tier, plain_color_labels),
-            due=_deadline_to_due(t.get("deadline")),
-            due_complete=None,
-        ))
+        cards.append(_task_card(t, PICKS_LIST, plain_color_labels, names.get(t.get("project"))))
     return cards
 
 
-def render_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
-    """Render open standalone tasks (no project) except those in today's 2+1.
-    Project-linked tasks render via render_project_actions instead."""
+# Card order in ✅ Tasks: the web Tasks page's default sort (priority code, then file
+# order), held by a position built from the code and the task id's date and number, so
+# a new task does not shift every card below it.
+_TIER_ORDER = [a + b for a in "ABC" for b in "ABC"]
+
+
+def _task_pos(t):
+    digits = "".join(ch for ch in t["id"] if ch.isdigit())[:11] or "0"
+    tier = _task_priority_tier(t)
+    rank = _TIER_ORDER.index(tier) if tier in _TIER_ORDER else len(_TIER_ORDER)
+    return rank * 10 ** 11 + int(digits)
+
+
+def render_tasks(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
+    """✅ Tasks, the web Tasks page on the phone: every open task, standalone or in an
+    active project, in priority order, except today's 2+1 picks (those sit in
+    ✅ The 2+1). Deferred tasks and tasks of a parked or finished project stay off the
+    board until they come back into rotation."""
     plain_color_labels = plain_color_labels or {}
     exclude = set(exclude_2plus1_ids or [])
+    active = _project_names(repo_state, active_only=True)
     cards = []
     for t in repo_state.get("tasks", []):
-        if t.get("status") != "open":
+        if t.get("status") != "open" or t.get("deferred") or t["id"] in exclude:
             continue
-        if t.get("deferred"):
-            continue  # parked by the user — out of rotation, off the board
-        if t["id"] in exclude:
+        project = t.get("project") or "none"
+        if project != "none" and project not in active:
             continue
-        if (t.get("project") or "none") != "none":
-            continue
-        tier = _task_priority_tier(t)
-        body_lines = [
-            f"Impact: {t.get('impact')} · Urgency: {t.get('urgency')} · Size: {t.get('size')}",
-            f"Area: {t.get('area', 'none')} · Project: {t.get('project', 'none')}",
-        ]
-        if t.get("deadline"):
-            body_lines.append(f"Deadline: {t['deadline']}")
-        if t.get("notes"):
-            body_lines.append(f"Notes: {t['notes']}")
-        size = t.get("size", "?")
-        desc_text = t.get("description", "")
-        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
-        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
-                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
-        cards.append(Card(
-            pfc_id=t["id"],
-            pfc_type="task",
-            list_name="✅ Tasks",
-            name=formatted_name,
-            body="\n".join(body_lines),
-            label_names=_priority_plain_label(tier, plain_color_labels),
-            due=_deadline_to_due(t.get("deadline")),
-            due_complete=None,
-        ))
+        cards.append(_task_card(t, TASKS_LIST, plain_color_labels, active.get(project), pos=_task_pos(t)))
     return cards
 
 
-def render_project_actions(repo_state, plain_color_labels=None, exclude_2plus1_ids=None) -> list:
-    """Render open tasks for each active project to that project's dedicated list.
-    Tasks belonging to inactive/done/missing projects are NOT rendered to Trello —
-    they remain in NDJSON until the project reactivates."""
-    plain_color_labels = plain_color_labels or {}
-    exclude = set(exclude_2plus1_ids or [])
-    active_projects = {
-        p["id"]: p
-        for p in repo_state.get("projects", [])
-        if p.get("active")
-    }
-    cards = []
-    for t in repo_state.get("tasks", []):
-        if t.get("status") != "open":
-            continue
-        if t.get("deferred"):
-            continue  # parked by the user — out of rotation, off the board
-        if t["id"] in exclude:
-            continue
-        proj_id = t.get("project") or "none"
-        project = active_projects.get(proj_id)
-        if project is None:
-            continue
-        tier = _task_priority_tier(t)
-        body_lines = [
-            f"Impact: {t.get('impact')} · Urgency: {t.get('urgency')} · Size: {t.get('size')}",
-            f"Area: {t.get('area', 'none')} · Project: {project['name']}",
-        ]
-        if t.get("deadline"):
-            body_lines.append(f"Deadline: {t['deadline']}")
-        if t.get("notes"):
-            body_lines.append(f"Notes: {t['notes']}")
-        size = t.get("size", "?")
-        desc_text = t.get("description", "")
-        tier_emoji = PRIORITY_TIER_EMOJI.get(tier, "")
-        formatted_name = (f"{tier_emoji} {tier} ({size}) - {desc_text}"
-                          if tier_emoji else f"{tier} ({size}) - {desc_text}")[:200]
-        cards.append(Card(
-            pfc_id=t["id"],
-            pfc_type="task",
-            list_name=_project_list_name(project["name"]),
-            name=formatted_name,
-            body="\n".join(body_lines),
-            label_names=_priority_plain_label(tier, plain_color_labels),
-            due=_deadline_to_due(t.get("deadline")),
-            due_complete=None,
-        ))
-    return cards
+def daily_habit_counts(repo_state) -> list:
+    """Each tappable daily habit with today's state and its past-7-days count:
+    [{id, short, name, frequency, area, done_today, completed, target}].
 
-
-def render_daily_habits(repo_state) -> list:
+    The count is the same trailing-7-day window and skip-adjusted target the ramp
+    reads (`focus_status.habit_rate`), so the card and the habit's light agree.
+    A habit the system measures itself (`auto_derived`, e.g. Fitbit sleep onset)
+    is left out: a tap would write a manual row that outranks the measurement.
+    """
+    from focus_status import habit_rate
     today = _today_mt()
+    week_start = (_dt.date.fromisoformat(today) - _dt.timedelta(days=6)).isoformat()
     schema = repo_state.get("habit_schema", {})
     daily = schema.get("daily", []) if isinstance(schema, dict) else []
-    today_logs = [r for r in repo_state.get("habits_daily", []) if r.get("date") == today]
-    log_by_id = {r.get("habit_id"): r for r in today_logs}
-    cards = []
+    logs = repo_state.get("habits_daily", [])
+    log_by_id = {r.get("habit_id"): r for r in logs if r.get("date") == today}
+    out = []
     for h in daily:
         hid = h.get("id") or h.get("habit_id") or h.get("name")
         if not hid:
             continue
-        if h.get("active") is False:
+        if h.get("active") is False or h.get("auto_derived"):
             continue
         log = log_by_id.get(hid)
-        completed = log and log.get("completed") is True
-        # No ✓ title marker: the card's own checkbox already shows completion, and
-        # a name that changes daily forces a pointless update on every render.
-        cards.append(Card(
-            pfc_id=f"habit-daily-{hid}",
-            pfc_type="habit-daily",
-            list_name="☀️ Daily Habits",
-            name=f"{h.get('name', hid)}",
-            body=f"Frequency: {h.get('frequency', '?')}/week · Area: {h.get('area', '')}",
-            # False (not None) so render actively unchecks at day rollover. Render runs writeback
-            # first by default (see main()), so user widget-clicks get logged before they're wiped.
-            due_complete=True if completed else False,
-        ))
-    return cards
+        freq = h.get("frequency") or 7
+        r = habit_rate(logs, hid, week_start, today, freq, "daily")
+        out.append({"id": hid, "short": h.get("short") or h.get("name", hid), "name": h.get("name", hid),
+                    "frequency": freq, "area": h.get("area", ""),
+                    "done_today": bool(log and log.get("completed") is True),
+                    "completed": r["completed"], "target": r["target"]})
+    return out
+
+
+def render_daily_habits(repo_state) -> list:
+    """One tappable card per daily habit, titled `<short name>: <done>/<target> past 7 days`
+    (daily_habit_counts)."""
+    return [Card(
+        pfc_id=f"habit-daily-{h['id']}",
+        pfc_type="habit-daily",
+        list_name=HABITS_LIST,
+        name=f"{h['short']}: {h['completed']}/{h['target']} past 7 days",
+        body=f"{h['name']}\nFrequency: {h['frequency']}/week · Area: {h['area']}",
+        # False (not None) so render actively unchecks at day rollover. Render runs writeback
+        # first by default (see main()), so user widget-clicks get logged before they're wiped.
+        due_complete=h["done_today"],
+    ) for h in daily_habit_counts(repo_state)]
 
 
 def render_monthly_habits(repo_state) -> list:
@@ -816,16 +718,18 @@ def render_monthly_habits(repo_state) -> list:
         hid = h.get("id") or h.get("habit_id") or h.get("name")
         if not hid:
             continue
-        if h.get("active") is False:
+        # Same rule as the daily cards: a habit the system derives (from the calendar,
+        # say) gets no card, because a manual tick would outrank the measurement.
+        if h.get("active") is False or h.get("auto_derived"):
             continue
         target = h.get("frequency", 1)
         count = count_by_id.get(hid, 0)
         cards.append(Card(
             pfc_id=f"habit-monthly-{hid}",
             pfc_type="habit-monthly",
-            list_name="🌙 Monthly Habits",
-            name=f"{h.get('name', hid)}: {count}/{target}",
-            body=f"Target this month: {target} · Area: {h.get('area', '')}",
+            list_name=HABITS_LIST,
+            name=f"{h.get('short') or h.get('name', hid)}: {count}/{target} this month",
+            body=f"{h.get('name', hid)}\nTarget this month: {target} · Area: {h.get('area', '')}",
             # Per-day check: unchecks overnight like daily habits. Title still shows
             # month-to-date count/target. Each click logs one occurrence; a card that
             # stays checked across days does not re-log.
@@ -834,64 +738,27 @@ def render_monthly_habits(repo_state) -> list:
     return cards
 
 
-def render_life_wheel(repo_state) -> list:
-    rows = repo_state.get("life_wheel", [])
-    if not rows:
-        return []
-    latest = rows[-1]
-    cards = []
-    # Schema variants: numeric scores (e.g. {"career": 7}) or color ratings (e.g. {"career": "green"}).
-    scores = latest.get("scores") or {}
-    ratings = latest.get("ratings") or {}
-    if scores:
-        for area, score in scores.items():
-            cards.append(Card(
-                pfc_id=f"lifewheel-{area}",
-                pfc_type="life-wheel",
-                list_name="🎡 Life Wheel",
-                name=f"{area.capitalize()}: {score}/10",
-                body=f"As of {latest.get('date', 'unknown')}",
-            ))
-    elif ratings:
-        for area, rating in ratings.items():
-            note = (latest.get("notes") or {}).get(area, "")
-            body = f"As of {latest.get('date', 'unknown')}"
-            if note:
-                body += f"\n\n{note}"
-            cards.append(Card(
-                pfc_id=f"lifewheel-{area}",
-                pfc_type="life-wheel",
-                list_name="🎡 Life Wheel",
-                name=f"{area.capitalize()}: {rating}",
-                body=body,
-            ))
-    return cards
-
-
-GROUNDING_CAP = 10  # soft cap on 🧠 Front of Mind anchors; warn (never truncate) if exceeded
+GROUNDING_CAP = 10  # soft cap on 🧠 Front of mind anchors; warn (never truncate) if exceeded
 
 
 def render_grounding(repo_state) -> list:
-    """🧠 Front of Mind — a small, cycling set of grounding anchors to keep
-    front-of-mind right now. One card per TOPIC (not per bullet): `title` is the
-    card name, `body` holds the points, so a heavy theme stays one scannable card.
-
-    Soft-capped: renders ALL active anchors but warns when the count exceeds
-    GROUNDING_CAP. Truncating would risk hiding something important — curation
-    happens by retiring an anchor, not by a silent cutoff.
-    """
+    """🧠 Front of mind — a small, cycling set of grounding anchors to keep
+    front-of-mind right now. Soft-capped: renders ALL active anchors but warns
+    if the count exceeds GROUNDING_CAP (truncating would risk hiding something
+    important — curation happens by retiring, not by silent cutoff)."""
     cards = []
     active = [g for g in repo_state.get("grounding", []) if g.get("status") == "active"]
     if len(active) > GROUNDING_CAP:
-        print(f"   🟡 Front of Mind has {len(active)} active topic cards (soft cap {GROUNDING_CAP}) — consider retiring some")
+        print(f"   🟡 Front of mind has {len(active)} active topic cards (soft cap {GROUNDING_CAP}) — consider retiring some")
     for g in active:
-        # `text` is a single-line fallback for records that have no title/body split.
+        # One card per TOPIC: title is the card name, body holds the points.
+        # `text` is a legacy single-line fallback for older records.
         title = g.get("title") or g.get("text") or ""
         body = g.get("body") or g.get("text") or ""
         cards.append(Card(
             pfc_id=g["id"],
             pfc_type="grounding",
-            list_name="🧠 Front of Mind",
+            list_name=ANCHORS_LIST,
             name=title[:200],
             body=body,
         ))
@@ -910,7 +777,7 @@ def _focus_code(f):
 
 
 def render_focus(repo_state) -> list:
-    """🎯 Current Focus — the capped, traffic-lit set of what's actively being
+    """🎯 Focuses — the capped, traffic-lit set of what's actively being
     pursued this quarter. Renders ALL active (non-retired) focuses grouped by
     tier (🧱 Foundations → 🎯 Active Pursuits → 🎧 Currently Consuming), sorted
     by impact/urgency code within each tier with red first as a tiebreak.
@@ -924,24 +791,29 @@ def render_focus(repo_state) -> list:
     active = [f for f in repo_state.get("focus", []) if not f.get("retired_date")]
 
     # Parked focuses are a deliberate stop and do not occupy a pursuit slot.
-    # Red means "not happening" and DOES occupy one.
+    # Red now means "not happening" and DOES occupy one.
     pursuits = [f for f in active if f.get("tier") == "pursuit" and not f.get("parked")]
     if len(pursuits) > FOCUS_PURSUIT_CAP:
-        print(f"   🟡 Current Focus has {len(pursuits)} active pursuits "
+        print(f"   🟡 Focuses has {len(pursuits)} active pursuits "
               f"(hard cap {FOCUS_PURSUIT_CAP}) — park/retire one")
 
     rates = {r["focus_id"]: r for r in repo_state.get("focus_status", [])}
     red_first = {"red": 0, "yellow": 1, "green": 2, "parked": 3, "unknown": 4}
 
+    def light(f):
+        """The derived light (focus_status.compute, what the web Focuses band shows),
+        else the stored one: the stored `status` is only rewritten by a --write run."""
+        derived = (rates.get(f["id"]) or {}).get("status")
+        return derived if derived in FOCUS_STATUS_CIRCLE else f.get("status", "green")
+
     for tier, tier_emoji in FOCUS_TIER_ORDER:
         tier_focuses = [x for x in active if x.get("tier") == tier]
-        tier_focuses.sort(key=lambda f: (_focus_code(f),
-                                         red_first.get(f.get("status", "green"), 9)))
+        tier_focuses.sort(key=lambda f: (_focus_code(f), red_first.get(light(f), 9)))
         for f in tier_focuses:
             if f.get("parked"):
                 marker = FOCUS_PARKED_MARKER
             else:
-                marker = FOCUS_STATUS_CIRCLE.get(f.get("status", "green"), "🟢")
+                marker = FOCUS_STATUS_CIRCLE.get(light(f), "🟢")
             title = (f"{_focus_code(f)} {marker} {tier_emoji} "
                      f"{f.get('title', '')} — {f.get('area', '')}")
 
@@ -950,14 +822,14 @@ def render_focus(repo_state) -> list:
                 body_parts.append(f"Landing: {f['landing']}")
             r = rates.get(f["id"])
             if r and r.get("primary"):
-                pr = r["primary"]
+                p = r["primary"]
                 body_parts.append(
-                    f"Rate: {pr['completed']} of {pr['target']} "
-                    f"({round(pr['rate'] * 100)}%) via {pr['habit_id']}")
-                for sup in r.get("supporting", []):
+                    f"Rate: {p['completed']} of {p['target']} "
+                    f"({round(p['rate'] * 100)}%) via {p['habit_id']}")
+                for s in r.get("supporting", []):
                     body_parts.append(
-                        f"  also {sup['completed']} of {sup['target']} "
-                        f"({round(sup['rate'] * 100)}%) via {sup['habit_id']}")
+                        f"  also {s['completed']} of {s['target']} "
+                        f"({round(s['rate'] * 100)}%) via {s['habit_id']}")
                 if r.get("weeks_red", 0) >= 2:
                     body_parts.append(f"⚠ red {r['weeks_red']} weeks running — "
                                       f"re-land / lower / park / retire")
@@ -968,269 +840,15 @@ def render_focus(repo_state) -> list:
             cards.append(Card(
                 pfc_id=f["id"],
                 pfc_type="focus",
-                list_name=FOCUS_LIST_NAME,
+                list_name=FOCUS_LIST,
                 name=title[:200],
                 body="\n".join(body_parts),
+                pos=(len(cards) + 1) * 1024,
             ))
     return cards
 
 
-def render_insights(repo_state) -> list:
-    cards = []
-    for ins in repo_state.get("insights", []):
-        if ins.get("status") != "active":
-            continue
-        snippet = (ins.get("insight") or "")[:200]
-        cards.append(Card(
-            pfc_id=ins["id"],
-            pfc_type="insight",
-            list_name="💡 Insights",
-            name=snippet,
-            body=(ins.get("insight") or "") + (f"\n\nCategory: {ins['category']}" if ins.get("category") else ""),
-        ))
-    return cards
-
-
-def render_findings(repo_state) -> list:
-    cards = []
-    for f in repo_state.get("findings", []):
-        body = (f.get("finding") or f.get("statement") or "")
-        cards.append(Card(
-            pfc_id=f["id"],
-            pfc_type="finding",
-            list_name="📜 Findings",
-            name=body[:200],
-            body=body,
-        ))
-    return cards
-
-
-def render_hypotheses(repo_state) -> list:
-    cards = []
-    for h in repo_state.get("hypotheses", []):
-        if h.get("status") != "active":
-            continue
-        snippet = (h.get("hypothesis") or "")[:200]
-        cards.append(Card(
-            pfc_id=h["id"],
-            pfc_type="hypothesis",
-            list_name="🧪 Hypothesis",
-            name=snippet,
-            body=f"Domain: {h.get('domain', '')}\n\n{h.get('hypothesis', '')}",
-        ))
-    return cards
-
-
-# Time-of-day → numeric prefix + display label, ordered through the day.
-TIME_OF_DAY_ORDER = {
-    "morning": (1, "Morning"),
-    "afternoon": (2, "Afternoon"),
-    "evening": (3, "Evening"),
-    "bedtime": (4, "Bedtime"),
-    "with meals": (5, "With Meals"),
-}
-
-
-def render_supplements(repo_state) -> list:
-    """Render currently-active supplements. Title format:
-        '<rank>. <Time labels> - <name> <dose>'
-    where rank is 1=Morning..5=With Meals (uses earliest time when multi).
-    Sorted alphabetically by Trello, the prefix gives natural time-of-day order."""
-    today = _today_mt()
-    cards = []
-    for s in repo_state.get("supplements", []):
-        started = s.get("started")
-        stopped = s.get("stopped")
-        if not started:
-            continue
-        if started > today:
-            continue
-        if stopped and stopped <= today:
-            continue
-        name = s.get("name", "?")
-        dose = s.get("dose", "")
-        times = s.get("times") or []
-        # Determine numeric prefix (earliest time slot) and joined display labels.
-        time_pairs = sorted(
-            (TIME_OF_DAY_ORDER.get(t, (99, t.title())) for t in times),
-            key=lambda p: p[0],
-        )
-        if time_pairs:
-            rank = time_pairs[0][0]
-            time_label = ", ".join(label for _, label in time_pairs)
-            title = f"{rank}. {time_label} - {name} {dose}".strip()
-        else:
-            # Schema requires non-empty times, but be defensive.
-            title = f"9. {name} {dose}".strip()
-        body_lines = [f"Started: {started}"]
-        food = s.get("food_requirement")
-        if food:
-            food_label = {
-                "empty_stomach": "Take: empty stomach",
-                "with_food": "Take: with food",
-                "with_fat": "Take: with fat",
-                "either": "Take: any time",
-            }.get(food, f"Take: {food}")
-            body_lines.append(food_label)
-        if s.get("purpose"):
-            body_lines.append(f"Purpose: {s['purpose']}")
-        if s.get("notes"):
-            body_lines.append(f"Notes: {s['notes']}")
-        cards.append(Card(
-            pfc_id=s["id"],
-            pfc_type="supplement",
-            list_name="💊 Supplements",
-            name=title,
-            body="\n".join(body_lines),
-        ))
-    return cards
-
-
-def render_last_7_days(repo_state) -> list:
-    rows = repo_state.get("day_tracking", [])
-    last7 = sorted(rows, key=lambda r: r.get("date", ""))[-7:]
-    cards = []
-    for r in last7:
-        date = r.get("date", "")
-        try:
-            dt = _dt.datetime.strptime(date, "%Y-%m-%d")
-            day = dt.strftime("%a")
-        except Exception:
-            day = "?"
-        rating = r.get("rating", "?")
-        mood = r.get("mood", "?")
-        energy = r.get("energy", "?")
-        focus = r.get("focus", "?")
-        body_lines = []
-        if r.get("hyperfocused"):
-            body_lines.append("⚠ hyperfocused")
-        if r.get("notes"):
-            body_lines.append(f"Notes: {r['notes']}")
-        cards.append(Card(
-            pfc_id=f"day-{date}",
-            pfc_type="day-tracking",
-            list_name="⬅ Last 7 Days",
-            name=f"{date} {day} · ⭐ {rating}/5 · 😊 {mood} · ⚡ {energy} · 🎯 {focus}",
-            body="\n".join(body_lines) if body_lines else "(no flags)",
-        ))
-    return cards
-
-
-# ── 🦸 Superman Pulse ─────────────────────────────────────────────────────────
-#
-# An at-a-glance status board for the levers that drive your best days: one card
-# per lever, plus a verdict card that reads the CRITICAL levers together.
-#
-# The thresholds, verdict, remediations, and trend math all live in
-# `pulse.py` — that module is the single source of truth and every surface
-# imports from it. This file only turns those tuples into Trello cards. Do NOT
-# re-derive a band here; two copies of a threshold drift the moment one is tuned.
-#
-# The default lever set there is a generic starting point. Replace it with the
-# levers your own `/pfc-analyze-trends` surfaces: a metric that does not separate
-# your good days from your average ones does not earn a card.
-SUPERMAN_PULSE_LIST = "🦸 Superman Pulse"
-
-
-def render_superman_pulse(repo_state) -> list:
-    """One card per lever plus a verdict card, sorted red-first (red → yellow →
-    green) with tier only breaking ties inside a colour, so what's off is what
-    you see first."""
-    from pulse import pulse_snapshot
-
-    snap = pulse_snapshot(repo_state.get("day_tracking", []))
-    if snap is None:
-        return []
-    levers = snap["levers"]
-    crit = [lv for lv in levers if lv[1] == "CRITICAL"]
-    crit_green = sum(1 for lv in crit if lv[6] == "🟢")
-
-    status_rank = {"🔴": 0, "🟡": 1, "🟢": 2, "⚪": 3}
-    cards = [Card(
-        pfc_id="pulse-verdict",
-        pfc_type="superman-pulse",
-        list_name=SUPERMAN_PULSE_LIST,
-        name=f"⭐ VERDICT — {snap['verdict']['status']} {snap['verdict']['text']}",
-        body=(f"For {snap['date']} — last night's sleep plus where recovery stands now.\n\n"
-              f"Critical levers green: {crit_green}/{len(crit)}.\n\n"
-              f"Tonight's move: {snap['move']}\n\n"
-              "Thresholds live in automations/scripts/pulse.py — tune them to "
-              "what /pfc-analyze-trends finds in your own data."),
-    )]
-    # Red first, then yellow, then green — worst at the top so the thing to fix
-    # is the thing read first. Tier only breaks ties within a colour.
-    for lid, tier, trank, label, disp, target, status in sorted(
-            levers, key=lambda x: (status_rank.get(x[6], 9), x[2])):
-        cards.append(Card(
-            pfc_id=f"pulse-{lid}",
-            pfc_type="superman-pulse",
-            list_name=SUPERMAN_PULSE_LIST,
-            name=f"{status} [{tier}] {label}: {disp} (target {target})",
-            body=f"Tier: {tier}. Now: {disp}. Target: {target}. Status: {status}.",
-        ))
-    return cards
-
-
 # ── Renderers — external-system-backed ────────────────────────────────────────
-
-def _format_event_time(start, end):
-    """Convert a Calendar event start/end to '<Day> <12hr time>' string. Handles all-day events."""
-    if "dateTime" in start:
-        # Datetime event
-        try:
-            dt = _dt.datetime.fromisoformat(start["dateTime"])
-            day = dt.strftime("%a %m/%d")
-            time = dt.strftime("%I:%M %p").lstrip("0")
-            return f"{day} {time}"
-        except Exception:
-            return start["dateTime"]
-    else:
-        # All-day event. Some sources give a clean YYYY-MM-DD; others (Google
-        # Calendar API via MCP) return an ISO timestamp like '2026-05-08T00:00:00Z'.
-        raw = start.get("date", "?")
-        try:
-            # Try parsing as datetime first (handles ISO timestamps)
-            dt = _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
-            day = dt.strftime("%a %m/%d")
-            return f"{day} (all day)"
-        except (ValueError, AttributeError):
-            # Fall back to plain string (handles 'YYYY-MM-DD')
-            return f"{raw} (all day)"
-
-
-def _event_sort_key(evt):
-    """Sortable key for a calendar event — uses the start time/date."""
-    start = evt.get("start", {}) or {}
-    if "dateTime" in start:
-        return start["dateTime"]
-    if "date" in start:
-        # All-day events: date string sorts naturally; pad to make it sort BEFORE
-        # any timed event on the same day if both exist (date-only events conventionally start at 00:00).
-        return start["date"] + "T00:00:00"
-    return ""
-
-
-def _event_to_due(start):
-    """Convert a calendar event start to a Trello due ISO 8601 timestamp (UTC).
-    Lets users sort the Week-at-a-Glance list by Due Date in Trello.
-    All-day events anchor to noon UTC of the date (matches task convention)."""
-    if "dateTime" in start:
-        raw = start["dateTime"]
-        try:
-            dt = _dt.datetime.fromisoformat(raw)
-            dt_utc = dt.astimezone(_dt.timezone.utc)
-            return dt_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        except Exception:
-            return None
-    if "date" in start:
-        raw = start["date"]
-        try:
-            dt = _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
-            return dt.strftime("%Y-%m-%dT12:00:00.000Z")
-        except (ValueError, AttributeError):
-            return f"{raw}T12:00:00.000Z"
-    return None
-
 
 def load_calendar_filters() -> dict:
     """Read config/trello_calendar_filters.yaml. Shared by the Trello render and
@@ -1246,6 +864,62 @@ def load_calendar_filters() -> dict:
         print("   🟡 pyyaml not installed; calendar filters not applied", file=sys.stderr)
         return {}
     return yaml.safe_load(filter_path.read_text()) or {}
+
+
+# A cache older than the window it covers has no future events left in it, so
+# there is nothing to render. /pfc-render-trello fetches 7 days forward.
+CALENDAR_CACHE_MAX_AGE_DAYS = 7
+
+
+def load_calendar_cache(path=None, today=None):
+    """Second source for 🗓️ Week when no live Calendar fetch happened.
+
+    Only a live session can fetch Calendar, because reading it needs the Google
+    Calendar MCP connector, so a timer-run render would otherwise skip the list and
+    let it go stale between live renders. /pfc-render-trello Step 1, which the
+    morning daily sync job runs, commits data/calendar-cache.json for the TRMNL
+    pfc-week builder; reading it here means the timer renders a slightly older week
+    instead of no week.
+
+    Returns (events, note). events is None whenever the cache can't be used —
+    every failure is soft, and the note explains which one so the render can
+    print it. Past events are dropped: the cache covers 7 days from its fetch,
+    so by the time the timer reads it the front of that window is already gone.
+    """
+    path = Path(path) if path else REPO_ROOT / "data" / "calendar-cache.json"
+    today = today or _today_mt()
+
+    if not path.exists():
+        return None, f"no calendar cache at {path.name}"
+    try:
+        blob = json.loads(path.read_text())
+        fetched_at = blob["fetched_at"]
+        events = blob["events"]
+    except (ValueError, KeyError, TypeError, OSError):
+        return None, f"calendar cache unreadable ({path.name})"
+
+    fetched_day = str(fetched_at)[:10]
+    try:
+        age = (_dt.date.fromisoformat(today)
+               - _dt.date.fromisoformat(fetched_day)).days
+    except ValueError:
+        return None, f"calendar cache unreadable (bad fetched_at {fetched_at!r})"
+    if age > CALENDAR_CACHE_MAX_AGE_DAYS:
+        return None, f"calendar cache stale ({age}d old, fetched {fetched_day})"
+
+    upcoming = [e for e in events if _event_start_day(e) >= today]
+    if not upcoming:
+        return None, f"calendar cache has no upcoming events (fetched {fetched_day})"
+    return upcoming, f"calendar cache from {fetched_day} ({age}d old, {len(upcoming)} upcoming)"
+
+
+def _event_start_day(evt) -> str:
+    """YYYY-MM-DD an event starts on, for timed and all-day events alike.
+    Unparseable starts sort last so a malformed event is never silently dropped.
+    """
+    start = evt.get("start", {}) or {}
+    raw = start.get("dateTime") or start.get("date") or ""
+    return str(raw)[:10] or "9999-12-31"
 
 
 def calendar_event_excluded(evt, filters) -> bool:
@@ -1278,42 +952,78 @@ def calendar_event_excluded(evt, filters) -> bool:
     return False
 
 
-def render_calendar(events, filters) -> list:
-    """Render Calendar events to cards, applying the title and calendar filters
-    from config/trello_calendar_filters.yaml. Output is sorted chronologically
-    so cards land on Trello in time order.
+# ── ⭐ The rating card ────────────────────────────────────────────────────────
+#
+# The home page's "How was yesterday?" card on the phone, in 🦸 Body first: one card
+# naming the day the web asks about (home_data rate_target: yesterday before the
+# evening hour, today after), with three checklists of 1-5, shown only while that day
+# is unrated (trello_home.render_body). trello_writeback.sync_rating saves the day once
+# each list has exactly one tick, through pfc_writes.rate_day (the web's writer). The
+# card's id carries the date, so a new day swaps in a fresh card and its old ticks go
+# with the archived one.
 
-    Recurring events are NOT dropped wholesale. They were once, and the week
-    surface came out nearly blank as a result — most real commitments (standing
-    lunches, classes, therapy, an in-office day) are recurring series, and
-    those are exactly the ones that must not be missed. The line that matters
-    is real commitments vs. PFC scaffolding, which is a title question, not a
-    recurrence question. See the filter file's header for the full rule.
-    """
-    # Sort events chronologically before rendering so the resulting card list
-    # is in time order.
-    events_sorted = sorted(events, key=_event_sort_key)
-    cards = []
-    for evt in events_sorted:
-        if calendar_event_excluded(evt, filters):
+RATE_GROUPS = ("Energy", "Mood", "Focus")
+RATE_ITEMS = ("1", "2", "3", "4", "5")
+RATE_PREFIX = "rate-day-"
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+RATE_HOW = ("Tick one number in each list: 1 is low, 5 is high. Once all three have one tick, "
+            "the next sync saves the day (every 2 hours in the day, and at 5 AM). "
+            "The day rating is the three averaged and rounded.")
+
+
+def short_day(iso: str) -> str:
+    """'2025-01-05' -> 'Sun Jan 5'."""
+    d = _dt.date.fromisoformat(iso)
+    return f"{_WEEKDAYS[d.weekday()]} {_MONTHS[d.month - 1]} {d.day}"
+
+
+def _local_now():
+    """Local wall-clock time, naive, the shape home_data.build_home takes."""
+    tz = _ZoneInfo(_os.environ.get("LOCAL_TZ", "America/Denver"))
+    return _dt.datetime.now(tz).replace(tzinfo=None)
+
+
+def rating_answers(checklists) -> dict:
+    """Read the three 1-5 checklists. {checklist name: [(item, checked)]} ->
+    {"values": {group: int | None}, "ambiguous": {group: [ticked numbers]}, "complete": bool}.
+
+    A group counts only with exactly one tick. Two or more ticks is ambiguous, never
+    resolved by guessing (a guessed rating poisons every trend)."""
+    values, ambiguous = {}, {}
+    for group in RATE_GROUPS:
+        ticked = []
+        for item, checked in (checklists or {}).get(group) or []:
+            digits = "".join(ch for ch in str(item) if ch.isdigit())
+            if checked and digits and 1 <= int(digits) <= 5:
+                ticked.append(int(digits))
+        values[group] = ticked[0] if len(ticked) == 1 else None
+        if len(ticked) > 1:
+            ambiguous[group] = sorted(ticked)
+    return {"values": values, "ambiguous": ambiguous,
+            "complete": all(v is not None for v in values.values())}
+
+
+def rate_status_lines(answers) -> list:
+    """What the card's body says about the ticks so far."""
+    vals = answers["values"]
+    lines = ["Answered: " + " · ".join(f"{g} {vals[g] if vals[g] is not None else '—'}" for g in RATE_GROUPS)]
+    for group, ticked in answers["ambiguous"].items():
+        lines.append(f"⚠ {group} has {len(ticked)} ticks ({', '.join(map(str, ticked))}): "
+                     f"untick one so the rating can save.")
+    return lines
+
+
+def annotate_rate_card(desired, current):
+    """Add the answered-so-far lines to the desired rate-day card from the ticks on the
+    board's card with the same id (none yet: nothing answered)."""
+    by_id = {c.pfc_id: c for c, _ in current}
+    for card in desired:
+        if card.pfc_type != "rate-day":
             continue
-        title = evt.get("summary") or "(no title)"
-        cal_name = (evt.get("organizer", {}) or {}).get("displayName") or evt.get("calendarName", "")
-        time_part = _format_event_time(evt.get("start", {}), evt.get("end", {}))
-        body_lines = [f"Calendar: {cal_name}"]
-        if evt.get("location"):
-            body_lines.append(f"Location: {evt['location']}")
-        if evt.get("end", {}).get("dateTime"):
-            body_lines.append(f"End: {evt['end']['dateTime']}")
-        cards.append(Card(
-            pfc_id=f"gcal-{evt['id']}",
-            pfc_type="calendar-event",
-            list_name="🗓️ Week at a Glance",
-            name=f"{time_part} · {title}"[:200],
-            body="\n".join(body_lines),
-            due=_event_to_due(evt.get("start", {})),
-        ))
-    return cards
+        on_board = by_id.get(card.pfc_id)
+        answers = rating_answers(on_board.checklist_state if on_board else None)
+        card.body = RATE_HOW + "\n\n" + "\n".join(rate_status_lines(answers))
 
 
 # ── Trello state reader ───────────────────────────────────────────────────────
@@ -1335,13 +1045,12 @@ def fetch_current_state(api_key, token, board_id, list_name_to_id, label_id_to_n
         if list_name is None or list_name in exclude:
             continue
         fm = parse_pfc_frontmatter(rc.get("desc", ""))
-        # Extract Progress checklist if present (used for projects).
-        checklist = None
+        # Every checklist's ticks; the Progress one (projects) is also diffed.
+        state = {}
         for cl in rc.get("checklists", []) or []:
-            if cl.get("name") == "Progress":
-                items = sorted(cl.get("checkItems", []) or [], key=lambda x: x.get("pos", 0))
-                checklist = [(it.get("name"), it.get("state") == "complete") for it in items]
-                break
+            items = sorted(cl.get("checkItems", []) or [], key=lambda x: x.get("pos", 0))
+            state.setdefault(cl.get("name"), [(it.get("name"), it.get("state") == "complete") for it in items])
+        checklist = state.get("Progress")
         resolved_label_names = []
         for lid in rc.get("idLabels", []):
             n = label_id_to_name.get(lid)
@@ -1357,6 +1066,8 @@ def fetch_current_state(api_key, token, board_id, list_name_to_id, label_id_to_n
             due=rc.get("due"),
             due_complete=rc.get("dueComplete", False),
             checklist=checklist,
+            pos=rc.get("pos"),
+            checklist_state=state,
         )
         out.append((c, rc["id"]))
     return out
@@ -1371,7 +1082,8 @@ def apply_creates(api_key, token, creates, list_name_to_id, label_name_to_id):
             continue  # list not present; should not happen post-ensure_lists
         desc = serialize_pfc_frontmatter(desired.pfc_id, desired.pfc_type, desired.body)
         id_labels = [label_name_to_id[n] for n in desired.label_names if n in label_name_to_id]
-        new_card = create_card(api_key, token, list_id, name=desired.name, desc=desc, id_labels=id_labels)
+        new_card = create_card(api_key, token, list_id, name=desired.name, desc=desc, id_labels=id_labels,
+                               pos=desired.pos)
         new_id = new_card["id"]
         # Apply due / dueComplete if set
         update_kwargs = {}
@@ -1386,6 +1098,10 @@ def apply_creates(api_key, token, creates, list_name_to_id, label_name_to_id):
             cl = create_checklist(api_key, token, new_id, "Progress")
             for (item_name, checked) in desired.checklist:
                 add_checkitem(api_key, token, cl["id"], item_name, checked=checked)
+        for (cl_name, items) in desired.seed_checklists or []:
+            cl = create_checklist(api_key, token, new_id, cl_name)
+            for item_name in items:
+                add_checkitem(api_key, token, cl["id"], item_name)
 
 
 def apply_updates(api_key, token, updates, list_name_to_id, label_name_to_id):
@@ -1413,6 +1129,8 @@ def apply_updates(api_key, token, updates, list_name_to_id, label_name_to_id):
         # from wiping a check the user just made on the widget before sync ran.
         if desired.due_complete is not None:
             kwargs["dueComplete"] = desired.due_complete
+        if desired.pos is not None:
+            kwargs["pos"] = desired.pos
         update_card(api_key, token, card_id, **kwargs)
         # Checklist normalization
         if desired.checklist is not None:
@@ -1465,29 +1183,6 @@ def apply_archives(api_key, token, archives):
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
 
-INBOX_LIST_NAME = "📥 Inbox"
-
-ALL_LIST_NAMES = [
-    "🧠 Front of Mind",
-    "🦸 Superman Pulse",
-    "🎯 Current Focus",
-    "✅ 2+1",
-    "⬅ Last 7 Days",
-    "🗓️ Week at a Glance",  # MCP-fed: skipped if Calendar MCP is unavailable
-    "💎 Values",
-    "🧭 Areas",  # life-wheel state surfaces as a plain-color label here, not a separate list
-    "🔭 Visions",
-    "🛠️ Projects",
-    "✅ Tasks",
-    "☀️ Daily Habits",
-    "🌙 Monthly Habits",
-    "💡 Insights",
-    "📜 Findings",
-    "🧪 Hypothesis",
-    "💊 Supplements",
-]
-
-
 def reset_list(api_key, token, board_id, list_name, confirmed=False):
     """Archive all cards on a single named list. Returns count archived,
     or -1 if the list isn't found, or 0 if confirmed=False or list_name == Inbox."""
@@ -1535,26 +1230,18 @@ def rebuild_board(api_key, token, board_id, confirmed=False):
 def render(api_key, token, board_id, calendar_events=None, calendar_filters=None):
     """Run a single full render. Returns counters dict.
 
-    calendar_events: list of Google Calendar event dicts, or None to skip Calendar list.
-    calendar_filters: dict from trello_calendar_filters.yaml, or {} for no filtering.
-
-    Email has no dashboard list — labeled inbox emails become tasks via
-    `pfc-email-triage`, and those render as normal Action cards.
+    calendar_events: list of Google Calendar event dicts, or None to leave the
+    🗓️ Week cards as they are. calendar_filters is accepted for the CLI's sake; the
+    week is filtered by home_data with config/trello_calendar_filters.yaml.
     """
+    import home_data
+    import trello_home
+
     print("📋 Loading repo state...")
     state = load_repo_state()
 
-    # Compute per-active-project list names. Each active project gets its own
-    # backlog list (`🎯 <name>`); inactive-project lists are archived below.
-    active_project_lists = [
-        _project_list_name(p["name"])
-        for p in state.get("projects", [])
-        if p.get("active")
-    ]
-    all_list_names = list(ALL_LIST_NAMES) + active_project_lists
-
     print("🔧 Reconciling lists and labels...")
-    list_map = ensure_lists(api_key, token, board_id, all_list_names)
+    list_map = ensure_lists(api_key, token, board_id, ALL_LIST_NAMES)
     # All labels are plain (unnamed) Trello labels: 5 priority colors for tier
     # cards (tasks/projects/2+1) + life-wheel colors for area cards.
     needed_colors = sorted(set(
@@ -1568,46 +1255,56 @@ def render(api_key, token, board_id, calendar_events=None, calendar_filters=None
     print("🎨 Rendering desired card sets...")
     twoplus1 = render_2plus1(state, plain_color_labels=plain_color_label_map)
     today_focus_ids = {c.pfc_id for c in twoplus1}
+    values = render_values(state)
 
+    # Card types left as they are on the board this run (not updated, not archived):
+    # the home_data cards when build_home fails, the week when no calendar data came.
+    kept_types = set()
     desired = []
-    desired += render_values(state)
-    desired += render_areas(state, plain_color_labels=plain_color_label_map)
-    desired += render_visions(state)
-    desired += render_projects(state, plain_color_labels=plain_color_label_map)
-    desired += twoplus1
-    desired += render_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
-    desired += render_project_actions(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
-    desired += render_daily_habits(state)
-    desired += render_monthly_habits(state)
-    # Life Wheel list: no longer rendered. Existing cards in that list will be
-    # archived because the diff sees no desired cards there.
-    desired += render_grounding(state)
-    desired += render_focus(state)
-    desired += render_insights(state)
-    desired += render_findings(state)
-    desired += render_hypotheses(state)
-    desired += render_supplements(state)
-    desired += render_last_7_days(state)
-    desired += render_superman_pulse(state)
-
-    # External-system-backed lists. If data is None, the corresponding list is
-    # NOT rendered — leaving any existing cards on that list intact (we exclude
-    # the list from the diff scope).
-    excluded_lists = {INBOX_LIST_NAME}
-    if calendar_events is not None:
-        desired += render_calendar(calendar_events, calendar_filters or {})
+    home = state.get("home")
+    if home is not None:
+        sync_stamp = REPO_ROOT / "data" / ".trello-last-sync"
+        now = _local_now()
+        desired.append(trello_home.render_brief(
+            home, daily_habit_counts(state), state.get("day_tracking", []), now,
+            sync_stamp.read_text().strip() if sync_stamp.exists() else None,
+            review=trello_home.current_review(home), overdue=trello_home.due_reviews(home),
+            focus_rows=state.get("focus", []), features=trello_home.feature_scorecard(home)))
+        desired += trello_home.render_body(home)
+        desired += trello_home.render_picks(home, twoplus1)
+        desired += trello_home.render_projects(home, state.get("projects", []),
+                                               plain_color_labels=plain_color_label_map)
+        desired += trello_home.render_trends(home)
+        desired += trello_home.render_areas(home, {a["name"]: a["statement"] for a in state.get("areas", [])},
+                                            plain_color_labels=plain_color_label_map)
+        desired += trello_home.render_values(home, values)
+        desired += trello_home.render_visions(home, state.get("focus", []), state.get("projects", []),
+                                              state.get("visions", []))
     else:
-        excluded_lists.add("🗓️ Week at a Glance")
-        print("   🟡 Calendar data not provided; skipping 🗓️ Week at a Glance")
-
+        kept_types |= trello_home.HOME_TYPES
+        desired += trello_home.positioned(twoplus1, start=2)
+        desired += values
+    desired += trello_home.positioned(render_daily_habits(state) + render_monthly_habits(state))
+    if calendar_events is not None:
+        desired += trello_home.render_week(home_data.week_days(calendar_events, _today_mt()), _today_mt())
+    else:
+        kept_types.add("week-day")
+        print(f"   🟡 Calendar data not provided; leaving {WEEK_LIST} as it is")
+    desired += render_focus(state)
+    desired += render_grounding(state)
+    desired += render_tasks(state, plain_color_labels=plain_color_label_map, exclude_2plus1_ids=today_focus_ids)
     print(f"   {len(desired)} desired cards across {len(set(c.list_name for c in desired))} lists")
 
     print("🔍 Fetching current Trello state...")
     # id→name map: plain labels keyed as '_plain:<color>'.
     label_id_to_name = {v: k for k, v in plain_label_name_to_id.items()}
-    current = fetch_current_state(api_key, token, board_id, list_map, label_id_to_name, exclude_lists=excluded_lists)
-    print(f"   {len(current)} current cards on dashboard (excluding {sorted(excluded_lists)})")
+    current = fetch_current_state(api_key, token, board_id, list_map, label_id_to_name,
+                                  exclude_lists={INBOX_LIST_NAME})
+    current = [(c, tcid) for c, tcid in current if c.pfc_type not in kept_types]
+    print(f"   {len(current)} current cards on dashboard (excluding {INBOX_LIST_NAME}"
+          + (f" and kept types {sorted(kept_types)})" if kept_types else ")"))
 
+    annotate_rate_card(desired, current)
     ops = compute_diff(desired, current)
     print(f"📐 Diff: {len(ops['creates'])} creates, {len(ops['updates'])} updates, {len(ops['archives'])} archives")
 
@@ -1617,20 +1314,6 @@ def render(api_key, token, board_id, calendar_events=None, calendar_filters=None
     apply_updates(api_key, token, ops["updates"], list_map, plain_label_name_to_id)
     print("✏️  Applying archives...")
     apply_archives(api_key, token, ops["archives"])
-
-    # Archive stale per-project lists. A 🎯-prefixed list on the board whose
-    # project is no longer active (or has been deleted from projects.ndjson)
-    # gets archived so the dashboard reflects current active-project state.
-    active_set = set(active_project_lists)
-    stale_lists = [
-        l for l in list_lists(api_key, token, board_id, filter_="open")
-        if _is_project_list_name(l["name"]) and l["name"] not in active_set
-    ]
-    for l in stale_lists:
-        archive_list(api_key, token, l["id"])
-    if stale_lists:
-        print(f"   Archived {len(stale_lists)} stale per-project list(s): "
-              + ", ".join(l["name"] for l in stale_lists))
 
     # Write last-render timestamp
     stamp = REPO_ROOT / "data" / ".trello-last-render"
@@ -1642,13 +1325,12 @@ def render(api_key, token, board_id, calendar_events=None, calendar_filters=None
         "archives": len(ops["archives"]),
         "desired_total": len(desired),
         "current_total": len(current),
-        "project_lists_archived": len(stale_lists),
     }
 
 
 def main(argv):
-    # Local-only mode — no Trello credentials needed. Prints the Superman Pulse
-    # 7-day trend for the evening check-in. Optional integer arg = window size.
+    # Local-only mode — no Trello creds needed. Prints the Superman-pulse 7-day trend
+    # for pfc-daily-summary's Superman Pulse. Optional integer arg = window size.
     if "--pulse-history" in argv:
         i = argv.index("--pulse-history")
         n = 7
@@ -1730,6 +1412,18 @@ def main(argv):
         if i + 1 < len(argv):
             with open(argv[i + 1]) as f:
                 calendar_events = json.load(f)
+
+    # No live fetch (the nightly timer, the post-commit hook — neither can reach
+    # the Calendar MCP connector): fall back to the cache the daily sync job
+    # commits each morning (/pfc-render-trello Step 1). A slightly older week beats a blank list that nothing reports.
+    # --no-calendar-cache opts out and restores the old skip-the-list behavior.
+    if calendar_events is None and "--no-calendar-cache" not in argv:
+        cached, note = load_calendar_cache()
+        if cached is None:
+            print(f"   🟡 Calendar not fetched and {note}; {WEEK_LIST} will be left as it is")
+        else:
+            print(f"   🟡 Calendar not fetched; falling back to {note}")
+            calendar_events = cached
 
     # Always load filters; harmless if no calendar data provided.
     calendar_filters = load_calendar_filters()

@@ -25,6 +25,8 @@ UNITS=(
     pfc-repo-sync.timer
     pfc-remarkable-sync.service
     pfc-remarkable-sync.timer
+    pfc-trello-inbox.service
+    pfc-trello-inbox.timer
     pfc-ai-news.service
     pfc-ai-news.timer
     pfc-trmnl-serve.service
@@ -33,11 +35,13 @@ UNITS=(
 # Opt-in timers: installed always (so the reconcile pass below keeps them), started only
 # when .env turns them on, because each one runs headless Claude and needs a device or
 # API key. reMarkable pages: PFC_REMARKABLE_SYNC=1 (docs/remarkable.md). AI News:
-# PFC_AI_NEWS=1 (docs/ai-news.md).
+# PFC_AI_NEWS=1 (docs/ai-news.md). Unattended Trello inbox: PFC_TRELLO_INBOX=1
+# (docs/trello-dashboard.md).
 opt_in_flag() {
     case "$1" in
         pfc-remarkable-sync.timer) echo PFC_REMARKABLE_SYNC ;;
         pfc-ai-news.timer) echo PFC_AI_NEWS ;;
+        pfc-trello-inbox.timer) echo PFC_TRELLO_INBOX ;;
         *) echo "" ;;
     esac
 }

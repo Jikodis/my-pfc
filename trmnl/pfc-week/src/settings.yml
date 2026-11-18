@@ -13,3 +13,11 @@ polling_body:
 # `trmnlp push` would round-trip it into this file.
 name: PFC Week
 refresh_interval: 15
+# `trmnlp lint` refuses a plugin with no author contact method. Point github_url
+# at your own repo.
+custom_fields:
+- keyname: about
+  name: About This Plugin
+  field_type: author_bio
+  description: Private PFC dashboard screen, built from your PFC repo.
+  github_url: https://github.com/your-github-user/your-pfc

@@ -1,11 +1,29 @@
 {%- comment -%}
-PFC Areas — life-wheel status per life area, mirroring the Trello Areas list.
-Red/yellow areas lead with their notes (the why); green areas hold a compact
-list. The rated date is always shown — past ~40 days the wheel itself is the
-stale thing worth knowing (`stale`).
+PFC Areas - mirrors the Areas band of the web home page (`/`): the plate line first
+(committed of free waking hours a week, with a bar), then the life wheel with its green
+count and the areas not green, worst first, each with its weekly hours. Household is
+folded to a count plus the rooms that need a look, as the page folds it.
+Payload: `trmnl_home.areas_payload`.
 
-E-ink rules: no emoji, no inline styles — framework classes only.
-Status is the colour spelled out in caps (RED / YELLOW / GREEN) — never
-punctuation, which needs a legend the screen doesn't carry. Areas needing
-attention sort red first, then yellow.
+E-ink rules: no emoji, no inline styles, framework classes only. A light is a shape
+plus a word (`status_shape`): square RED, triangle YELLOW, circle GREEN; `status_chip`
+fills RED and outlines YELLOW so the rows that need a look stand out.
 {%- endcomment -%}
+{% template status_shape %}
+{%- if status == "RED" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="currentColor"/></svg>
+{%- elsif status == "YELLOW" -%}
+<svg width="0.8em" height="0.8em" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,11 0.5,11" fill="currentColor"/></svg>
+{%- elsif status == "GREEN" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="currentColor"/></svg>
+{%- endif -%}
+{% endtemplate %}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- endif -%}
+{% endtemplate %}

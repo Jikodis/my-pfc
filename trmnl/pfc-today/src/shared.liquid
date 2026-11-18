@@ -1,10 +1,29 @@
 {%- comment -%}
-Shared partials for PFC Today. Included by every size so the done/not-done
-convention stays identical across views.
+PFC The 2+1 - mirrors "The 2+1" band of the web home page (`/`): the why line
+(the focus of the day, its vision and value), the picks with their kicker and one note
+each (an overdue pick carries its date here instead of a second row), tomorrow's picks
+after about 6 PM, then "What needs you" (at most three rows) and the hand-off count.
+Payload: `trmnl_home.tasks_payload`.
 
-E-ink has no emoji font, so completion is text: [x] / [ ]. Never swap these for
-check-mark emoji — they render as empty boxes on the device.
+E-ink rules: no emoji, no inline styles, framework classes only. A light is a shape
+plus a word (`status_shape`): square RED, triangle YELLOW, circle GREEN; `status_chip`
+fills RED and outlines YELLOW so the rows that need a look stand out.
 {%- endcomment -%}
-
-{%- capture done_mark -%}[x]{%- endcapture -%}
-{%- capture open_mark -%}[ ]{%- endcapture -%}
+{% template status_shape %}
+{%- if status == "RED" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="currentColor"/></svg>
+{%- elsif status == "YELLOW" -%}
+<svg width="0.8em" height="0.8em" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,11 0.5,11" fill="currentColor"/></svg>
+{%- elsif status == "GREEN" -%}
+<svg width="0.75em" height="0.75em" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5.5" fill="currentColor"/></svg>
+{%- endif -%}
+{% endtemplate %}
+{% template status_chip %}
+{%- if status == "RED" -%}
+<span class="label {{ size }} label--filled no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- elsif status == "YELLOW" -%}
+<span class="label {{ size }} label--outline no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- else -%}
+<span class="label {{ size }} no-shrink">{% render "status_shape", status: status %} {{ status }}</span>
+{%- endif -%}
+{% endtemplate %}

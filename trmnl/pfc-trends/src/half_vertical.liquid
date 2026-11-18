@@ -1,49 +1,17 @@
-<div class="layout layout--col gap">
-  <div class="col gap--small">
-    <div class="grid">
-      <div class="col col--span-6">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large" data-fit-value="true">{{ avg_rating }}</span>
-            <span class="label label--small">avg rating 7d</span>
-          </div>
-        </div>
+<div class="layout layout--col layout--top">
+  <div class="col gap--medium stretch-x">
+    <span class="label">The last 30 days</span>
+    {% for t in rows %}
+      <div class="flex flex--col flex--left">
+        <span class="title title--small">{% render "status_shape", status: t.status %} {{ t.status }} {{ t.name }}</span>
+        <span class="label" data-clamp="2">{{ t.why }}</span>
       </div>
-      <div class="col col--span-6">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large" data-fit-value="true">{{ avg_sleep }}</span>
-            <span class="label label--small">avg sleep 7d</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="grid">
-      <div class="col col--span-6">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large" data-fit-value="true">{{ exercise }}</span>
-            <span class="label label--small">exercise 7d</span>
-          </div>
-        </div>
-      </div>
-      <div class="col col--span-6">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--large" data-fit-value="true">{{ sleep_debt }}</span>
-            <span class="label label--small">sleep debt now</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <span class="label label--small label--gray" data-clamp="2">{{ exercise_line }}</span>
+    {% endfor %}
+    {% if green.size > 0 %}<span class="label">{% render "status_shape", status: "GREEN" %} On track: {{ green | join: ", " }}</span>{% endif %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Trends - 30 days</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

@@ -1,0 +1,12 @@
+<div class="layout layout--col layout--center">
+  <div class="flex flex--col flex--center-x gap--small w--full">
+    <span class="label">Today's vision</span>
+    <span class="title title--large" data-clamp="2">{{ today_title }}</span>
+    {% if today_value != "" %}<span class="label">serves {{ today_value }}</span>{% endif %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
+</div>

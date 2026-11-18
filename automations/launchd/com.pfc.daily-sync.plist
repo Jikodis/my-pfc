@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The daily sync (scripts/daily-sync.sh) as a macOS launch agent. A template:
+  docs/install/daily-sync.md fills in __REPO_ROOT__, __USER__, __PATH__ and __PYTHON__
+  and copies the result to ~/Library/LaunchAgents/com.pfc.daily-sync.plist.
+  The script does nothing until PFC_DAILY_SYNC=1 is set in .env.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.pfc.daily-sync</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>__REPO_ROOT__/scripts/daily-sync.sh</string></array>
+  <key>WorkingDirectory</key><string>__REPO_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Your IANA time zone; commit messages are dated by it. -->
+    <key>LOCAL_TZ</key><string>America/Denver</string>
+    <!-- launchd starts with a bare PATH. This one must find claude, git, gh, jq and
+         python3; use the same value as com.pfc.web. -->
+    <key>PATH</key><string>__PATH__</string>
+    <!-- claude finds its login in the keychain under this account name. -->
+    <key>USER</key><string>__USER__</string>
+    <!-- The interpreter that has PyYAML (automations/requirements.txt). -->
+    <key>PFC_PYTHON</key><string>__PYTHON__</string>
+    <!-- Optional. When the active gh account is not the one that can push this repo,
+         name the one that can; the push reads its token from the gh keyring each time,
+         the same as the web writer.
+    <key>PFC_PUSH_GH_USER</key><string>your-github-login</string>
+    -->
+  </dict>
+  <!-- Every hour from 5:00 AM to 10:00 PM local. Only the first firing with a working
+       network does a real run; daily_sync_gate.py makes the rest exit at once, except
+       to retry steps that failed (see scripts/daily-sync.sh). Firings missed while the
+       Mac was asleep are run once on wake. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+  <key>StandardOutPath</key><string>/tmp/pfc-daily-sync.log</string>
+  <key>StandardErrorPath</key><string>/tmp/pfc-daily-sync.log</string>
+</dict>
+</plist>

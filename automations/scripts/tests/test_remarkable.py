@@ -333,6 +333,20 @@ def test_replies_are_kept_per_page_and_review_questions_are_read_from_a_table(tm
     assert rr.page_of(m.group(1)) == "5 - Tasks" and m.group(2) == "call first"
 
 
+def test_inbox_outcomes_land_on_the_page_each_note_came_from(tmp_path):
+    import remarkable_replies as rr
+    from datetime import datetime
+    store, now = tmp_path / "r.ndjson", datetime(2025, 1, 2, 8, 0, tzinfo=rr.TZ)
+    out = ("- 🟢 From the 1 - Today page: drop reading → habit reading retired\n"
+           "- 🟡 From the Review page: what about X → left (❓ which X?)\n"
+           "🟢 Buy milk → task added\n"
+           "a line that is not a card\n")
+    assert rr.from_inbox(out, store, now) == 3
+    assert [r["text"] for r in rr.recent("1 - Today", store, now)] == ['"drop reading" → habit reading retired']
+    assert rr.recent("4 - Review", store, now)[0]["text"].startswith("Waiting:")
+    assert rr.recent("0 - Inbox", store, now)[0]["text"] == '"Buy milk" → task added'
+
+
 def test_reply_pages_match_the_drawn_pages():
     import remarkable_replies as rr
     assert rr.PAGES == rp.PAGE_NAMES

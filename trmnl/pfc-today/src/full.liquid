@@ -1,53 +1,49 @@
-<div class="layout layout--col gap">
-  <div class="grid">
-    <div class="col col--span-7 gap--small">
-      <span class="title title--small lg:title--base">Today's 2+1</span>
-      <div class="columns" data-overflow-max-cols="1">
-        <div class="column">
-          {% for task in critical %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">{{ forloop.index }}</span>
-              </div>
-              <div class="content">
-                <span class="title title--small lg:title--base" data-clamp="3">{% if task.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ task.title }}</span>
-              </div>
-            </div>
-          {% else %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label label--gray">No 2+1 set for today</span>
-              </div>
-            </div>
-          {% endfor %}
-          {% if bonus %}
-            <div class="item">
-              <div class="meta">
-                <span class="index">+</span>
-              </div>
-              <div class="content">
-                <span class="title title--small lg:title--base" data-clamp="3">{% if bonus.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ bonus.title }}</span>
-                <span class="label label--small label--gray">Bonus</span>
-              </div>
-            </div>
-          {% endif %}
+<div class="layout layout--col layout--top">
+  <div class="grid w--full">
+    <div class="col col--span-8 gap--medium">
+      {% if why != "" %}<span class="label lg:label--large" data-clamp="1">Why: {{ why }}</span>{% endif %}
+      {% for p in picks %}
+        <div class="flex flex--col flex--left gap--xsmall w--full">
+          <span class="label lg:label--large">{{ p.kind }}{% if p.done %} - done{% endif %}</span>
+          <span class="title title--base lg:title--large{% if p.done %} text--gray-50{% endif %}" data-clamp="2">{{ p.title }}</span>
+          {% if p.note != "" %}<span class="label lg:label--large" data-clamp="1">{{ p.note }}</span>{% endif %}
         </div>
-      </div>
-    </div>
-
-    <div class="col col--span-5 gap--small">
-      <span class="title title--small lg:title--base">Habits today {{ habits_done }}/{{ habits_total }}</span>
-      {% for habit in habits %}
-        <span class="label lg:label--large" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
       {% else %}
-        <span class="label label--gray">No daily habits defined</span>
+        <span class="title title--base lg:title--large">{{ picks_note }}</span>
       {% endfor %}
+    </div>
+    <div class="col col--span-4 gap--medium">
+      {% if total > 0 %}
+        <div class="flex flex--col flex--left">
+          <span class="value value--large lg:value--xlarge">{{ done }} of {{ total }}</span>
+          <span class="label lg:label--large">picks done today</span>
+        </div>
+      {% endif %}
+      {% if evening %}
+        <div class="flex flex--col flex--left gap--xsmall">
+          <span class="title title--small lg:title--base">{{ tomorrow_label }}</span>
+          {% for p in tomorrow %}
+            <span class="label lg:label--large" data-clamp="2">{{ p.kind }}: {{ p.title }}</span>
+          {% else %}
+            <span class="label lg:label--large">Not set yet.</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if needs.size > 0 %}
+        <div class="flex flex--col flex--left gap--xsmall">
+          <span class="title title--small lg:title--base">{% render "status_shape", status: "RED" %} What needs you</span>
+          {% for n in needs %}
+            <span class="label lg:label--large" data-clamp="2">{{ n.title }}{% if n.why != "" %} - {{ n.why }}{% endif %}</span>
+          {% endfor %}
+          {% if needs_more > 0 %}<span class="label lg:label--large">{{ needs_more }} more</span>{% endif %}
+        </div>
+      {% endif %}
+      {% if handoffs > 0 %}<span class="label lg:label--large">An agent can do {{ handoffs }}</span>{% endif %}
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">{{ weekday }}</span>
-  <span class="instance">{% if last_rating %}Last day rated {{ last_rating }}/5{% else %}No rating logged{% endif %}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

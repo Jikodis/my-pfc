@@ -1,0 +1,16 @@
+<div class="layout layout--col layout--top">
+  <div class="col gap--medium stretch-x">
+    {% if today_title != "" %}
+      <span class="label">Today's vision</span>
+      <span class="title title--base" data-clamp="3">{{ today_title }}</span>
+    {% endif %}
+    {% for v in others limit: 6 %}
+      <span class="label" data-clamp="1">{{ v }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
+</div>

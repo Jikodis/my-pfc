@@ -5,12 +5,13 @@ description: Process completed cards in Trello dashboard and sync to repo. Use w
 
 # Sync Trello Completions
 
-Detects cards marked complete (`dueComplete: true`) in the dashboard's interactive lists, applies the corresponding repo update, archives task cards (or cycles habit cards on next render).
+Detects cards marked complete (`dueComplete: true`) in the dashboard's interactive lists, applies the corresponding repo update, archives task cards (or cycles habit cards on next render). It also saves the day rated on the rating card in `🦸 Body first` once each of its Energy, Mood and Focus lists has exactly one tick (`days_rated` in the counters), drops a pick from today's 2+1 when its `✅ The 2+1` card was archived in a Trello client (`picks_dropped`), and sets today's 2+1 from the home page's suggester when none is set before 6 PM (`picks_auto_set`). Those three commit and push their own file. See `docs/trello-dashboard.md`.
 
 ## When this skill triggers
 
 - Explicit: "sync trello", "process completed", "/pfc-sync-trello"
-- Invoked at the start of the evening check-in (Step 0b) to pull widget completions into the repo, and again at the end (Step 4b) to move back uncompleted 2+1 cards and re-render
+- Invoked at the start of the evening check-in (Step 0b) to pull widget completions into the repo; the check-in re-renders at the end (Step 4b)
+- Run each morning by the optional daily sync job (`scripts/daily-sync.sh`, which calls `trello_writeback.py sync` directly; `docs/install/daily-sync.md`)
 
 ## Pre-flight
 
@@ -71,4 +72,4 @@ Verify `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`. If unset, this skill is a n
 ## Out of scope
 
 - Manual intervention on stuck cards (use `/pfc-render-trello --reset-list` if needed)
-- Card create from Trello side (one-way: dashboard write-back is only for completion state)
+- Card create from Trello side (one-way: dashboard write-back is only for completion state, the rating card's ticks, and an archived 2+1 card)

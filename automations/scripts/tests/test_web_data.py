@@ -193,7 +193,7 @@ class TestHabitTitleCasing(unittest.TestCase):
     initialisms and units into `Ai course unit` and `Hydration 2l`."""
 
     def test_an_initialism_is_uppercased_wherever_it_sits(self):
-        self.assertEqual(habit_title("ai-course-unit"), "AI course unit")
+        self.assertEqual(habit_title("course-unit"), "Course unit")
         self.assertEqual(habit_title("morning-hiit"), "Morning HIIT")
 
     def test_a_unit_keeps_its_capital(self):

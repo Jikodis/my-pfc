@@ -1,51 +1,22 @@
-<div class="layout layout--col gap">
-  <div class="col gap--small">
-    {% if stale and fetched != "" %}
-      <span class="label label--small label--gray">Calendar data from {{ fetched }}</span>
-    {% endif %}
-    <div class="grid">
-      <div class="col col--span-6 gap--small">
-        {% for day in days limit: 4 %}
-          <div class="item">
-            <div class="meta"></div>
-            <div class="content">
-              <span class="title title--small lg:title--base">{{ day.label }}</span>
-              {% for event in day.events %}
-                <span class="label label--small lg:label--base" data-clamp="1">{{ event.time }} {{ event.title }}</span>
-              {% else %}
-                <span class="label label--small label--gray">free</span>
-              {% endfor %}
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-      <div class="col col--span-6 gap--small">
-        {% for day in days offset: 4 %}
-          <div class="item">
-            <div class="meta"></div>
-            <div class="content">
-              <span class="title title--small lg:title--base">{{ day.label }}</span>
-              {% for event in day.events %}
-                <span class="label label--small lg:label--base" data-clamp="1">{{ event.time }} {{ event.title }}</span>
-              {% else %}
-                <span class="label label--small label--gray">free</span>
-              {% endfor %}
-            </div>
-          </div>
+<div class="layout layout--col layout--top">
+  <div class="grid grid--cols-4 gap--large w--full">
+    {% for d in days %}
+      <div class="col gap--xsmall">
+        <span class="title title--small lg:title--base">{{ d.label }}</span>
+        {% for e in d.events %}
+          <span class="label lg:label--large" data-clamp="1">{{ e.time }} {{ e.title }}</span>
         {% else %}
-          <div class="item">
-            <div class="meta"></div>
-            <div class="content">
-              <span class="label label--gray">No events cached yet</span>
-            </div>
-          </div>
+          <span class="label lg:label--large">Nothing scheduled.</span>
         {% endfor %}
+        {% if d.more > 0 %}<span class="label lg:label--large">{{ d.more }} more</span>{% endif %}
       </div>
-    </div>
+    {% else %}
+      <span class="title title--small">No calendar data yet.</span>
+    {% endfor %}
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Week at a Glance</span>
-  <span class="instance">{{ fetched }}</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

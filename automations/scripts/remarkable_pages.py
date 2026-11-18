@@ -12,7 +12,8 @@ Trello and TRMNL read, so no number can differ. This file only draws;
 
 Each page returns a `marks` list: the things a pen can change, in drawing order,
 with the record they write to and the box Claude is told to look in. Inbox: the
-whole ruled area, each note sent to Trello's 📥 Inbox list for `/pfc-trello-inbox`.
+whole ruled area, each note sent to Trello's 📥 Inbox list, which the
+`pfc-trello-inbox` timer processes when PFC_TRELLO_INBOX is on (else `/pfc-trello-inbox`).
 Today: the rating rows (only while the day is unrated), the 2+1 done and swap
 boxes, a pick box per suggestion, the habit checkboxes, a note box. This quarter:
 park a focus, a note box (project updates go there). Always: an area's G/Y/R
@@ -228,14 +229,30 @@ class Page:
 INBOX_LINES = 19
 
 
-def _inbox(h, replies):
+def inbox_unattended():
+    """True when the pfc-trello-inbox timer carries notes out (PFC_TRELLO_INBOX=1 in
+    .env or the environment); the inbox page then says so instead of naming the skill."""
+    try:
+        from web_data import load_env
+        return load_env().get("PFC_TRELLO_INBOX") == "1"
+    except Exception:
+        return False
+
+
+def _inbox(h, replies, unattended=None):
+    if unattended is None:
+        unattended = inbox_unattended()
     p = Page(PAGE_NAMES[0], "Inbox", "Anything for the system: a task, a project update, a note for an area.",
              h["date"])
     top = p.y + 20
-    p.d.text((M, top), "One note per line, or leave a gap between notes. Each note becomes a card in Trello's Inbox",
-             font=F_S, fill=SUB)
-    p.d.text((M, top + 36), "list, word for word, for /pfc-trello-inbox. This page comes back blank.",
-             font=F_S, fill=SUB)
+    if unattended:
+        lines = ("One note per line, or leave a gap between notes. Within about 15 minutes each note is added to "
+                 "the system;", "one that is unclear waits in Trello's Inbox list marked ?. This page comes back blank.")
+    else:
+        lines = ("One note per line, or leave a gap between notes. Each note becomes a card in Trello's Inbox",
+                 "list, word for word, for /pfc-trello-inbox. This page comes back blank.")
+    p.d.text((M, top), lines[0], font=F_S, fill=SUB)
+    p.d.text((M, top + 36), lines[1], font=F_S, fill=SUB)
     first = top + 130
     step = 76
     for i in range(INBOX_LINES):

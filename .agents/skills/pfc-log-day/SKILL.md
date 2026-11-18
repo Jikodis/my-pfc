@@ -54,7 +54,7 @@ Add fields over time as you start tracking new variables.
 4. Commit: `git add data/day-tracking.ndjson && git commit -m "track: log day YYYY-MM-DD" && git push`
 5. **Refresh Trello dashboard** (fail-safe)
 
-   If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the new day rating shows on `⬅ Last 7 Days` immediately.
+   If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the new day rating shows on `📈 Trends` and the rating card leaves `🦸 Body first` immediately.
 
    ```bash
    python3 automations/scripts/trello_render.py 2>&1

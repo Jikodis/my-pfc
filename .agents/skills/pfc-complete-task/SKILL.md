@@ -61,7 +61,7 @@ All tasks live in `6-tasks/_data/tasks.ndjson`.
 
 10. **Refresh Trello dashboard** (fail-safe)
 
-    If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the completed task drops off `✅ Tasks` and `✅ 2+1` immediately.
+    If `TRELLO_DASHBOARD_BOARD_ID` is set in `.env`, refresh the board so the completed task drops off `✅ Tasks` and `✅ The 2+1` immediately.
 
     ```bash
     python3 automations/scripts/trello_render.py 2>&1

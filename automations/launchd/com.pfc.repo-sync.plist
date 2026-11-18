@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keep the Mac clone current, so the web UI shows what a server saved (the reMarkable
+  pages, the Trello sync, the unattended inbox). Every 5 minutes: git pull, fast-forward
+  only. With uncommitted edits git still fast-forwards when they are not in the way,
+  and refuses otherwise; it never stashes, rebases or touches local commits. The server
+  twin is automations/systemd/pfc-repo-sync. A template: docs/install/daily-sync.md
+  fills in __REPO_ROOT__ and copies the result to
+  ~/Library/LaunchAgents/com.pfc.repo-sync.plist. Only useful when a second clone
+  (a VPS) also commits to the repo.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.pfc.repo-sync</string>
+  <key>ProgramArguments</key>
+  <array><string>/usr/bin/git</string><string>pull</string><string>--ff-only</string><string>--quiet</string></array>
+  <key>WorkingDirectory</key><string>__REPO_ROOT__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/tmp/pfc-repo-sync.log</string>
+  <key>StandardErrorPath</key><string>/tmp/pfc-repo-sync.log</string>
+</dict>
+</plist>

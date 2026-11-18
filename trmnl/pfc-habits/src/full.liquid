@@ -1,47 +1,37 @@
-<div class="layout layout--col gap">
-  <div class="grid">
-    <div class="col col--span-7 gap--small">
-      <span class="title title--small lg:title--base">Daily {{ daily_done }}/{{ daily_total }}</span>
-      <div class="columns" data-overflow-max-cols="1">
-        <div class="column">
-          {% for habit in daily %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label lg:label--large" data-clamp="1">{% if habit.done %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
-                <span class="label label--small lg:label--base label--gray">{{ habit.week }} this week</span>
-              </div>
-            </div>
-          {% else %}
-            <div class="item">
-              <div class="meta"></div>
-              <div class="content">
-                <span class="label label--gray">No daily habits defined</span>
-              </div>
+<div class="layout layout--col layout--top">
+  <div class="grid w--full">
+    <div class="col col--span-4 gap--large">
+      <div class="flex flex--col flex--left">
+        <span class="value value--xlarge lg:value--xxlarge">{{ logged }} of {{ count }}</span>
+        <span class="label lg:label--large">daily habits logged today</span>
+        {% if automatic > 0 %}<span class="label lg:label--large">{{ automatic }} more log themselves</span>{% endif %}
+      </div>
+      {% if monthly_count > 0 %}
+        <div class="flex flex--col flex--left gap--xsmall">
+          <span class="title title--small lg:title--base">Monthly: {{ monthly_logged }} of {{ monthly_count }} logged</span>
+          {% if monthly_todo != "" %}<span class="label lg:label--large" data-clamp="3">To do: {{ monthly_todo }}</span>{% endif %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="col col--span-8 gap--medium">
+      <span class="title title--small lg:title--base">Still to log today</span>
+      {% if todo.size > 0 %}
+        <div class="grid grid--cols-2 gap--medium">
+          {% for r in todo %}
+            <div class="flex flex--col flex--left">
+              <span class="title title--small lg:title--base" data-clamp="1">{{ r.title }}</span>
+              {% if r.yesterday %}<span class="label lg:label--large">logged yesterday</span>{% endif %}
             </div>
           {% endfor %}
         </div>
-      </div>
-    </div>
-
-    <div class="col col--span-5 gap--small">
-      <span class="title title--small lg:title--base">{{ month_label }}</span>
-      {% for habit in monthly %}
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="label lg:label--large" data-clamp="1">{% if habit.met %}{{ done_mark }}{% else %}{{ open_mark }}{% endif %} {{ habit.title }}</span>
-            <span class="label label--small lg:label--base label--gray">{{ habit.count }}/{{ habit.target }} this month · {{ habit.pace }}</span>
-          </div>
-        </div>
       {% else %}
-        <span class="label label--gray">No monthly habits</span>
-      {% endfor %}
+        <span class="title title--base lg:title--large">{% render "status_shape", status: "GREEN" %} All logged today.</span>
+      {% endif %}
     </div>
   </div>
 </div>
 
 <div class="title_bar">
-  <span class="title">Habits</span>
-  <span class="instance">{{ daily_done }}/{{ daily_total }} today</span>
+  <span class="title">{{ title }}</span>
+  <span class="instance">{{ date }}</span>
 </div>

@@ -6,7 +6,7 @@ You only need this if you want:
 - **Auto-fetched health data** — sleep (duration, stages, timing, continuity, awakenings), resting heart rate, Active Zone Minutes, tracked workouts, and daily recovery metrics pulled from Google Health into `data/day-tracking.ndjson`, plus the comprehensive raw streams into `data/health-raw/`.
 - **Scheduled background jobs** — automations that run at set times without manual invocation.
 
-If you just want to log data manually during check-ins, stay on Tier 1.
+If you just want to log data by hand (the web page or chat), stay on Tier 1.
 
 ---
 
@@ -72,9 +72,9 @@ Replace `/path/to/your/pfc` with the absolute path to your repo root (e.g. `~/pf
 **Why these times.** Edit them to fit your day; the values below are illustrative.
 
 - **Morning retry loop.** Last night's sleep lands whenever your watch syncs to your phone, not on a clock — it can vary by hours from one morning to the next. A single fixed hour therefore either fires too early (no data) or too late (you spend the morning looking at yesterday's numbers). Retrying every 30 minutes catches the sync within half an hour of whenever it happens. The extra firings are nearly free: `auto_fetch_health.py` writes nothing, commits nothing, and pushes nothing when the data is unchanged. Providers also sometimes revise a night's numbers an hour later, so retrying picks up the correction. Set the window to bracket your wake time.
-- **Noon two-pass.** Pass 1 fetches **today** so the same-day evening check-in reads fresh sleep. Pass 2 (no date argument, so it defaults to yesterday) finalizes yesterday's **complete** full-day activity totals now that the day is over — overwriting the partial value, losing nothing.
+- **Noon two-pass.** Pass 1 fetches **today** so a same-day rating on the home page has fresh sleep beside it. Pass 2 (no date argument, so it defaults to yesterday) finalizes yesterday's **complete** full-day activity totals now that the day is over — overwriting the partial value, losing nothing.
 
-**On macOS:** cron is available but runs less reliably than on Linux. If jobs aren't firing, check `Console.app` for cron errors or use `launchd` instead (not covered here).
+**On macOS:** cron is available but runs less reliably than on Linux. If jobs aren't firing, check `Console.app` for cron errors or use `launchd` instead. The one launch agent shipped for this is the daily sync ([`daily-sync.md`](daily-sync.md)), which runs the Trello, inbox and calendar syncs once a day on a Mac.
 
 ---
 
