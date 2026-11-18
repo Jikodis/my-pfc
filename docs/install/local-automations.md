@@ -57,7 +57,7 @@ If you skip Google Health, the cron jobs below will still run but won't write an
 Add these entries to your crontab with `crontab -e`:
 
 ```cron
-# PFC — auto-log habits (8 AM and 10:30 PM local time — edit to suit your sleep/wake schedule)
+# PFC: run the jobs below in your local timezone
 TZ=America/Denver
 
 # PFC — health fetch, morning retry loop (every 30 min, 6:00–10:30 AM local)
@@ -74,23 +74,22 @@ Replace `/path/to/your/pfc` with the absolute path to your repo root (e.g. `~/pf
 - **Morning retry loop.** Last night's sleep lands whenever your watch syncs to your phone, not on a clock — it can vary by hours from one morning to the next. A single fixed hour therefore either fires too early (no data) or too late (you spend the morning looking at yesterday's numbers). Retrying every 30 minutes catches the sync within half an hour of whenever it happens. The extra firings are nearly free: `auto_fetch_health.py` writes nothing, commits nothing, and pushes nothing when the data is unchanged. Providers also sometimes revise a night's numbers an hour later, so retrying picks up the correction. Set the window to bracket your wake time.
 - **Noon two-pass.** Pass 1 fetches **today** so a same-day rating on the home page has fresh sleep beside it. Pass 2 (no date argument, so it defaults to yesterday) finalizes yesterday's **complete** full-day activity totals now that the day is over — overwriting the partial value, losing nothing.
 
-**On macOS:** cron is available but runs less reliably than on Linux. If jobs aren't firing, check `Console.app` for cron errors or use `launchd` instead. The one launch agent shipped for this is the daily sync ([`daily-sync.md`](daily-sync.md)), which runs the Trello, inbox and calendar syncs once a day on a Mac.
+**On macOS:** cron is available but runs less reliably than on Linux. If jobs aren't firing, check `Console.app` for cron errors or use `launchd` instead. The repo ships three launch agents in `automations/launchd/`, none of them for the health fetch: the daily sync ([`daily-sync.md`](daily-sync.md)), which runs the Trello, inbox and calendar syncs once a day; `com.pfc.repo-sync`, which pulls a server's commits into the Mac clone (same doc); and the web UI ([`web-ui.md`](web-ui.md)).
 
 ---
 
 ## Step 4 — Verify it works
 
-Run each script once manually to confirm the setup is correct before relying on the timer:
+Run the script once manually to confirm the setup is correct before relying on cron:
 
 ```bash
 # From repo root, with venv active
 source .venv/bin/activate
 
 python3 automations/scripts/auto_fetch_health.py
-python3 automations/scripts/auto_fetch_health.py
 ```
 
-After each run, check the output and inspect the resulting change:
+After the run, check the output and inspect the resulting change:
 
 ```bash
 # See what the script wrote
@@ -113,7 +112,6 @@ The crontab entries above redirect output to log files in `/tmp/`:
 
 ```bash
 tail -50 /tmp/pfc-auto-fetch-health.log
-tail -50 /tmp/pfc-auto-log-habits.log
 ```
 
 On Linux, cron job output also goes to the system log:
@@ -128,7 +126,7 @@ grep CRON /var/log/syslog | tail -20
 |---|---|---|
 | No log file appears | Cron never fired | Check `crontab -l` matches what you entered; check system cron is running (`systemctl status cron`) |
 | `ModuleNotFoundError` | Wrong Python called | Ensure the crontab uses `.venv/bin/python3`, not system `python3` |
-| `No credentials found` | Token expired or missing | Re-run token flow per `docs/install/google-health.md` §5 |
+| `No credentials found` | Token expired or missing | Re-run the token flow per [`google-health.md`](google-health.md) Step 6 |
 | Script runs but NDJSON unchanged | No new data from Google | Check Google Health has data for today (open the app); check scopes in Cloud Console |
 | `git commit` fails in cron | No git identity set | Run `git config user.email "you@example.com"` and `git config user.name "Your Name"` in the repo |
 

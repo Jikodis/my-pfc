@@ -57,7 +57,7 @@ Set the `GOOGLE_HEALTH_*` env vars in the repo's `.env` file on the VPS — same
 
 ## Step 3 — Install the systemd user units
 
-The `automations/systemd/` directory contains service and timer unit templates. The install script substitutes `__REPO_ROOT__` and `__REPO_URL__` based on the current working directory and configured git remote, then copies the units into `~/.config/systemd/user/` and reloads systemd:
+The `automations/systemd/` directory contains service and timer unit templates. The install script substitutes `__REPO_ROOT__`, `__REPO_URL__` and `__LOCAL_TZ__` from the repo location, the configured git remote and `LOCAL_TZ` in `.env`, then copies the units into `~/.config/systemd/user/` and reloads systemd:
 
 ```bash
 bash automations/systemd/install.sh
@@ -71,7 +71,7 @@ After the script completes, verify the units are registered:
 systemctl --user list-unit-files 'pfc-*.service' 'pfc-*.timer'
 ```
 
-You should see `pfc-health-fetch.service`, `pfc-health-fetch.timer` (plus the morning variant), `pfc-trello-daily-render.timer`, and — if TRMNL is configured — `pfc-trmnl-serve.service` and `pfc-repo-sync.timer` listed as `enabled`.
+You should see `pfc-health-fetch.timer` and `pfc-health-fetch-morning.timer`, `pfc-trello-daily-render.timer` and `pfc-repo-sync.timer` listed as `enabled`. `pfc-trmnl-serve.service` is enabled only when `TRMNL_SERVE_TOKEN` is set in `.env` ([`trmnl-endpoint.md`](trmnl-endpoint.md)).
 
 Three timers stay off until you opt in with a line in `.env`, because each runs headless Claude or an outside service: `pfc-remarkable-sync.timer` (`PFC_REMARKABLE_SYNC=1`, [`remarkable.md`](../remarkable.md)), `pfc-ai-news.timer` (`PFC_AI_NEWS=1`, [`ai-news.md`](../ai-news.md)) and `pfc-trello-inbox.timer` (`PFC_TRELLO_INBOX=1`). The last runs `/pfc-trello-inbox unattended` every 10 minutes through `scripts/trello-inbox-auto.sh`: every clear card in the 📥 Inbox list is carried out and deleted, and an unclear one is renamed `❓ <title>` to wait for you. It needs a headless `claude` login on the server (`CLAUDE_CODE_OAUTH_TOKEN` in `.env`, from `claude setup-token`). Set the flag, then re-run `install.sh`.
 
@@ -105,7 +105,6 @@ systemctl --user list-timers pfc-health-fetch.timer pfc-health-fetch-morning.tim
 
 # Watch live service output
 journalctl --user -u pfc-health-fetch.service -f
-journalctl --user -u pfc-health-fetch.service -f
 ```
 
 The `list-timers` output shows `NEXT` (when it will next fire) and `LAST` (when it last fired). If `LAST` is blank, the timer hasn't run yet — wait for the next scheduled time or trigger a manual test run (Step 6).
@@ -119,7 +118,6 @@ Before relying on the timers, confirm a single run works end-to-end:
 ```bash
 source .venv/bin/activate
 python3 automations/scripts/auto_fetch_health.py
-python3 automations/scripts/auto_fetch_health.py
 ```
 
 Then inspect the result:
@@ -130,7 +128,7 @@ git diff 7-habits/_data/habits-daily.ndjson
 git log --oneline -3
 ```
 
-If the scripts write data and commit successfully, the VPS setup is working. If you see auth errors, revisit Step 2 and the VPS / headless section of `docs/install/google-health.md`.
+If the script writes data and commits successfully, the VPS setup is working. If you see auth errors, revisit Step 2 and the VPS / headless section of `docs/install/google-health.md`.
 
 ---
 
@@ -152,8 +150,8 @@ The VPS runs automations and commits data. Your laptop is where you interact wit
 
 To keep them in sync:
 
-- On your laptop: `git pull` before starting a session.
-- On the VPS: the automation scripts pull before running (the `install.sh` templating sets this up by default).
+- On your laptop: the SessionStart hook `scripts/hook-session-sync.sh` pulls when a Claude Code session starts, and the web UI pulls before every write. On a Mac, the optional `com.pfc.repo-sync` launch agent also pulls every 5 minutes ([`daily-sync.md`](daily-sync.md)).
+- On the VPS: `pfc-repo-sync.timer` fast-forwards the clone every 5 minutes (`git pull --ff-only`), so the timers and the TRMNL endpoint work from current data.
 
 If you get merge conflicts between laptop and VPS commits, they'll almost always be in NDJSON data files. NDJSON files are append-mostly; the safe resolution is to keep both appended lines.
 

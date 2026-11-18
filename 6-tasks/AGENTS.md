@@ -112,5 +112,5 @@ See `../5-projects/AGENTS.md` § Slippage — the skill spans tasks + projects, 
 
 ## See also
 
-- Repo-root [`AGENTS.md`](../AGENTS.md) § Task operations — the canonical reference for query/update patterns.
+- [Canonical query patterns](#canonical-query-patterns) above — the canonical reference for query/update patterns.
 - [`docs/data-model.md`](../docs/data-model.md) — full schemas for tasks, events, daily-focus.

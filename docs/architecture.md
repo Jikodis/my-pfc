@@ -31,7 +31,7 @@ GitHub (private, backup + sync)
 
 ## Surfaces
 
-Four surfaces render the repo, and none of them owns state: **Claude Code** (where the work happens), the **Trello board** (phone, `trello_render.py`), the **TRMNL e-ink screen** (ambient, `trmnl/`), and the optional **local web UI** (`web/`, an Astro app at `http://127.0.0.1:4323` on the machine that holds a clone, with a Claude Code chat panel and buttons that complete a task, log a habit, rate the day, or set the 2+1 through `web_write.py`). Numbers with a rule behind them are computed once in Python (`home_data.py`, `project_gauges.py`, `focus_status.py`) so the surfaces cannot disagree. Record changes the web writer and the Trello sync share live in `pfc_writes.py`; both rewrite files through `ndjson_file.py`. A clone that runs the web UI pulls before every write and pushes after it (`repo_sync.py`), so a laptop clone and a VPS clone stay level. Setup: [`install/web-ui.md`](install/web-ui.md).
+Six surfaces show the repo, and none of them owns state: **Claude Code** (where the work happens), the **Trello board** (phone, `trello_render.py`), the **TRMNL e-ink screen** (ambient, `trmnl/`), the optional **local web UI** (`web/`, an Astro app at `http://127.0.0.1:4323` on the machine that holds a clone, with a Claude Code chat panel and twelve buttons that write through `web_write.py`, such as completing a task, logging a habit, rating the day, or setting the 2+1), the optional **reMarkable pages** (carried; `remarkable_sync.py` reads the ink and saves it through `web_write.py`, [`remarkable.md`](remarkable.md)), and optional **Claude Duet** threads (a fresh cloud clone that reads the day from the Trello board, [`duet/pfc-operator/SKILL.md`](duet/pfc-operator/SKILL.md)). Numbers with a rule behind them are computed once in Python (`home_data.py`, `project_gauges.py`, `focus_status.py`) so the surfaces cannot disagree. Record changes the web writer and the Trello sync share live in `pfc_writes.py`; both rewrite files through `ndjson_file.py`. A clone that runs the web UI pulls before every write and pushes after it (`repo_sync.py`), so a laptop clone and a VPS clone stay level. Setup: [`install/web-ui.md`](install/web-ui.md).
 
 ## Key decisions
 
@@ -43,7 +43,7 @@ Four surfaces render the repo, and none of them owns state: **Claude Code** (whe
 | Git Strategy | Commit directly to main | Markdown + NDJSON operations, low merge risk |
 | Session Persistence | tmux + systemd | Survives SSH drops; auto-restarts on boot |
 | Remote Control Mode | `--spawn worktree --capacity N` (tune N to your machine) | Isolated worktrees per session |
-| AI Abstraction | Skills (`.claude/skills/`) | All v1 workflows are sequential, single-context |
+| AI Abstraction | Skills (`.agents/skills/`, symlinked into `.claude/skills/`) | All v1 workflows are sequential, single-context |
 | Custom Subagents | Deferred to v2+ | Start conversational, automate when patterns emerge |
 | Structured Data | NDJSON | Append-only, machine-readable, grep-queryable |
 | Networking | Direct SSH (no Tailscale) | VPS has public IP, no NAT traversal needed |

@@ -139,7 +139,7 @@ Under any one **Area**, four time-horizons stack. This is the ground-truth hiera
 
 - **Area** — *where this lives.* Permanent; never "done." The backbone every object names.
 - **Vision** — *where I'm headed.* Horizon: **years**, no deadline; may rest dormant (a valid state).
-- **Focus** — *what I'm actually on now.* Horizon: **a quarter**; scarce, capped, traffic-lit (🟢 going / 🟡 easing / 🔴 paused); re-picked quarterly. Three tiers: 🧱 Foundations, 🎯 Active Pursuits (max 6), 🎧 Currently Consuming.
+- **Focus** — *what I'm actually on now.* Horizon: **a quarter**; scarce, capped, traffic-lit (🟢 going, 🟡 slipping, 🔴 not happening, 🅿️ parked); re-picked quarterly. Three tiers: 🧱 Foundations, 🎯 Active Pursuits (max 6), 🎧 Currently Consuming.
 - **Habit** — *today's rep.* Horizon: **a day**; binary daily log.
 
 **Linking rule:** every object names exactly one Area (nothing floats). Vertical links (Vision→Focus, Focus→Project) are optional, recorded only when real, never invented — **link to your nearest real parent, one hop up, never double-link**; the chain gives you everything above it transitively. The one required link is Focus→Habit: every active foundation/pursuit names its vehicle habits (first is primary and drives the derived traffic light).

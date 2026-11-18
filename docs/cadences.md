@@ -35,7 +35,7 @@ The former weekly items (stale-task triage, tasks-missing-area, focus accuracy, 
 
 | Activity | When | What happens |
 |---|---|---|
-| Current Focus re-pick | Start of each quarter | Run `/pfc-focus` (re-pick): the deliberate swap — for each 🎯 Active Pursuit keep 🟢 / ease 🟡 / pause 🔴 / retire / graduate to a 🧱 Foundation; confirm foundations; build or refresh each pursuit's **landing** anchor-first against the calendar + `0-me/schedule-patterns.md`; bump the `quarter` tag. Respect the hard cap of 6 pursuits. |
+| Current Focus re-pick | Start of each quarter | Run `/pfc-focus` (re-pick), the deliberate swap: for each 🎯 Active Pursuit keep, park, retire, or graduate to a 🧱 Foundation (the light is derived from the vehicle habit, never hand-set); confirm foundations; build or refresh each pursuit's **landing** anchor-first against the calendar + `0-me/schedule-patterns.md`; bump the `quarter` tag. Respect the hard cap of 6 pursuits. |
 | Vision brainstorm | Start of each quarter | Run `/pfc-vision-brainstorm`: dump what you want; triage into visions / projects / focuses / habits. |
 | Strengths update | Quarterly | Refresh the strengths/profile picture if new assessments or shifts. |
 | Trend analysis | Quarterly | Deeper day-tracking trend pass (also runs monthly + yearly). |
